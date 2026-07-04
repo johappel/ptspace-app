@@ -254,9 +254,9 @@ The backend is the protective layer. It decides which operations are allowed, wh
 
 ## 8. Role of opencode or Another Harness
 
-`opencode` may be used as an execution harness in the background.
+`opencode` or a compatible harness is part of the intended first serious product architecture. The app is not designed as a standalone chat system that may someday receive a harness. It is designed as a safe, teacher-facing frontend for an already functioning harness-based Pedagogical Thinking Space.
 
-It should not become the teacher-facing environment.
+The harness should not become the teacher-facing environment.
 
 The app should treat the harness as replaceable:
 
@@ -272,7 +272,31 @@ ptspace-backend
 
 The product should therefore not be designed as an opencode UI.
 
-It should be designed as a pedagogical planning app that can use opencode, a custom orchestrator or another compatible runtime.
+It should be designed as a pedagogical planning app that controls opencode, a custom orchestrator or another compatible runtime through a safe backend adapter. The harness is core infrastructure, but it must remain replaceable and must never dictate the teacher-facing product language.
+
+
+### Harness-first, UI-safe
+
+The product vision is now **harness-first, but UI-safe**.
+
+```text
+pedagogical-thinking-space
+  = pedagogical operating system
+  = roles, rules, service model, Learning Design, Knowledge, Memory, Worker, Renderer
+
+opencode / compatible harness
+  = runtime and process engine
+  = reads the kernel and workspace
+  = runs the Critical Friend and service workflows
+  = edits files, uses skills and produces artefacts inside a sandbox
+
+ptspace-app
+  = teacher-facing desktop and protection layer
+  = chat, Denkstand, next steps, materials, approvals, exports
+  = auth, policies, permissions, integration status and safe routing
+```
+
+This means the app should not be specified as “chat first, harness later”. For a meaningful MVP, the app must talk to a real or mocked harness through the same backend interface that will later be used in production. During development, the harness may be mocked, but the product model assumes that the Critical Friend operates on a real planning-room workspace.
 
 ### Capability vs. Harness Skill
 
@@ -643,7 +667,7 @@ The following decisions are already assumed by this repository:
 - Forgejo is optional and not required for the first prototype.
 - OKF is the exchange format for curated professional artefacts.
 - Nextcloud is external and used for finished exports.
-- opencode may be used as a harness, but should remain replaceable.
+- opencode or a compatible harness is part of the target MVP architecture, but remains replaceable behind a backend adapter.
 - The backend is the protection layer between browser, harness, files and external services.
 - Harness permissions are handled by backend policy, not by teachers in the chat.
 - The Critical Friend may explain integrations and setup paths, but does not collect secrets.
@@ -657,3 +681,38 @@ The following decisions are already assumed by this repository:
 ## 18. Guiding Sentence
 
 > `ptspace-app` is not a machine for generating teaching materials. It is a professional planning environment that helps teachers think, decide and design better learning experiences — with AI as a careful colleague, not as a replacement for pedagogical judgement.
+
+---
+
+## Harness choices and local desktop bridge
+
+`opencode` is the reference harness, but `ptspace-app` must not be limited to one runtime. Advanced users may prefer Claude Code, Codex, Hermes or another local/institutional harness.
+
+The app therefore uses a **Harness Adapter API**:
+
+```text
+ptspace-app UI
+        ↓
+ptspace-backend
+        ↓
+Harness Adapter API
+        ↓
+opencode | Claude Code | Codex | Hermes | Custom
+```
+
+For school/institutional deployments, the default remains an integrated Docker harness. For power users with an already configured local tool, the supported model is a **Host Harness Bridge**:
+
+```text
+ptspace-backend in Docker
+        ↓
+http://host.docker.internal:<bridge-port>
+        ↓
+ptspace-harness-bridge on the user's desktop
+        ↓
+local Claude Code / Codex / Hermes / opencode
+```
+
+`host.docker.internal` is not a magic path to local credentials or local CLIs. It only connects the Dockerized app to a deliberately started host service. Local harness credentials remain local; the app sees availability and policy status, not API keys or OAuth tokens.
+
+See `HARNESS_ADAPTERS.md` for the full adapter and bridge model.
+

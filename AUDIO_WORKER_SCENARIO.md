@@ -406,3 +406,30 @@ It should define:
 - privacy and consent constraints;
 - review criteria;
 - export rules.
+
+
+---
+
+## Architecture Update: Capability in App, Skill in Harness
+
+This scenario assumes the current product decision: **harness-first, UI-safe**.
+
+The Audio Worker Capability belongs to `ptspace-app`. It defines the pedagogical workflow: purpose clarification, transcript-first production, review, transparency notice, provider policy, fallback and teacher-facing language.
+
+The concrete `tts-generation` skill belongs to the harness/runtime layer, for example `opencode`, an MCP tool, a local worker container or an external provider adapter.
+
+```text
+Teacher request
+  ↓
+Critical Friend clarifies pedagogical purpose
+  ↓
+Audio Worker Capability governs the app-side workflow
+  ↓
+Backend checks policy and integration status
+  ↓
+Harness executes `tts-generation` only if approved and available
+  ↓
+Result returns to Critical Friend before teacher-facing use
+```
+
+If the harness is not available, the scenario may still produce a transcript and speaker concept, but it must not pretend that audio generation is complete.

@@ -611,6 +611,27 @@ Statt „Max verweigert oft die Mitarbeit“ besser:
 
 ---
 
+
+## 11.5 Harness-Client als Pflichtschnittstelle
+
+Die App benötigt von Anfang an einen `HarnessClient`. Dieser kann in Tests gemockt werden, darf aber fachlich nicht als optionaler späterer Zusatz behandelt werden.
+
+Mindestfunktionen:
+
+```ts
+interface HarnessClient {
+  startSession(input: StartSessionInput): Promise<SessionRef>
+  sendMessage(session: SessionRef, message: UserMessage): Promise<HarnessResponse>
+  readWorkspace(session: SessionRef, paths: string[]): Promise<WorkspaceSnapshot>
+  applyPolicyDecision(decision: PolicyDecision): Promise<void>
+  stopSession(session: SessionRef): Promise<void>
+}
+```
+
+Der HarnessClient ist kein UI-Konzept. Er ist die Backend-Grenze zwischen pädagogischer App und Ausführungsmaschine.
+
+Der Browser spricht nie direkt mit dem Harness.
+
 ## 12. Runtime-, Integrations- und Secret-Policy
 
 ### Grundsatz
@@ -857,18 +878,35 @@ Der Critical Friend ist keine Person und keine Rolle im Berechtigungssystem, son
 
 ### Ziel
 
-Ein lokal oder institutionell betreibbarer Prototyp, der die Grundidee erfahrbar macht.
+Ein lokal oder institutionell betreibbarer Prototyp, der die Grundidee als **harness-basierten pädagogischen Denkraum mit lehrkräftefreundlicher Oberfläche** erfahrbar macht. Der MVP ist nicht nur ein Chat mit Seitenleiste. Er ist ein Browserfrontend für einen echten Planungsraum-Workspace, der durch einen Harness wie `opencode` oder eine kompatible Runtime bearbeitet wird.
+
+### Architekturentscheidung: Harness-first, UI-safe
+
+Der MVP geht davon aus, dass `pedagogical-thinking-space` bereits als pädagogisches Betriebssystem funktioniert und dass ein Harness den Workspace tatsächlich lesen, verändern und Service-Workflows ausführen kann. Die `ptspace-app` ist die sichere, schulalltagstaugliche Oberfläche dafür.
+
+```text
+pedagogical-thinking-space
+  = Kernel / pädagogisches Betriebssystem
+
+opencode oder kompatibler Harness
+  = Runtime / Prozessmaschine
+
+ptspace-app
+  = Frontend, Schutzschicht, Rechte, Policies, UI-Semantik
+```
+
+Für Tests darf der Harness gemockt werden. Die Produktarchitektur darf jedoch nicht so entworfen werden, als wäre der Harness ein späteres Add-on.
 
 ### Umfang
 
 Muss:
 
 - Planungsraum erstellen
-- Chat mit Critical Friend
-- Denkstand anzeigen
+- Chat mit Critical Friend über Harness-Session oder kompatiblen Harness-Adapter
+- Denkstand aus dem Workspace anzeigen
 - offene Entscheidungen anzeigen
 - nächste Schritte anzeigen
-- Workspace-Dateien schreiben
+- Workspace-Dateien über kontrollierten Backend-/Harness-Flow schreiben
 - Git-Versionen speichern
 - Markdown-Export
 
@@ -877,10 +915,11 @@ Soll:
 - PDF/DOCX-Export
 - einfacher OKF-Export
 - Service Requests intern abbilden
-- Harness-Schnittstelle zu opencode vorbereiten
+- minimale Harness-Schnittstelle zu opencode oder kompatibler Runtime implementieren
 
 Noch nicht:
 
+- vollständig ausgebaute Worker-/Skill-Landschaft
 - Forgejo
 - vollständige Nextcloud-Integration
 - Multi-Tenant-Betrieb
@@ -894,15 +933,18 @@ Noch nicht:
 
 1. Lehrkraft öffnet App.
 2. Lehrkraft legt Planungsraum an.
-3. Critical Friend fragt ruhig nach der Unterrichtsidee.
-4. Lehrkraft beschreibt Idee.
-5. Critical Friend antwortet mit einer klärenden Frage oder kurzen Zusammenfassung.
-6. Denkstand aktualisiert sich.
-7. Offene Entscheidungen erscheinen rechts.
-8. App schlägt einen nächsten sinnvollen Schritt vor.
-9. Lehrkraft bestätigt oder denkt weiter.
-10. Bei ausreichender Klärung wird ein Materialentwurf vorbereitet.
-11. Lehrkraft exportiert Material.
+3. Backend legt einen isolierten Workspace an und stellt den `pedagogical-thinking-space`-Kernel bereit.
+4. Backend startet oder resumiert eine Harness-Session, z. B. `opencode`, für genau diesen Workspace.
+5. Critical Friend fragt ruhig nach der Unterrichtsidee.
+6. Lehrkraft beschreibt Idee.
+7. Backend sendet die Nachricht an die Harness-Session.
+8. Harness antwortet als Critical Friend und kann kontrolliert Workspace-Dateien aktualisieren.
+9. Backend liest und validiert Änderungen, z. B. `learning-design.md`, `decisions.md`, `tasks/`, `service-requests/`.
+10. Frontend zeigt Antwort, Denkstand, offene Entscheidungen und nächste sinnvolle Schritte in Lehrkräfte-Sprache.
+11. Lehrkraft bestätigt einen nächsten Schritt oder denkt weiter.
+12. Bei ausreichender Klärung wird ein Materialentwurf vorbereitet.
+13. Backend speichert eine interne Git-Version.
+14. Lehrkraft exportiert freigegebenes Material.
 
 ---
 
@@ -964,7 +1006,7 @@ Diese Fragen sind noch nicht endgültig entschieden:
    - nur Zusammenfassungen
    - konfigurierbar
 
-5. Wie wird opencode isoliert?
+5. Wie wird opencode oder ein anderer Harness isoliert?
    - Container pro Workspace
    - Prozess pro Session
    - zentraler Harness mit Workspace-Sandbox
@@ -1004,3 +1046,54 @@ Lehrkräfte sind nicht bloße Auftraggeber:innen von KI-Produktion. Sie sind pä
 KI erscheint in dieser App nicht als Ersatz für professionelle Urteilskraft, sondern als strukturierter Resonanz-, Erinnerungs-, Recherche- und Umsetzungsraum.
 
 Die Anwendung ist erfolgreich, wenn sie nicht nur bessere Materialien erzeugt, sondern bessere pädagogische Entscheidungen wahrscheinlicher macht.
+
+---
+
+## Harness selection
+
+`ptspace-app` is harness-first but not opencode-only.
+
+The product should support multiple harness modes:
+
+```text
+Integrated Docker Harness
+Local Desktop Harness via Host Bridge
+External Institutional Harness Server
+Mock Harness for tests
+```
+
+In the UI this belongs under:
+
+```text
+Einstellungen
+  → Harness
+    → Integrierter Docker-Harness
+    → Lokaler Desktop-Harness
+    → Externer Harness-Server
+```
+
+Power users may choose a locally installed tool such as Claude Code, Codex or Hermes. This must happen through a **Host Harness Bridge**, not by giving the Docker stack broad access to the host computer.
+
+### Product rule
+
+The harness may differ. The teacher-facing experience must not.
+
+Regardless of the selected harness, the teacher still sees:
+
+- Gespräch mit Critical Friend,
+- Denkstand,
+- offene Entscheidungen,
+- nächste Schritte,
+- Entwürfe,
+- Materialien,
+- Freigaben,
+- Exporte.
+
+The app must not become a Claude Code UI, Codex UI, Hermes UI or opencode UI.
+
+### Credential rule
+
+Local harness credentials remain local. The app may know that a harness or provider is available, but it must not receive API keys, OAuth tokens or raw local auth files.
+
+See `HARNESS_ADAPTERS.md` for detailed requirements.
+

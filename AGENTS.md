@@ -202,11 +202,11 @@ Nextcloud
 = externe Ablage fertiger Dateien im Schulalltag
 ```
 
-### Entscheidung 18: opencode ist austauschbarer Harness, nicht sichtbare Umgebung
+### Entscheidung 18: opencode ist austauschbarer Harness, aber im Ziel-MVP Kerninfrastruktur
 
-`opencode` kann als Runtime oder Harness dienen. Die App darf aber nicht zu einer opencode-Oberfläche werden.
+`opencode` oder ein kompatibler Harness ist für das Zielprodukt nicht bloß ein späteres optionales Add-on. Die App wird als lehrkräftefreundliche Oberfläche und Schutzschicht für einen harness-basierten Pedagogical Thinking Space entwickelt.
 
-Die Harness-Schicht muss austauschbar bleiben.
+Die App darf trotzdem nicht zu einer opencode-Oberfläche werden. Die Harness-Schicht muss austauschbar bleiben und hinter einem Backend-Adapter liegen.
 
 ### Entscheidung 19: Harness-Permissions werden nicht an Lehrkräfte durchgereicht
 
@@ -560,9 +560,9 @@ Es ist verantwortlich für:
 
 ## 8. Harness-Anbindung
 
-`opencode` ist eine mögliche erste Harness-Implementierung.
+`opencode` ist die naheliegende erste Harness-Implementierung, weil der bestehende Denkraum damit bereits praktisch funktioniert.
 
-Die App muss jedoch so gebaut werden, dass später ein anderer Harness möglich ist.
+Die App muss jedoch so gebaut werden, dass später ein anderer Harness möglich ist. Der Harness ist Kerninfrastruktur des Ziel-MVP, aber nicht Identität des Produkts.
 
 Daher sollte es eine interne Schnittstelle geben:
 
@@ -577,7 +577,7 @@ interface HarnessClient {
 
 Oder äquivalent in einer anderen Sprache.
 
-Der Harness darf nicht das Produktmodell bestimmen.
+Der Harness darf nicht das Produktmodell bestimmen. Produktbegriffe wie Planungsraum, Denkstand, nächste Schritte und Materialien gehören zur App. Der Harness liefert Ausführung und Workspace-Wirkung.
 
 ---
 
@@ -810,9 +810,9 @@ Für Version 0.1 zählt nicht Vollständigkeit, sondern die richtige Grundbewegu
 
 ### Soll
 
-- opencode als Harness anbinden
+- minimale opencode- oder Harness-Anbindung implementieren
 - Service Requests intern modellieren
-- erste Worker-Jobs vorbereiten
+- erste Worker-/Service-Workflows über Harness oder kontrollierten Backend-Worker vorbereiten
 - OKF-Export für Learning Design
 
 ### Später
@@ -867,3 +867,60 @@ Wenn die Antwort nur lautet:
 > Es macht den Agenten mächtiger.
 
 ist die Änderung wahrscheinlich falsch oder zumindest noch nicht ausreichend pädagogisch übersetzt.
+
+---
+
+## Harness Adapter and Host Bridge Rules
+
+Coding agents working in this repository must treat `opencode` as the reference harness, not as a hard dependency.
+
+Implement harness integration behind a common backend adapter boundary.
+
+```text
+Browser UI
+  → ptspace-backend
+    → HarnessAdapter
+      → opencode | Claude Code | Codex | Hermes | Custom
+```
+
+Do not build teacher-facing UI that assumes a specific harness brand.
+
+### Local desktop harnesses
+
+If a user has Claude Code, Codex, Hermes or another agent installed locally, the Dockerized app must not mount local home directories or secret folders to access that tool.
+
+Use a controlled Host Harness Bridge:
+
+```text
+backend container
+  → host.docker.internal:<bridge-port>
+  → ptspace-harness-bridge on host
+  → local harness
+```
+
+The bridge may use local credentials, but it must not expose them to the app.
+
+### Prohibited implementations
+
+Do not implement:
+
+- direct mounting of `~/.claude`, `~/.config`, `~/.ssh`, `~/.local/share` or similar secret-bearing folders into the app container,
+- arbitrary host command execution from the backend,
+- direct browser access to the harness,
+- chat-based API-key or OAuth-token collection,
+- provider-specific UI as the main teacher-facing workflow.
+
+### Required implementation principle
+
+The backend policy layer remains authoritative even when the selected harness runs on the user's desktop.
+
+Teacher-facing language should say things like:
+
+> "Your local Claude Code harness is available through the desktop bridge. I can use it only for this planning room."
+
+not:
+
+> "I will mount your local Claude auth directory into Docker."
+
+See `HARNESS_ADAPTERS.md`.
+
