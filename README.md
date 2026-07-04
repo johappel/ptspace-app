@@ -274,6 +274,32 @@ The product should therefore not be designed as an opencode UI.
 
 It should be designed as a pedagogical planning app that can use opencode, a custom orchestrator or another compatible runtime.
 
+### Capability vs. Harness Skill
+
+`ptspace-app` distinguishes between app-level capabilities and runtime-level skills.
+
+```text
+Capability
+  belongs to ptspace-app
+  describes pedagogical workflow, permissions, review, fallback, UI language and return path
+
+Skill
+  belongs to opencode, MCP, a worker container or another runtime
+  performs the concrete technical operation
+```
+
+Example:
+
+```text
+Audio Worker Capability
+  app-level contract for audio dialogue material
+
+tts-generation skill
+  harness/runtime implementation that may call ElevenLabs, ComfyUI, local TTS or script-only fallback
+```
+
+The Critical Friend may propose the capability. The backend routes it to an approved skill. Teachers should not be asked which runtime or provider should execute it unless the choice has a pedagogical or organisational meaning.
+
 ---
 
 ## 9. Git, Forgejo and Nextcloud
@@ -317,7 +343,7 @@ Later: optional Forgejo integration if institutional workflows require it
 
 ### Nextcloud
 
-Nextcloud is an external filespace and belongs to the school or institution.
+Nextcloud is external and belongs to the school or institution.
 
 It is not the internal thinking space.
 
@@ -338,7 +364,7 @@ Raw chats, unfinished reflections and sensitive notes should not be exported aut
 
 ## 10. OKF as Exchange Format
 
-[OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) is the preferred format for professional exchange and curation.
+OKF is the preferred format for professional exchange and curation.
 
 The app should distinguish between:
 
@@ -423,7 +449,62 @@ This protects the central principle:
 
 ---
 
-## 12. Data Protection Principles
+---
+
+## 12. Runtime, Integrations and Secrets
+
+`ptspace-app` separates pedagogical questions from technical permissions.
+
+Teachers should never be asked to answer raw harness prompts such as:
+
+```text
+Allow POST request to external API?
+Run docker pull?
+Install package?
+Enter API key in chat?
+```
+
+Instead:
+
+```text
+technical permission
+  → backend policy
+
+pedagogical decision
+  → Critical Friend asks the teacher
+
+system setup
+  → admin configuration or admin request
+```
+
+The Critical Friend may explain setup paths in teacher-facing language. For example:
+
+```text
+The ElevenLabs key is not entered here in the chat.
+Use Settings → Integrations → ElevenLabs.
+I only see whether the integration is available, not the key itself.
+```
+
+Or:
+
+```text
+A local ComfyUI/TTS runtime is not useful on a tablet.
+For everyday teaching, use the web app and let audio generation run on an approved server runtime or approved external provider.
+```
+
+Worker services must not install or modify runtimes on their own. Missing capabilities lead to:
+
+```text
+script-only fallback
+admin request
+clear explanation by the Critical Friend
+```
+
+Secrets belong in integration settings, admin configuration, Docker secrets, encrypted storage or a dedicated secret manager — never in the planning dialogue.
+
+---
+
+## 14. Data Protection Principles
 
 The app should be designed with school data protection requirements in mind from the beginning.
 
@@ -444,7 +525,7 @@ The app should support a deployment model in which frontend, backend, runtime an
 
 ---
 
-## 13. Suggested Repository Structure
+## 14. Suggested Repository Structure
 
 A first implementation may use this structure:
 
@@ -494,7 +575,7 @@ For the first prototype, a simple copied snapshot is acceptable. Later, a more e
 
 ---
 
-## 14. First Prototype Scope
+## 15. First Prototype Scope
 
 The first prototype should be deliberately small.
 
@@ -525,7 +606,7 @@ The first prototype should prove the product idea:
 
 ---
 
-## 15. Design Commitments
+## 16. Design Commitments
 
 The app follows these commitments:
 
@@ -541,10 +622,14 @@ The app follows these commitments:
 10. The harness is replaceable.
 11. Datenschutz is architectural, not an afterthought.
 12. The teacher remains responsible for pedagogical decisions.
+13. Teachers do not answer technical permission prompts.
+14. Secrets are never collected in chat.
+15. Missing runtimes lead to safe fallback or admin request.
+16. Worker services do not install or modify runtime environments.
 
 ---
 
-## 16. Current Architectural Decisions
+## 17. Current Architectural Decisions
 
 The following decisions are already assumed by this repository:
 
@@ -560,9 +645,15 @@ The following decisions are already assumed by this repository:
 - Nextcloud is external and used for finished exports.
 - opencode may be used as a harness, but should remain replaceable.
 - The backend is the protection layer between browser, harness, files and external services.
+- Harness permissions are handled by backend policy, not by teachers in the chat.
+- The Critical Friend may explain integrations and setup paths, but does not collect secrets.
+- API keys and tokens belong in integration settings or admin configuration.
+- Worker services must not install runtimes such as ComfyUI automatically.
+- Missing capabilities lead to fallback, admin request or a clear explanation.
+- Audio generation is an app-level Audio Worker Capability; concrete `tts-generation` is a harness/runtime skill with transcript, review and transparency requirements enforced by the app.
 
 ---
 
-## 17. Guiding Sentence
+## 18. Guiding Sentence
 
 > `ptspace-app` is not a machine for generating teaching materials. It is a professional planning environment that helps teachers think, decide and design better learning experiences — with AI as a careful colleague, not as a replacement for pedagogical judgement.

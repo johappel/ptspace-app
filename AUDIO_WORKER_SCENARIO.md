@@ -10,6 +10,20 @@ The scenario describes a case in which a teacher wants an audio scene in which t
 
 Audio generation is not a direct chat command. It is a Worker task that may only start after the relevant Learning Design decision has been made.
 
+This scenario distinguishes two layers:
+
+```text
+Audio Worker Capability
+  belongs to ptspace-app
+  defines pedagogical workflow, allowed inputs, required transcript, review, transparency, fallback and return path
+
+tts-generation Skill
+  belongs to opencode / harness / MCP / worker runtime
+  performs the concrete audio generation through ElevenLabs, ComfyUI, local TTS or another approved route
+```
+
+The Audio Worker Capability never installs, selects or configures the runtime by itself. It produces a structured request. The backend policy layer routes that request to an approved `tts-generation` skill if available. If no approved skill is available, the safe fallback is script-only output or an admin request.
+
 ```text
 Teacher / planning group
         ↓
@@ -97,7 +111,8 @@ reason: >
   and optionally an audio draft should be created without introducing new
   pedagogical decisions.
 
-capability: capabilities/workers/AUDIO_GENERATION.md
+capability: app-capabilities/workers/AUDIO_WORKER.md
+runtime_skill_requested: tts-generation
 
 input:
   learning_design: workspace/<project-slug>/learning-design.md
@@ -154,6 +169,98 @@ risks:
   - synthetic student voices may create false realism
   - external TTS providers may require institutional approval
 ```
+
+
+## Runtime Availability and Missing Capabilities
+
+If the selected or preferred audio route is not available, the Worker must not install it automatically.
+
+Example:
+
+```text
+Teacher prefers realistic audio.
+Backend checks local_tts / ComfyUI.
+ComfyUI is not installed.
+```
+
+The system must not ask:
+
+```text
+Should I install ComfyUI?
+Should I run docker pull?
+Should I install dependencies?
+```
+
+Instead the Critical Friend explains:
+
+```text
+Local audio generation is not set up in this instance.
+I can prepare the dialogue script and transcript now.
+For actual audio generation, an approved local TTS runtime or an approved external TTS integration is needed.
+```
+
+If helpful, the Critical Friend may offer:
+
+```text
+Should I prepare a short setup request for your administration?
+```
+
+The resulting internal request is an Admin Request, not a Worker action:
+
+```yaml
+service: admin
+mode: request_runtime
+runtime: local_tts_comfyui
+reason: >
+  Audio Worker needs an approved local TTS runtime for realistic dialogue generation.
+status: proposed
+requires_admin_approval: true
+```
+
+## Secrets and API Keys
+
+API keys must never be entered in the chat.
+
+If a teacher asks how to use ElevenLabs, the Critical Friend may explain the safe path:
+
+```text
+Do not paste the API key here.
+Open Settings → Integrations → ElevenLabs and store it there.
+The key is stored as a secret. I only see whether the integration is available.
+```
+
+If a teacher pastes a key into the chat, the system should not use it. It should warn the teacher and, where technically possible, mark the message for deletion or redaction.
+
+```text
+Please do not post API keys in the chat.
+I will not use this key. Store it under Settings → Integrations → ElevenLabs instead.
+```
+
+## Device and Installation Guidance
+
+The Critical Friend may give high-level orientation, but not step-by-step installation commands in the normal teacher dialogue.
+
+```text
+Tablet
+  Good for using the web app. Not suitable for local ComfyUI/TTS runtime.
+
+Teacher PC
+  Possible for experimentation, but not preferred for school production unless support, updates and data protection are clear.
+
+School or institutional server
+  Preferred for productive local TTS because runtime, models, logs, storage and permissions can be centrally controlled.
+
+Docker stack
+  Useful for isolating app, harness and worker services. Still requires admin approval for new runtimes.
+```
+
+The Critical Friend may say:
+
+```text
+For your tablet, I would not recommend installing ComfyUI locally.
+Use the web app. Audio generation should run on a configured server runtime or approved provider.
+```
+
 
 ## Provider Routing
 
@@ -264,12 +371,30 @@ The raw chat is not exported. OKF export should include the reusable pedagogical
 
 **Decision 27:** Voice cloning and identifiable learner/person voices are out of scope for the default system.
 
+**Decision 28:** Workers must not install or modify runtime environments automatically.
+
+**Decision 29:** Missing audio runtimes lead to script-only fallback or Admin Request, not to technical install prompts for teachers.
+
+**Decision 30:** API keys and secrets must never be entered in the chat.
+
+**Decision 31:** Provider availability and routing are backend/admin responsibilities.
+
+**Decision 32:** The Critical Friend may explain where to configure integrations and whether local installation is sensible, but must not collect secrets or execute setup.
+
+**Decision 33:** Realistic AI audio requires transcript, review, transparency, provider status and explicit release before classroom use or export.
+
 ## Possible Future Capability File
 
-Create a reviewed Worker capability at:
+Create a reviewed app-level Worker capability at:
 
 ```text
-capabilities/workers/AUDIO_GENERATION.md
+app-capabilities/workers/AUDIO_WORKER.md
+```
+
+Do not confuse this with the runtime-level skill, which may be named for example:
+
+```text
+opencode skills/tts-generation
 ```
 
 It should define:

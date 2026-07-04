@@ -345,6 +345,54 @@ Später:
 
 ---
 
+### 7.6 Integrationen und Runtime-Status
+
+Die App soll technische Verfügbarkeit in verständliche Status übersetzen.
+
+Beispiele:
+
+```text
+Audioerzeugung
+- Script: verfügbar
+- lokale TTS-Runtime: nicht eingerichtet
+- ElevenLabs: eingerichtet
+- Export nach Nextcloud: verfügbar
+```
+
+Der Critical Friend darf diesen Status erklären, aber keine Secrets entgegennehmen und keine Installationen auslösen.
+
+### 7.7 Audio Worker Scenario
+
+Audioerzeugung wird in `ptspace-app` als **Audio Worker Capability** behandelt. Diese Capability gehört zur lokalen App und beschreibt den pädagogischen und organisatorischen Ablauf: Zweckklärung, Script, Transcript, Review, Freigabe, Transparenzhinweis, Speicherung und Rückgabe an den Critical Friend.
+
+Die eigentliche technische Fähigkeit zur Tonerzeugung ist dagegen ein Harness-/Runtime-Skill, z. B. `tts-generation` in `opencode`, einem MCP-Tool, einem lokalen Worker-Container oder einem Provider-Adapter.
+
+```text
+Audio Worker Capability
+  App-seitig: Was darf pädagogisch beauftragt werden?
+
+tts-generation Skill
+  Runtime-seitig: Wie wird Audio technisch erzeugt?
+```
+
+Der erste Schritt ist in der Regel ein Dialogskript mit Transcript und Review-Vermerk. Erst nach pädagogischer Freigabe und Policy-Prüfung wird daraus eine Audiofassung.
+
+Die Provider- und Skillwahl erfolgt durch Backend-Policy:
+
+```text
+local_tts
+  wenn lokal verfügbar und freigegeben
+
+approved_external_tts
+  wenn institutionell erlaubt, konfiguriert und ohne personenbezogene Daten
+
+script_only
+  als sicherer Fallback
+```
+
+Lehrkräfte entscheiden über Zweck, Ton, Rollen, Länge, Freigabe und Nutzung. Sie entscheiden nicht über API-Requests, Docker-Installationen oder Paketverwaltung.
+
+
 ## 8. Datenmodell, fachlich
 
 ### PlanningSpace
@@ -561,7 +609,130 @@ Statt „Max verweigert oft die Mitarbeit“ besser:
 
 ---
 
-## 12. OKF-Konzept
+---
+
+## 12. Runtime-, Integrations- und Secret-Policy
+
+### Grundsatz
+
+Die App trennt drei Entscheidungsebenen:
+
+```text
+Pädagogische Entscheidung
+  → Lehrkraft / Planungsgruppe mit Critical Friend
+
+Technische Permission
+  → Backend Policy
+
+System- oder Providerfreigabe
+  → Admin / Betreiber:in
+```
+
+Die Lehrkraft beantwortet keine technischen Harness-Prompts.
+
+### Technical Permission Handling
+
+Technische `ask`-Prompts von opencode oder einem anderen Harness werden durch das Backend behandelt.
+
+```text
+allow
+  Dateioperation liegt im Workspace und ist durch Service Request gedeckt
+
+deny
+  Operation ist riskant, systemnah, extern oder nicht gedeckt
+
+requires_admin_approval
+  Runtime-Installation, Providerfreigabe, Secret-Konfiguration
+
+ask_critical_friend
+  nur wenn eine sinnvolle pädagogische Rückfrage entsteht
+```
+
+### Secrets
+
+Secrets werden nie im Dialog erfasst.
+
+Nicht erlaubt:
+
+```text
+„Bitte gib deinen ElevenLabs API-Key hier ein.“
+```
+
+Erlaubt:
+
+```text
+„Trage den API-Key unter Einstellungen → Integrationen → ElevenLabs ein.
+Ich sehe den Schlüssel nicht; ich sehe nur, ob die Integration verfügbar ist.“
+```
+
+Speicheroptionen für spätere Implementierung:
+
+- Docker Secrets,
+- verschlüsselte Datenbankfelder,
+- Vault/Secret-Manager,
+- `.env` nur für lokale Entwicklungsumgebungen.
+
+### Runtimes
+
+Worker dürfen keine Runtime eigenmächtig installieren oder verändern.
+
+Wenn z. B. ComfyUI oder lokale TTS fehlt:
+
+```text
+Backend erkennt: local_tts unavailable
+Critical Friend erklärt: lokale Audioerzeugung ist nicht eingerichtet
+System nutzt: Script-only-Fallback
+optional: Admin Request vorbereiten
+```
+
+Nicht erlaubt:
+
+```text
+Soll ich ComfyUI installieren?
+Soll ich docker pull ausführen?
+Soll ich pip install starten?
+```
+
+Erlaubt:
+
+```text
+Soll ich einen Einrichtungsvorschlag für eure Administration vorbereiten?
+```
+
+### Device Guidance
+
+Der Critical Friend darf Geräte- und Betriebsoptionen grob einordnen:
+
+```text
+Tablet
+  geeignet für die Web-App, nicht sinnvoll für lokale TTS-/ComfyUI-Runtime
+
+privater oder schulischer PC
+  möglich für Experimente, aber Datenschutz und Support klären
+
+Schul-/Institutionsserver
+  bevorzugter Ort für freigegebene produktive Runtimes
+
+Docker-Stack
+  geeigneter Betriebsrahmen für kontrollierte App- und Harness-Komponenten
+```
+
+### Audio-specific Requirements
+
+Realistische KI-Audios benötigen:
+
+- pädagogisch geklärten Zweck,
+- generische synthetische Stimmen,
+- kein Voice Cloning realer Personen,
+- Transcript,
+- Review durch Critical Friend,
+- Transparenzhinweis,
+- Provider- und Datenschutzstatus,
+- Freigabe vor Export.
+
+---
+
+## 14. OKF-Konzept
 
 OKF ist das Austauschformat für kuratierte Ergebnisse.
 
@@ -622,7 +793,7 @@ Nicht als OKF exportieren:
 
 ---
 
-## 13. Nextcloud-Integration
+## 14. Nextcloud-Integration
 
 Nextcloud ist externe Schulablage.
 
@@ -654,7 +825,7 @@ Was möchtest du in Nextcloud ablegen?
 
 ---
 
-## 14. Rollen und Rechte
+## 15. Rollen und Rechte
 
 Version 0.1 kann einfach starten.
 
@@ -682,7 +853,7 @@ Der Critical Friend ist keine Person und keine Rolle im Berechtigungssystem, son
 
 ---
 
-## 15. MVP 0.1
+## 16. MVP 0.1
 
 ### Ziel
 
@@ -719,7 +890,7 @@ Noch nicht:
 
 ---
 
-## 16. MVP-User-Flow
+## 17. MVP-User-Flow
 
 1. Lehrkraft öffnet App.
 2. Lehrkraft legt Planungsraum an.
@@ -735,7 +906,7 @@ Noch nicht:
 
 ---
 
-## 17. Qualitätskriterien
+## 18. Qualitätskriterien
 
 Die App ist gut, wenn Lehrkräfte sagen:
 
@@ -761,7 +932,7 @@ Weitere Kriterien:
 
 ---
 
-## 18. Offene Architekturfragen
+## 19. Offene Architekturfragen
 
 Diese Fragen sind noch nicht endgültig entschieden:
 
@@ -778,6 +949,16 @@ Diese Fragen sind noch nicht endgültig entschieden:
    - synchronisierte Templates
 
 4. Wie viel Chat wird gespeichert?
+
+5. Wie werden Runtimes und Integrationen administriert?
+   - Instanzweit
+   - pro Schule
+   - pro Nutzer:in
+   - nur Admin
+
+6. Welche Secret-Store-Strategie wird für produktive Deployments verwendet?
+
+7. Welche Worker Capabilities starten im MVP und welche bleiben Fallback-only?
    - vollständig
    - gekürzt
    - nur Zusammenfassungen
@@ -798,7 +979,7 @@ Diese Fragen sollten in `docs/architecture.md` weiter ausgearbeitet werden.
 
 ---
 
-## 19. Nicht-Ziele
+## 20. Nicht-Ziele
 
 `ptspace-app` soll zunächst nicht sein:
 
@@ -814,7 +995,7 @@ Diese Fragen sollten in `docs/architecture.md` weiter ausgearbeitet werden.
 
 ---
 
-## 20. Leitbild
+## 21. Leitbild
 
 `ptspace-app` transportiert ein bestimmtes Verständnis von Professionalität:
 

@@ -208,6 +208,114 @@ Nextcloud
 
 Die Harness-Schicht muss austauschbar bleiben.
 
+### Entscheidung 19: Harness-Permissions werden nicht an Lehrkräfte durchgereicht
+
+Technische `ask`-Prompts aus opencode oder einem anderen Harness dürfen nicht direkt in den Lehrkräfte-Dialog gelangen.
+
+Die Lehrkraft soll keine Shell-, Datei-, Netzwerk- oder Provider-Risiken beurteilen müssen.
+
+### Entscheidung 20: Das Backend übersetzt technische Permissions in Policies
+
+Das Backend entscheidet technische Erlaubnisse nach Policy:
+
+```text
+allow
+  ungefährlich, im Workspace, durch Service Request gedeckt
+
+deny
+  außerhalb des Workspaces, riskant, nicht gedeckt, sensibel
+
+requires_admin_approval
+  Installation, Provider-Freigabe, Runtime-Änderung, Secrets, Systemzugriffe
+
+ask_critical_friend
+  nur wenn daraus eine sinnvolle pädagogische oder organisatorische Rückfrage entsteht
+```
+
+### Entscheidung 21: Der Critical Friend fragt nur professionell sinnvoll Entscheidbares
+
+Der Critical Friend fragt Lehrkräfte nach pädagogischem Zweck, Ton, Freigabe, Unterrichtseinsatz, Export oder Teilbarkeit.
+
+Er fragt nicht nach Docker-Kommandos, API-Requests, Shell-Befehlen, Paketinstallationen, Ports, GPU-Konfigurationen oder Dateisystemrisiken.
+
+### Entscheidung 22: Audio Worker Capability gehört zur lokalen App
+
+Audioerzeugung, z. B. ein Dialog zwischen zwei Schüler:innen und einer Lehrkraft, ist kein direkter Chatbefehl. In `ptspace-app` wird sie als **Audio Worker Capability** modelliert. Diese Capability beschreibt den pädagogischen Workflow, die erlaubten Inputs, die Reviewpflichten, die Sicherheitsregeln, die Rückgabe an den Critical Friend und die möglichen Fallbacks. Sie entscheidet nicht selbst, welche technische Runtime benutzt wird.
+
+Der eigentliche ausführende Skill, z. B. `tts-generation`, liegt im Harness oder in der Runtime-Schicht, etwa bei `opencode`, einem MCP-Tool, einem lokalen Worker-Container oder einem externen Provider-Adapter. Die Capability ist also der app-seitige Vertrag; der Skill ist die technische Ausführung.
+
+```text
+ptspace-app Audio Worker Capability
+  = pädagogischer und organisatorischer Auftrag
+  = Transcript, Review, Freigabe, Transparenz, Rückgabe
+
+opencode / Harness Skill `tts-generation`
+  = konkrete technische Ausführung
+  = ElevenLabs, ComfyUI, lokales TTS, Script-only-Fallback
+```
+
+Der Critical Friend darf eine Audio Worker Capability vorschlagen. Das Backend routet sie auf einen freigegebenen Skill oder fällt sicher auf Script-only zurück.
+
+### Entscheidung 23: Die Lehrkraft entscheidet Zweck und Nutzung, nicht den Provider
+
+Bei Audio entscheidet die Lehrkraft über pädagogischen Zweck, Rollen, Ton, Länge, Freigabe und Nutzung.
+
+Die Wahl zwischen lokalem TTS, ComfyUI, ElevenLabs oder Script-only-Fallback ist Aufgabe von Backend-Policy und Admin-Konfiguration.
+
+### Entscheidung 24: Providerwahl ist Policy, nicht UI-Last
+
+Provider werden über freigegebene Integrationen und verfügbare Runtimes gewählt. Die UI darf technische Providerwahl nur dann erklären, wenn die Lehrkraft ausdrücklich danach fragt oder wenn eine pädagogisch relevante Entscheidung betroffen ist.
+
+### Entscheidung 25: Technische Permissions werden nicht als Lehrerfragen formuliert
+
+Nicht erlaubt:
+
+```text
+Allow POST request to external TTS API?
+Soll ich ComfyUI per Docker installieren?
+Darf ich pip install ausführen?
+```
+
+Erlaubt:
+
+```text
+Soll das Audio eher wie ein realistisches Klassengespräch wirken oder bewusst wie ein Hörspiel erkennbar sein?
+Soll ich aus dem geprüften Skript jetzt eine Audiofassung erstellen?
+Soll ich einen Admin-Vorschlag für eine lokale Audio-Runtime vorbereiten?
+```
+
+### Entscheidung 26: Audioartefakte benötigen Transcript, Review und Status
+
+Jedes KI-generierte Audio benötigt ein Transcript, einen Review-Vermerk, einen Status als Entwurf oder freigegebenes Material und einen Transparenzhinweis für den Unterrichtseinsatz.
+
+### Entscheidung 27: Voice Cloning und identifizierbare Stimmen sind im Default-System ausgeschlossen
+
+Die App darf standardmäßig keine Stimmen realer Schüler:innen, Lehrkräfte, Eltern, Kolleg:innen oder öffentlicher Personen klonen oder imitieren.
+
+### Entscheidung 28: Worker dürfen keine Runtime eigenmächtig installieren oder verändern
+
+Worker dürfen Materialien erzeugen, aber keine Laufzeitumgebung verändern. Verboten sind automatische Installationen, Docker-Pulls, Paketinstallationen, Systemupdates oder eigenmächtige Aktivierung neuer Provider.
+
+### Entscheidung 29: Fehlende Runtimes führen zu Fallback oder Admin Request
+
+Wenn z. B. ComfyUI oder eine lokale TTS-Runtime fehlt, wird nicht die Lehrkraft mit einer technischen Installationsfrage konfrontiert. Die App nutzt Script-only-Fallback oder erstellt einen Admin Request.
+
+### Entscheidung 30: API-Keys und Secrets werden niemals im Chat eingegeben
+
+API-Keys, Tokens, Passwörter und Zugangsdaten dürfen nicht im Dialog abgefragt, verarbeitet oder gespeichert werden. Sie gehören in Integrations-Einstellungen, Admin-Konfiguration oder einen Secret Store.
+
+### Entscheidung 31: Providerfreigaben sind Backend-/Admin-Aufgabe
+
+Ob ElevenLabs, lokale Modelle, ComfyUI oder andere Dienste verfügbar sind, entscheidet die Instanzkonfiguration. Der Critical Friend darf den Status erklären, aber keine Secrets entgegennehmen und keine Provider selbst freischalten.
+
+### Entscheidung 32: Die Lehrkraft wird beraten, aber nicht zur Administratorin gemacht
+
+Der Critical Friend darf erklären, wo ein API-Key sicher eingetragen wird oder warum eine lokale Installation auf Tablet, PC oder Server sinnvoll oder nicht sinnvoll ist. Er darf aber keine Installation auslösen und keine technischen Risikoentscheidungen an die Lehrkraft delegieren.
+
+### Entscheidung 33: Realistische KI-Audios sind didaktisch und ethisch besonders prüfpflichtig
+
+Realistische Stimmen können Autorität, Authentizität oder soziale Nähe vortäuschen. Deshalb sind Transparenz, generische synthetische Stimmen, Transcript, Review und klare didaktische Funktion verpflichtend.
+
 ---
 
 ## 4. Zentrale Fachobjekte der App
@@ -444,6 +552,9 @@ Es ist verantwortlich für:
 - Harness darf nicht außerhalb eines isolierten Workspaces arbeiten.
 - Exporte nach Nextcloud dürfen nicht automatisch rohe Dialoge enthalten.
 - Worker dürfen keine pädagogischen Grundentscheidungen treffen.
+- Worker dürfen keine Runtime eigenmächtig installieren, verändern oder erweitern.
+- API-Keys, Tokens und Passwörter dürfen nie im Chat abgefragt oder gespeichert werden.
+- Technische Harness-Permissions dürfen nicht direkt an Lehrkräfte durchgereicht werden.
 
 ---
 
@@ -572,7 +683,117 @@ Hinweis: Für die Planung reicht meist eine Beschreibung der Lerngruppe ohne Nam
 
 ---
 
-## 13. Erste Entwicklungsphase
+---
+
+## 13. Runtime-, Integrations- und Secret-Policy
+
+Diese App braucht eine klare Trennung zwischen pädagogischem Dialog und technischer Ausführung.
+
+### Critical Friend
+
+Der Critical Friend darf technische Voraussetzungen in Lehrkräfte-Sprache erklären. Er darf z. B. sagen:
+
+```text
+Für realistische Audioerzeugung ist ElevenLabs in dieser Instanz vorgesehen.
+Der API-Key wird nicht hier im Gespräch eingetragen, sondern unter
+Einstellungen → Integrationen → ElevenLabs.
+```
+
+Oder:
+
+```text
+Eine lokale ComfyUI-/TTS-Installation ist für ein Tablet nicht sinnvoll.
+Für den Unterrichtsalltag sollte die Audioerzeugung auf einem freigegebenen Server
+oder über eine geprüfte Integration laufen.
+```
+
+Er darf nicht:
+
+- API-Keys entgegennehmen,
+- Installationen auslösen,
+- Docker-, Shell- oder Paketbefehle freigeben lassen,
+- Lehrkräfte mit technischen Sicherheitsfragen belasten.
+
+### Integrations UI
+
+Secrets gehören in eine eigene Oberfläche:
+
+```text
+Einstellungen
+  Integrationen
+    ElevenLabs
+      Status: nicht eingerichtet / eingerichtet / admin-only
+      API-Key: sicher hinterlegen
+      Nutzung erlaubt für: Audio Worker
+      Datenschutzhinweis
+      Kostenhinweis
+```
+
+Für institutionellen Betrieb zusätzlich:
+
+```text
+Admin
+  Runtimes
+    opencode
+    local_tts
+    comfyui
+    export_worker
+    nextcloud
+
+  Provider
+    allowed_external_tts
+    allowed_llm_providers
+    data_processing_status
+```
+
+### Runtime Check
+
+Worker müssen vor Ausführung über das Backend prüfen, ob eine Capability technisch verfügbar und freigegeben ist:
+
+```yaml
+audio_generation:
+  local_tts: unavailable
+  comfyui: unavailable
+  elevenlabs: configured
+  external_tts_allowed: true
+  transcript_required: true
+  human_review_required: true
+```
+
+Wenn eine Runtime fehlt, gilt:
+
+```text
+fehlende Capability
+  → sicherer Fallback, z. B. Script-only
+  → oder Admin Request
+  → keine Installationsfrage an Lehrkräfte
+```
+
+### Admin Requests
+
+Ein Admin Request ist ein technisches Artefakt für Betreiber:innen, nicht Teil des normalen Lehrkräfte-Dialogs.
+
+Beispiel:
+
+```yaml
+service: admin
+mode: request_runtime
+runtime: local_tts_comfyui
+reason: >
+  Audio Worker needs an approved local TTS runtime for realistic dialogue generation.
+status: proposed
+requires_admin_approval: true
+```
+
+In der UI kann der Critical Friend höchstens anbieten:
+
+```text
+Soll ich einen kurzen Einrichtungsvorschlag für eure Administration vorbereiten?
+```
+
+---
+
+## 14. Erste Entwicklungsphase
 
 Für Version 0.1 zählt nicht Vollständigkeit, sondern die richtige Grundbewegung.
 
@@ -606,7 +827,7 @@ Für Version 0.1 zählt nicht Vollständigkeit, sondern die richtige Grundbewegu
 
 ---
 
-## 14. Arbeitsweise für Coding-Agenten
+## 15. Arbeitsweise für Coding-Agenten
 
 Wenn du als Coding-Agent in diesem Repository arbeitest:
 
@@ -621,7 +842,7 @@ Wenn du als Coding-Agent in diesem Repository arbeitest:
 
 ---
 
-## 15. Definition of Done
+## 16. Definition of Done
 
 Ein Feature ist nur fertig, wenn:
 
@@ -635,7 +856,7 @@ Ein Feature ist nur fertig, wenn:
 
 ---
 
-## 16. Leitfrage
+## 17. Leitfrage
 
 Bei jeder größeren Entscheidung gilt:
 
