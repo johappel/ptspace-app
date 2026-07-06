@@ -2,11 +2,15 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
+import { GitManager } from "../services/git/GitManager.js";
 import { HarnessAdapter } from "../services/harness/HarnessAdapter.js";
 
 const SendMessageSchema = z.object({ message: z.string().min(1) });
 
-export async function conversationRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; harness: HarnessAdapter }) {
+export async function conversationRoutes(
+  app: FastifyInstance,
+  deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager; harness: HarnessAdapter }
+) {
   app.post("/planning-spaces/:id/conversation", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = SendMessageSchema.safeParse(request.body);
@@ -23,6 +27,7 @@ export async function conversationRoutes(app: FastifyInstance, deps: { store: Pl
     for (const update of result.workspaceUpdates) {
       await deps.workspace.writeProjectFile(space.id, update.relativePath, update.content);
     }
-    return { status: "wird_vorbereitet", reply: result.reply };
+    const version = await deps.git.saveVersion(workspaceRoot, "Denkstand aktualisiert");
+    return { status: "wird_vorbereitet", reply: result.reply, version };
   });
 }

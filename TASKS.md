@@ -17,8 +17,8 @@ Diese Liste ist das operative Arbeitsdokument fuer die erste Umsetzung von `ptsp
 - [x] Lauffaehiges Backend vorhanden.
 - [x] Domain-Modelle als Code vorhanden.
 - [x] Tests vorhanden.
-- [ ] Docker-Compose-Setup vorhanden.
-- [ ] Entwicklungs-README mit konkretem Startbefehl vorhanden.
+- [x] Docker-Compose-Setup vorhanden.
+- [x] Entwicklungs-README mit konkretem Startbefehl vorhanden.
 
 ## 1. Startentscheidungen vor dem ersten Code
 
@@ -84,8 +84,8 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 - [x] `docs/` anlegen und Architekturentscheidungen aus den Specs verdichten.
 - [x] `examples/planning-spaces/` fuer Beispiel-Planungsraeume anlegen.
 - [x] `.env.example` mit nicht-sensiblen Platzhaltern anlegen.
-- [ ] `docker-compose.yml` fuer lokale Entwicklung vorbereiten.
-- [ ] `README.md` um konkrete Entwicklungsbefehle ergaenzen.
+- [x] `docker-compose.yml` fuer lokale Entwicklung vorbereiten.
+- [x] `README.md` um konkrete Entwicklungsbefehle ergaenzen.
 
 ## 3. Gemeinsame Domain-Modelle
 
@@ -96,8 +96,8 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 - [x] `NextStep` als teacher-facing Oberflaeche eines internen Service Requests modellieren.
 - [x] `ServiceRequest` intern nach Kernel-Schema modellieren.
 - [x] `Material` und `ExportPackage` modellieren.
-- [ ] Statuswerte zwischen intern und UI-sichtbar sauber trennen.
-- [ ] Tests fuer Schemas und Statusuebersetzungen schreiben.
+- [x] Statuswerte zwischen intern und UI-sichtbar sauber trennen.
+- [x] Tests fuer Schemas und Statusuebersetzungen schreiben.
 
 ## 4. Backend-MVP
 
@@ -106,33 +106,33 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 - [x] WorkspaceManager implementieren.
   - [x] Planungsraum-Workspace isoliert anlegen.
   - [x] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
-  - [ ] Keine personenbezogenen Beispielinhalte erzeugen.
-- [ ] GitManager implementieren.
-  - [ ] Repo pro Workspace initialisieren.
-  - [ ] Backend-generierte Versionen speichern.
-  - [ ] Teacher-facing Versionslabel erzeugen.
+  - [x] Keine personenbezogenen Beispielinhalte erzeugen.
+- [x] GitManager implementieren.
+  - [x] Repo pro Workspace initialisieren.
+  - [x] Backend-generierte Versionen speichern.
+  - [x] Teacher-facing Versionslabel erzeugen.
 - [x] Conversation-Route implementieren.
-  - [ ] Nachricht der Lehrkraft an Backend senden.
-  - [ ] Backend gibt Antwort des Harness-Adapters zurueck.
-  - [ ] Keine direkte Browser-Harness-Kommunikation.
+  - [x] Nachricht der Lehrkraft an Backend senden.
+  - [x] Backend gibt Antwort des Harness-Adapters zurueck.
+  - [x] Keine direkte Browser-Harness-Kommunikation.
 - [x] ThinkingState-Route implementieren.
-  - [ ] Denkstand aus Workspace-Dateien lesen.
-  - [ ] Offene Entscheidungen und naechste Schritte teacher-facing zurueckgeben.
+  - [x] Denkstand aus Workspace-Dateien lesen.
+  - [x] Offene Entscheidungen und naechste Schritte teacher-facing zurueckgeben.
 - [x] Export-Route fuer Markdown implementieren.
-- [ ] Fehler- und Statusantworten in Lehrkraefte-Sprache uebersetzen.
+- [x] Fehler- und Statusantworten in Lehrkraefte-Sprache uebersetzen.
 
 ## 5. Harness-Adapter
 
 - [x] Gemeinsames `HarnessAdapter` Interface implementieren.
 - [x] `MockHarnessAdapter` implementieren.
-  - [ ] Ruhige Critical-Friend-Antworten erzeugen.
-  - [ ] Beispielhaft Denkstand-Dateien aktualisieren.
-  - [ ] Keine technischen Permissions an UI durchreichen.
+  - [x] Ruhige Antworten erzeugen.
+  - [x] Beispielhaft Denkstand-Dateien aktualisieren.
+  - [x] Keine technischen Permissions an UI durchreichen.
 - [x] Policy-Entscheidungstypen implementieren.
-  - [ ] `allow`
-  - [ ] `deny`
-  - [ ] `requires_admin_approval`
-  - [ ] `ask_critical_friend`
+  - [x] `allow`
+  - [x] `deny`
+  - [x] `requires_admin_approval`
+  - [x] `ask_critical_friend`
 - [x] PermissionPolicy fuer Workspace-Grenzen implementieren.
 - [x] Tests fuer erlaubte und verbotene Dateioperationen schreiben.
 - [ ] `OpenCodeDockerAdapter` erst nach Abschluss von Abschnitt 1.5 planen oder implementieren.
@@ -142,23 +142,23 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 - [x] SvelteKit-App scaffolden.
 - [x] Grundlayout umsetzen.
-  - [ ] Hauptbereich: Gespraech mit Critical Friend.
-  - [ ] Rechte Spalte: Denkstand-Karten.
-  - [ ] Bereiche: Denkstand, Offene Entscheidungen, Naechste Schritte, Entwuerfe, Fuer den Unterricht bereit.
+  - [x] Hauptbereich: Gemeinsam nachdenken.
+  - [x] Rechte Spalte: Denkstand-Karten.
+  - [x] Bereiche: Denkstand, Offene Entscheidungen, Nächste Schritte, Entwürfe, Für den Unterricht bereit.
 - [x] Planungsraum anlegen.
-  - [ ] Titel.
-  - [ ] Fach/Lernbereich optional.
-  - [ ] Zielgruppe optional.
-  - [ ] kurze Idee.
+  - [x] Titel.
+  - [x] Fach/Lernbereich optional.
+  - [x] Zielgruppe optional.
+  - [x] kurze Idee.
 - [x] Chat-UI implementieren.
-  - [ ] Lehrkraft-Nachricht.
-  - [ ] Critical-Friend-Antwort.
-  - [ ] Lade-/Arbeitsstatus in Lehrkraefte-Sprache.
+  - [x] Lehrkraft-Nachricht.
+  - [x] Antwort des Gegenübers.
+  - [x] Lade-/Arbeitsstatus in Lehrkräftesprache.
 - [x] Denkstand-Karten kompakt und aufklappbar umsetzen.
 - [x] Naechste Schritte als paedagogische Vorschlaege anzeigen.
-- [ ] Materialbereich fuer Entwuerfe und freigegebene Materialien vorbereiten.
+- [x] Materialbereich für Entwürfe und freigegebene Materialien vorbereiten.
 - [x] Exportbereich fuer Markdown vorbereiten.
-- [ ] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
+- [x] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
 
 ## 7. Datenschutz, Sicherheit und Reputation
 
@@ -170,12 +170,12 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
   - familiaere Details.
   - personenbezogene Konflikte.
 - [ ] Umformulierungen fuer sensible Lerngruppenangaben anbieten.
-- [ ] Exportfilter implementieren.
-  - [ ] Kein roher Chat im Standardexport.
-  - [ ] Keine Service Requests im teacher-facing Export.
-  - [ ] Keine Secrets oder technischen Logs.
+- [x] Exportfilter implementieren.
+  - [x] Kein roher Chat im Standardexport.
+  - [x] Keine Service Requests im teacher-facing Export.
+  - [x] Keine Secrets oder technischen Logs.
 - [ ] Secret-Policy technisch absichern.
-  - [ ] API-Keys nicht in Chatnachrichten speichern.
+  - [x] API-Keys nicht in Chatnachrichten speichern.
   - [ ] Integration-Status nur als Status anzeigen.
 - [ ] Reputationstest fuer UI-Texte durchfuehren.
   - [ ] Keine unrealistischen Wirksamkeitsversprechen.
@@ -186,7 +186,7 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 - [x] MarkdownExporter implementieren.
 - [x] Learning-Design-Export als Markdown erzeugen.
-- [ ] Materialentwurf als Markdown erzeugen.
+- [x] Materialentwurf als Markdown erzeugen.
 - [ ] Exportfreigabe durch Lehrkraft modellieren.
 - [ ] OKF-Markdown als naechster Schritt vorbereiten.
 - [ ] PDF/DOCX-Export erst nach stabilem Markdown-Export starten.
@@ -205,21 +205,21 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 ## 10. Tests und Qualitaet
 
-- [ ] Unit-Tests fuer Domain-Schemas.
-- [ ] Unit-Tests fuer Statusuebersetzungen.
+- [x] Unit-Tests fuer Domain-Schemas.
+- [x] Unit-Tests fuer Statusuebersetzungen.
 - [x] Unit-Tests fuer PermissionPolicy.
-- [ ] Unit-Tests fuer Exportfilter.
-- [ ] Integrationstest: Planungsraum erstellen erzeugt isolierten Workspace.
-- [ ] Integrationstest: Chat-Nachricht laeuft ueber Backend und MockHarnessAdapter.
-- [ ] Integrationstest: Denkstand wird aus Workspace-Dateien gelesen.
-- [ ] UI-Test: Lehrer:innen-Modus zeigt keine Git-, Shell-, YAML- oder Harness-Prompts.
+- [x] Unit-Tests fuer Exportfilter.
+- [x] Integrationstest: Planungsraum erstellen erzeugt isolierten Workspace.
+- [x] Integrationstest: Chat-Nachricht läuft über Backend und MockHarnessAdapter.
+- [x] Integrationstest: Denkstand wird aus Workspace-Dateien gelesen.
+- [x] UI-Test: Lehrer:innen-Modus zeigt keine Git-, Shell-, YAML- oder Harness-Prompts.
 - [x] UI-Test: Mobile und Desktop Layout ohne Textueberlagerung.
 
 ## 11. Dokumentation
 
 - [x] `docs/architecture.md` aus den bestehenden Specs extrahieren.
 - [x] `docs/data-protection.md` konkretisieren.
-- [ ] `docs/ui-language.md` mit erlaubten und verbotenen Begriffen pflegen.
+- [x] `docs/ui-language.md` mit erlaubten und verbotenen Begriffen pflegen.
 - [ ] `docs/harness-opencode.md` fuer Adapter-Implementierung schreiben.
 - [ ] `docs/okf-export.md` fuer Exportregeln schreiben.
 - [ ] `docs/nextcloud-integration.md` als spaeteres Integrationskonzept vorbereiten.

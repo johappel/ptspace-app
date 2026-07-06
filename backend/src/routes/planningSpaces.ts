@@ -2,8 +2,12 @@ import { FastifyInstance } from "fastify";
 import { CreatePlanningSpaceSchema } from "@ptspace/shared";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
+import { GitManager } from "../services/git/GitManager.js";
 
-export async function planningSpaceRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager }) {
+export async function planningSpaceRoutes(
+  app: FastifyInstance,
+  deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager }
+) {
   app.get("/planning-spaces", async () => deps.store.list());
 
   app.post("/planning-spaces", async (request, reply) => {
@@ -12,7 +16,8 @@ export async function planningSpaceRoutes(app: FastifyInstance, deps: { store: P
       return reply.code(400).send({ message: "Bitte prüfe die Angaben zum Planungsraum.", issues: parsed.error.issues });
     }
     const space = await deps.store.create(parsed.data);
-    await deps.workspace.ensureWorkspace(space);
+    const workspaceRoot = await deps.workspace.ensureWorkspace(space);
+    await deps.git.saveVersion(workspaceRoot, "Planungsraum angelegt");
     return reply.code(201).send(space);
   });
 

@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
 const ISODateString = z.string().datetime({ offset: true });
 
@@ -172,4 +172,16 @@ export function createEmptyLearningDesign(input?: { subject?: string; targetGrou
     materials: [],
     reflection: { learnerReflection: [], teacherReflection: [], openQuestions: [] }
   };
+}
+export type InternalWorkStatus = "queued" | "in_progress" | "completed" | "failed" | "requires_admin_approval";
+
+export function toTeacherFacingStatus(status: InternalWorkStatus): TeacherFacingStatus {
+  const statuses: Record<InternalWorkStatus, TeacherFacingStatus> = {
+    queued: "wartet_kurz",
+    in_progress: "wird_vorbereitet",
+    completed: "liegt_zur_pruefung_bereit",
+    failed: "konnte_noch_nicht_erstellt_werden",
+    requires_admin_approval: "admin_freigabe_noetig"
+  };
+  return statuses[status];
 }

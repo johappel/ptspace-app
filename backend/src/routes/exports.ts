@@ -1,8 +1,12 @@
 import { FastifyInstance } from "fastify";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
+import { ExportFilter } from "../services/export/ExportFilter.js";
 
-export async function exportRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager }) {
+export async function exportRoutes(
+  app: FastifyInstance,
+  deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; exportFilter: ExportFilter }
+) {
   app.get("/planning-spaces/:id/export/markdown", async (request, reply) => {
     const { id } = request.params as { id: string };
     const space = await deps.store.get(id);
@@ -16,12 +20,16 @@ export async function exportRoutes(app: FastifyInstance, deps: { store: Planning
     const markdown = [
       `# ${space.title}`,
       "",
-      "Hinweis: Dieser Export enthaelt den kuratierten Denkstand, nicht den rohen Chatverlauf.",
+      "Hinweis: Dieser Export enthält den kuratierten Denkstand, nicht den rohen Chatverlauf.",
       "",
       learningDesign,
       decisions,
       openQuestions
     ].join("\n");
-    return reply.header("content-type", "text/markdown; charset=utf-8").send(markdown);
+    const filtered = deps.exportFilter.filterMarkdown(markdown);
+    return reply
+      .header("content-type", "text/markdown; charset=utf-8")
+      .header("x-ptspace-export-filtered-lines", String(filtered.removedLines))
+      .send(filtered.markdown);
   });
 }
