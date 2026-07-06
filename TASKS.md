@@ -1,4 +1,4 @@
-﻿# TASKS.md
+# TASKS.md
 
 # ptspace-app Umsetzungsliste
 
@@ -13,10 +13,10 @@ Diese Liste ist das operative Arbeitsdokument fuer die erste Umsetzung von `ptsp
 - [x] Harness-first-Architektur dokumentiert.
 - [x] Adapter- und Host-Bridge-Regeln dokumentiert.
 - [x] Audio Worker Capability fachlich beschrieben.
-- [ ] Lauffaehige Frontend-App vorhanden.
-- [ ] Lauffaehiges Backend vorhanden.
-- [ ] Domain-Modelle als Code vorhanden.
-- [ ] Tests vorhanden.
+- [x] Lauffaehige Frontend-App vorhanden.
+- [x] Lauffaehiges Backend vorhanden.
+- [x] Domain-Modelle als Code vorhanden.
+- [x] Tests vorhanden.
 - [ ] Docker-Compose-Setup vorhanden.
 - [ ] Entwicklungs-README mit konkretem Startbefehl vorhanden.
 
@@ -24,13 +24,13 @@ Diese Liste ist das operative Arbeitsdokument fuer die erste Umsetzung von `ptsp
 
 Diese Punkte sollten vor oder direkt mit dem Scaffolding entschieden werden, weil sie die Projektstruktur festlegen.
 
-- [ ] Frontend-Stack verbindlich festlegen.
+- [x] Frontend-Stack verbindlich festlegen.
   - Vorschlag: SvelteKit, TypeScript, Tailwind CSS, Lucide Icons.
   - Grund: entspricht `TECH_STACK.md` und passt zur ruhigen, reaktiven Planungsraum-UI.
-- [ ] Backend-Stack verbindlich festlegen.
+- [x] Backend-Stack verbindlich festlegen.
   - Vorschlag: Node.js, TypeScript, Fastify, Zod, PostgreSQL spaeter, lokale In-Memory- oder SQLite-Entwicklung zuerst nur wenn klar als Dev-Modus markiert.
   - Grund: gemeinsames TypeScript-Typmodell mit Frontend und klare Backend-Schutzschicht.
-- [ ] Paketmanager festlegen.
+- [x] Paketmanager festlegen.
   - Vorschlag: `pnpm` Workspace mit `frontend/`, `backend/`, optional `packages/shared/`.
 - [ ] Kernel-Einbindung fuer MVP festlegen.
   - Minimaler Start: Template-Kopie pro Planungsraum aus `kernel/templates/`.
@@ -38,7 +38,7 @@ Diese Punkte sollten vor oder direkt mit dem Scaffolding entschieden werden, wei
 - [ ] Persistenzstrategie fuer v0.1 festlegen.
   - Minimaler Start: Backend speichert Metadaten in Datei oder SQLite, Inhalte im isolierten Workspace.
   - Produktziel: PostgreSQL.
-- [ ] Harness-Modus fuer lokale Entwicklung festlegen.
+- [x] Harness-Modus fuer lokale Entwicklung festlegen.
   - Minimaler Start: `MockHarnessAdapter` plus unveraenderte Adapter-Grenze.
   - Naechster Schritt: `OpenCodeDockerAdapter` oder Host-Bridge-Prototyp.
 
@@ -46,26 +46,26 @@ Diese Punkte sollten vor oder direkt mit dem Scaffolding entschieden werden, wei
 
 Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die Schutzgrenzen technisch erzwungen und getestet sind.
 
-1. [ ] Domain-Schemas definieren.
+1. [x] Domain-Schemas definieren.
    - `PlanningSpace`
    - `LearningDesign`
    - `Decision`
    - `NextStep`
    - `ServiceRequest`
-2. [ ] WorkspaceManager implementieren.
+2. [x] WorkspaceManager implementieren.
    - isolierter Workspace pro Planungsraum
    - kein Zugriff auf Repo-Root, Home-Verzeichnis oder globale Configs
    - sichere Pfadnormalisierung und Pfadpruefung
-3. [ ] PermissionPolicy implementieren.
+3. [x] PermissionPolicy implementieren.
    - `allow`
    - `deny`
    - `requires_admin_approval`
    - `ask_critical_friend`
-4. [ ] MockHarnessAdapter implementieren.
+4. [x] MockHarnessAdapter implementieren.
    - nutzt dieselbe Backend-Schnittstelle wie spaeter `opencode`
    - aktualisiert testweise Denkstand-Dateien
    - reicht keine technischen Prompts an die UI durch
-5. [ ] Schutzgrenzen testen.
+5. [x] Schutzgrenzen testen.
    - Schreiben ausserhalb des Workspaces wird abgelehnt.
    - Lesen sensibler oder externer Pfade wird abgelehnt.
    - technische Permission-Prompts werden nicht teacher-facing.
@@ -78,91 +78,91 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 ## 2. Repo-Grundstruktur
 
-- [ ] `frontend/` scaffolden.
-- [ ] `backend/` scaffolden.
-- [ ] `packages/shared/` fuer gemeinsame Typen und Schemas anlegen.
-- [ ] `docs/` anlegen und Architekturentscheidungen aus den Specs verdichten.
-- [ ] `examples/planning-spaces/` fuer Beispiel-Planungsraeume anlegen.
-- [ ] `.env.example` mit nicht-sensiblen Platzhaltern anlegen.
+- [x] `frontend/` scaffolden.
+- [x] `backend/` scaffolden.
+- [x] `packages/shared/` fuer gemeinsame Typen und Schemas anlegen.
+- [x] `docs/` anlegen und Architekturentscheidungen aus den Specs verdichten.
+- [x] `examples/planning-spaces/` fuer Beispiel-Planungsraeume anlegen.
+- [x] `.env.example` mit nicht-sensiblen Platzhaltern anlegen.
 - [ ] `docker-compose.yml` fuer lokale Entwicklung vorbereiten.
 - [ ] `README.md` um konkrete Entwicklungsbefehle ergaenzen.
 
 ## 3. Gemeinsame Domain-Modelle
 
-- [ ] `PlanningSpace` als TypeScript-Typ und Zod-Schema modellieren.
-- [ ] `LearningDesign` als TypeScript-Typ und Zod-Schema modellieren.
-- [ ] `Decision` als TypeScript-Typ und Zod-Schema modellieren.
-- [ ] `OpenQuestion` als TypeScript-Typ und Zod-Schema modellieren.
-- [ ] `NextStep` als teacher-facing Oberflaeche eines internen Service Requests modellieren.
-- [ ] `ServiceRequest` intern nach Kernel-Schema modellieren.
-- [ ] `Material` und `ExportPackage` modellieren.
+- [x] `PlanningSpace` als TypeScript-Typ und Zod-Schema modellieren.
+- [x] `LearningDesign` als TypeScript-Typ und Zod-Schema modellieren.
+- [x] `Decision` als TypeScript-Typ und Zod-Schema modellieren.
+- [x] `OpenQuestion` als TypeScript-Typ und Zod-Schema modellieren.
+- [x] `NextStep` als teacher-facing Oberflaeche eines internen Service Requests modellieren.
+- [x] `ServiceRequest` intern nach Kernel-Schema modellieren.
+- [x] `Material` und `ExportPackage` modellieren.
 - [ ] Statuswerte zwischen intern und UI-sichtbar sauber trennen.
 - [ ] Tests fuer Schemas und Statusuebersetzungen schreiben.
 
 ## 4. Backend-MVP
 
-- [ ] Fastify-App mit Health-Route anlegen.
-- [ ] API fuer Planungsraum-Liste und Planungsraum-Erstellung implementieren.
-- [ ] WorkspaceManager implementieren.
-  - [ ] Planungsraum-Workspace isoliert anlegen.
-  - [ ] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
+- [x] Fastify-App mit Health-Route anlegen.
+- [x] API fuer Planungsraum-Liste und Planungsraum-Erstellung implementieren.
+- [x] WorkspaceManager implementieren.
+  - [x] Planungsraum-Workspace isoliert anlegen.
+  - [x] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
   - [ ] Keine personenbezogenen Beispielinhalte erzeugen.
 - [ ] GitManager implementieren.
   - [ ] Repo pro Workspace initialisieren.
   - [ ] Backend-generierte Versionen speichern.
   - [ ] Teacher-facing Versionslabel erzeugen.
-- [ ] Conversation-Route implementieren.
+- [x] Conversation-Route implementieren.
   - [ ] Nachricht der Lehrkraft an Backend senden.
   - [ ] Backend gibt Antwort des Harness-Adapters zurueck.
   - [ ] Keine direkte Browser-Harness-Kommunikation.
-- [ ] ThinkingState-Route implementieren.
+- [x] ThinkingState-Route implementieren.
   - [ ] Denkstand aus Workspace-Dateien lesen.
   - [ ] Offene Entscheidungen und naechste Schritte teacher-facing zurueckgeben.
-- [ ] Export-Route fuer Markdown implementieren.
+- [x] Export-Route fuer Markdown implementieren.
 - [ ] Fehler- und Statusantworten in Lehrkraefte-Sprache uebersetzen.
 
 ## 5. Harness-Adapter
 
-- [ ] Gemeinsames `HarnessAdapter` Interface implementieren.
-- [ ] `MockHarnessAdapter` implementieren.
+- [x] Gemeinsames `HarnessAdapter` Interface implementieren.
+- [x] `MockHarnessAdapter` implementieren.
   - [ ] Ruhige Critical-Friend-Antworten erzeugen.
   - [ ] Beispielhaft Denkstand-Dateien aktualisieren.
   - [ ] Keine technischen Permissions an UI durchreichen.
-- [ ] Policy-Entscheidungstypen implementieren.
+- [x] Policy-Entscheidungstypen implementieren.
   - [ ] `allow`
   - [ ] `deny`
   - [ ] `requires_admin_approval`
   - [ ] `ask_critical_friend`
-- [ ] PermissionPolicy fuer Workspace-Grenzen implementieren.
-- [ ] Tests fuer erlaubte und verbotene Dateioperationen schreiben.
+- [x] PermissionPolicy fuer Workspace-Grenzen implementieren.
+- [x] Tests fuer erlaubte und verbotene Dateioperationen schreiben.
 - [ ] `OpenCodeDockerAdapter` erst nach Abschluss von Abschnitt 1.5 planen oder implementieren.
 - [ ] Host-Bridge nur nach separater Sicherheitsentscheidung prototypisieren.
 
 ## 6. Frontend-MVP
 
-- [ ] SvelteKit-App scaffolden.
-- [ ] Grundlayout umsetzen.
+- [x] SvelteKit-App scaffolden.
+- [x] Grundlayout umsetzen.
   - [ ] Hauptbereich: Gespraech mit Critical Friend.
   - [ ] Rechte Spalte: Denkstand-Karten.
   - [ ] Bereiche: Denkstand, Offene Entscheidungen, Naechste Schritte, Entwuerfe, Fuer den Unterricht bereit.
-- [ ] Planungsraum anlegen.
+- [x] Planungsraum anlegen.
   - [ ] Titel.
   - [ ] Fach/Lernbereich optional.
   - [ ] Zielgruppe optional.
   - [ ] kurze Idee.
-- [ ] Chat-UI implementieren.
+- [x] Chat-UI implementieren.
   - [ ] Lehrkraft-Nachricht.
   - [ ] Critical-Friend-Antwort.
   - [ ] Lade-/Arbeitsstatus in Lehrkraefte-Sprache.
-- [ ] Denkstand-Karten kompakt und aufklappbar umsetzen.
-- [ ] Naechste Schritte als paedagogische Vorschlaege anzeigen.
+- [x] Denkstand-Karten kompakt und aufklappbar umsetzen.
+- [x] Naechste Schritte als paedagogische Vorschlaege anzeigen.
 - [ ] Materialbereich fuer Entwuerfe und freigegebene Materialien vorbereiten.
-- [ ] Exportbereich fuer Markdown vorbereiten.
+- [x] Exportbereich fuer Markdown vorbereiten.
 - [ ] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
 
 ## 7. Datenschutz, Sicherheit und Reputation
 
-- [ ] Eingabehinweis zu Datenminimierung im Planungsraum anzeigen.
+- [x] Eingabehinweis zu Datenminimierung im Planungsraum anzeigen.
 - [ ] Sensible Inhalte mindestens regelbasiert markieren.
   - Namen einzelner Schueler:innen.
   - Noten.
@@ -184,8 +184,8 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 ## 8. Material- und Export-MVP
 
-- [ ] MarkdownExporter implementieren.
-- [ ] Learning-Design-Export als Markdown erzeugen.
+- [x] MarkdownExporter implementieren.
+- [x] Learning-Design-Export als Markdown erzeugen.
 - [ ] Materialentwurf als Markdown erzeugen.
 - [ ] Exportfreigabe durch Lehrkraft modellieren.
 - [ ] OKF-Markdown als naechster Schritt vorbereiten.
@@ -207,18 +207,18 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 
 - [ ] Unit-Tests fuer Domain-Schemas.
 - [ ] Unit-Tests fuer Statusuebersetzungen.
-- [ ] Unit-Tests fuer PermissionPolicy.
+- [x] Unit-Tests fuer PermissionPolicy.
 - [ ] Unit-Tests fuer Exportfilter.
 - [ ] Integrationstest: Planungsraum erstellen erzeugt isolierten Workspace.
 - [ ] Integrationstest: Chat-Nachricht laeuft ueber Backend und MockHarnessAdapter.
 - [ ] Integrationstest: Denkstand wird aus Workspace-Dateien gelesen.
 - [ ] UI-Test: Lehrer:innen-Modus zeigt keine Git-, Shell-, YAML- oder Harness-Prompts.
-- [ ] UI-Test: Mobile und Desktop Layout ohne Textueberlagerung.
+- [x] UI-Test: Mobile und Desktop Layout ohne Textueberlagerung.
 
 ## 11. Dokumentation
 
-- [ ] `docs/architecture.md` aus den bestehenden Specs extrahieren.
-- [ ] `docs/data-protection.md` konkretisieren.
+- [x] `docs/architecture.md` aus den bestehenden Specs extrahieren.
+- [x] `docs/data-protection.md` konkretisieren.
 - [ ] `docs/ui-language.md` mit erlaubten und verbotenen Begriffen pflegen.
 - [ ] `docs/harness-opencode.md` fuer Adapter-Implementierung schreiben.
 - [ ] `docs/okf-export.md` fuer Exportregeln schreiben.
