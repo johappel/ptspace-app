@@ -1,6 +1,6 @@
-# Nächste Harness-Stufe
+﻿# Nächste Harness-Stufe
 
-Status: vorbereitet, getestet, nicht aktiviert.
+Status: produktionsnahe Testintegration vorbereitet, echte Ausführung standardmäßig deaktiviert.
 
 ## Voraussetzung
 
@@ -16,13 +16,10 @@ Echte Harness-Ausführung startet erst, wenn diese Punkte stabil sind:
 
 - Das `HarnessAdapter`-Interface unterstützt strukturierte Verfügbarkeit, Ereignisse und Policy-Simulation.
 - Der `MockHarnessAdapter` nutzt die erweiterte Schnittstelle weiter als sichere Entwicklungsruntime.
-- Der `OpenCodeDockerAdapter` ist als deaktivierter Prototyp vorhanden.
+- Der `OpenCodeDockerAdapter` kann mit Feature-Flag echte Testläufe anstoßen.
 - Die Policy-Simulation prüft `allow`, `deny`, `requires_admin_approval` und `ask_critical_friend`.
-- Echte `opencode`-Ausführung bleibt blockiert, bis Runtime, Containergrenze und Admin-Freigabe separat umgesetzt sind.
-
-## Ziel der nächsten Stufe
-
-Die nächste Stufe ist nicht der produktive Harness-Betrieb, sondern eine kleine Ende-zu-Ende-Probe in einem Test-Workspace. Die Lehrer:innenoberfläche bleibt unverändert: Planungsräume, Gemeinsam nachdenken, Denkstand, Nächste Schritte, Materialien und Freigaben.
+- Der lokale Runner ist als Funktionsprüfung möglich.
+- Der Docker-Runner ist für den produktionsnahen Test vorbereitet und verlangt ein freigegebenes Image.
 
 ## Nicht-Ziele
 
@@ -33,14 +30,16 @@ Die nächste Stufe ist nicht der produktive Harness-Betrieb, sondern eine kleine
 - keine Providerwahl als Lehrer:innenlast,
 - keine Nextcloud-, Provider- oder Audio-Runtime-Anbindung.
 
-## Nächster technischer Schritt
+## Produktiver Test
 
-1. Containerkonzept für genau einen Planungsraum-Workspace beschreiben.
-2. Test-Workspace ohne sensible Inhalte vorbereiten.
-3. Adapterausführung hinter explizitem Feature-Flag ergänzen.
-4. Backend-Policy vor jedem Datei-, Netzwerk-, Command- und Secret-Ereignis erzwingen.
-5. Änderungen aus der Runtime nach der Ausführung validieren, filtern und versionieren.
-6. Erst danach eine nicht-produktive Ende-zu-Ende-Probe durchführen.
+Ein produktionsnaher Test ist erst sinnvoll, wenn ein freigegebenes opencode-Container-Image vorhanden ist. Der Test läuft dann mit:
+
+- genau einem nicht-sensiblen Test-Planungsraum,
+- `PTSPACE_HARNESS=opencode-docker`,
+- `PTSPACE_REAL_HARNESS_ENABLED=true`,
+- `PTSPACE_OPENCODE_RUNNER=docker`,
+- `PTSPACE_OPENCODE_DOCKER_IMAGE=<freigegebenes-image>`,
+- Netzwerk standardmäßig aus.
 
 ## Abbruchkriterien
 

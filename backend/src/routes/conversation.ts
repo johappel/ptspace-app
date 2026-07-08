@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+﻿import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
@@ -17,17 +17,30 @@ export async function conversationRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ message: "Bitte schreibe kurz, woran du weiterdenken möchtest." });
     }
+
     const space = await deps.store.get(id);
     if (!space) {
       return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     }
+
     const workspaceRoot = await deps.workspace.ensureWorkspace(space);
-    const session = await deps.harness.createSession({ planningSpaceId: space.id, workspaceRoot });
-    const result = await deps.harness.sendMessage({ session, space, message: parsed.data.message });
-    for (const update of result.workspaceUpdates) {
-      await deps.workspace.writeProjectFile(space.id, update.relativePath, update.content);
+    try {
+      const availability = await deps.harness.checkAvailability();
+      if (availability.status !== "ready") {
+        return reply.code(409).send({ message: availability.teacherFacingMessage, availability });
+      }
+      const session = await deps.harness.createSession({ planningSpaceId: space.id, workspaceRoot });
+      const result = await deps.harness.sendMessage({ session, space, message: parsed.data.message });
+      for (const update of result.workspaceUpdates) {
+        await deps.workspace.writeProjectFile(space.id, update.relativePath, update.content);
+      }
+      const version = await deps.git.saveVersion(workspaceRoot, "Denkstand aktualisiert");
+      return { status: "wird_vorbereitet", reply: result.reply, version, events: result.events };
+    } catch (error) {
+      request.log.error({ err: error }, "harness conversation failed");
+      return reply.code(409).send({
+        message: "Die geschützte Testausführung konnte noch nicht abgeschlossen werden. Bitte prüfe die freigegebene Harness-Konfiguration."
+      });
     }
-    const version = await deps.git.saveVersion(workspaceRoot, "Denkstand aktualisiert");
-    return { status: "wird_vorbereitet", reply: result.reply, version };
   });
 }

@@ -40,7 +40,7 @@ Diese Punkte sollten vor oder direkt mit dem Scaffolding entschieden werden, wei
   - Produktziel: PostgreSQL.
 - [x] Harness-Modus für lokale Entwicklung festlegen.
   - Minimaler Start: `MockHarnessAdapter` plus unveränderte Adapter-Grenze.
-  - Nächster Schritt: nicht-produktive Ende-zu-Ende-Probe mit deaktiviertem `OpenCodeDockerAdapter`; Host-Bridge bleibt zurückgestellt.
+  - Nächster Schritt: produktionsnahen Test mit freigegebenem opencode-Container-Image durchführen; Host-Bridge bleibt zurückgestellt.
 
 ## 1.5 Verbindliche Reihenfolge für echte Harness-Ausführung
 
@@ -70,11 +70,21 @@ Echte `opencode`- oder andere Harness-Ausführung wird erst aktiviert, wenn die 
    - Lesen sensibler oder externer Pfade wird abgelehnt.
    - technische Permission-Prompts werden nicht teacher-facing.
    - API-Keys oder Secrets werden nicht in Chat, Workspace, Git oder Export gespeichert.
-6. [ ] OpenCodeAdapter erst danach implementieren oder aktivieren.
+6. [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter vorbereiten.
    - nur hinter `HarnessAdapter`
-   - nur mit isoliertem Workspace
-   - nur mit vorgeschalteter PermissionPolicy
+   - mit strukturierter Verfügbarkeit und Ereignissen
+   - mit Policy-Simulation für `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend`
+   - mit lokalem Fake-Runner-Test für echte Adapterausführung
+   - echte `opencode`-Ausführung standardmäßig blockiert
    - keine direkte Browser-Harness-Kommunikation
+7. [x] Nicht-produktive Ende-zu-Ende-Probe im Test-Workspace vorbereiten.
+   - Containergrenze für genau einen Planungsraum beschreiben
+   - Feature-Flag für echte Ausführung ergänzen
+   - Runtime-Änderungen nach Ausführung validieren und versionieren
+8. [ ] Produktionsnahen opencode-Test durchführen.
+   - freigegebenes opencode-Container-Image bereitstellen
+   - nicht-sensiblen Test-Planungsraum nutzen
+   - Netzwerk- und Providerfreigabe separat entscheiden
 
 ## 2. Repo-Grundstruktur
 
@@ -137,9 +147,11 @@ Echte `opencode`- oder andere Harness-Ausführung wird erst aktiviert, wenn die 
 - [x] Tests für erlaubte und verbotene Dateioperationen schreiben.
 - [x] Nächste Harness-Stufe planen.
 - [x] `HarnessAdapter` um Verfügbarkeit, Ereignisse und Policy-Simulation erweitern.
-- [x] `OpenCodeDockerAdapter` als deaktivierten Prototyp implementieren.
+- [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter implementieren.
 - [x] Policy-Simulation für `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend` testen.
-- [x] Echte `opencode`-Ausführung weiterhin blockieren.
+- [x] Lokalen Fake-Runner-Test für echte Adapterausführung ergänzen.
+- [x] Echte `opencode`-Ausführung standardmäßig blockieren.
+- [ ] Produktionsnahen Docker-Test mit freigegebenem Image ausführen.
 - [ ] Host-Bridge nur nach separater Sicherheitsentscheidung prototypisieren.
 
 ## 6. Frontend-MVP
@@ -264,11 +276,12 @@ Noch nicht starten sollten wir mit:
 
 Startklar für Umsetzung: ja, für einen lokalen Mock-Harness-MVP.
 
-Noch nicht startklar für produktionsnahen Harness-Betrieb: Sicherheits-, Secret-, Auth- und Runtime-Policies sind fachlich beschrieben, aber noch nicht technisch umgesetzt oder getestet.
+Noch nicht startklar für produktiven Harness-Betrieb: Die Testintegration ist vorbereitet, aber der produktionsnahe Docker-Test mit freigegebenem opencode-Image steht noch aus.
 
 Die nächste konkrete Aufgabe sollte deshalb sein:
 
-> Als nächstes eine nicht-produktive Ende-zu-Ende-Probe mit Test-Workspace vorbereiten, ohne Host-Bridge, Nextcloud, Provider-Secrets oder Audio-Runtime zu aktivieren.
+> Als nächstes einen produktionsnahen opencode-Test mit freigegebenem Container-Image und nicht-sensiblem Test-Planungsraum durchführen, ohne Host-Bridge, Nextcloud, Provider-Secrets oder Audio-Runtime zu aktivieren.
+
 ## 15. Verifikation
 
 Stand: 2026-07-08.

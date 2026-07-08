@@ -1,4 +1,4 @@
-# Entwicklung
+﻿# Entwicklung
 
 ## Voraussetzungen
 
@@ -27,4 +27,26 @@ pnpm build
 
 ## Wichtige Grenze
 
-Der aktive Entwicklungsmodus nutzt weiter den `MockHarnessAdapter`. Der `OpenCodeDockerAdapter` ist nur als deaktivierter Prototyp vorhanden. Echte `opencode`-Ausführung wird erst nach den Gates in `TASKS.md` Abschnitt 1.5 und nach einer nicht-produktiven Test-Workspace-Probe aktiviert.
+Der aktive Entwicklungsmodus nutzt weiter den `MockHarnessAdapter`. Der `OpenCodeDockerAdapter` ist nur aktiv, wenn er ausdrücklich über Umgebungsvariablen eingeschaltet wird.
+
+## Produktionsnaher opencode-Test
+
+Der erste produktionsnahe Test wird nicht über den normalen Compose-Stack gestartet, weil der Backend-Container dafür keinen Docker-Socket erhalten soll. Für den Test läuft das Backend lokal auf dem Host und startet einen separaten opencode-Container mit genau einem Planungsraum-`project/`-Mount.
+
+```powershell
+$env:PTSPACE_HARNESS="opencode-docker"
+$env:PTSPACE_REAL_HARNESS_ENABLED="true"
+$env:PTSPACE_OPENCODE_RUNNER="docker"
+$env:PTSPACE_OPENCODE_DOCKER_IMAGE="<freigegebenes-opencode-image>"
+$env:PTSPACE_OPENCODE_ALLOW_NETWORK="false"
+pnpm --filter @ptspace/backend dev
+```
+
+Für einen reinen Funktionscheck der Backend-Verdrahtung kann lokal installiertes `opencode` verwendet werden. Dieser Modus ist nicht als produktionsnahe Isolation zu werten:
+
+```powershell
+$env:PTSPACE_HARNESS="opencode-docker"
+$env:PTSPACE_REAL_HARNESS_ENABLED="true"
+$env:PTSPACE_OPENCODE_RUNNER="local"
+pnpm --filter @ptspace/backend dev
+```

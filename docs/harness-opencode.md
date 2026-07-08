@@ -1,10 +1,10 @@
-# Harness-Adapter: opencode
+﻿# Harness-Adapter: opencode
 
-Status: Entwurf für die nächste Harness-Stufe. Echte Ausführung ist noch nicht aktiviert.
+Status: produktionsnahe Testintegration vorbereitet. Echte Ausführung bleibt standardmäßig deaktiviert.
 
 ## Zweck
 
-`opencode` ist der Referenz-Harness für den ersten integrierten Docker-Prototyp. Die App bleibt dennoch harness-neutral: Der Browser spricht nur mit dem Backend, und das Backend spricht nur über `HarnessAdapter` mit der Runtime.
+`opencode` ist der Referenz-Harness für den ersten integrierten Test. Die App bleibt harness-neutral: Der Browser spricht nur mit dem Backend, und das Backend spricht nur über `HarnessAdapter` mit der Runtime.
 
 ```text
 Browser
@@ -18,21 +18,36 @@ Browser
 
 - `HarnessAdapter` beschreibt Verfügbarkeit, Sitzungen, Nachrichten, strukturierte Ereignisse und Policy-Simulation.
 - `MockHarnessAdapter` nutzt diese Schnittstelle für den sicheren Entwicklungsmodus.
-- `OpenCodeDockerAdapter` existiert als deaktivierter Prototyp.
-- `OpenCodeDockerAdapter` führt noch kein `opencode` aus.
-- Policy-Simulation ist getestet, bevor echte Runtime-Ereignisse verarbeitet werden.
+- `OpenCodeDockerAdapter` kann eine echte Testausführung anstoßen, wenn sie explizit konfiguriert ist.
+- Ohne Feature-Flag meldet der Adapter `requires_admin_configuration`.
+- Docker-Runner benötigt ein freigegebenes Container-Image.
+- Lokaler Runner ist nur für Funktionsprüfung vorgesehen, nicht als produktionsnahe Schutzgrenze.
 
-## Aktivierungsregel
+## Aktivierung für einen kontrollierten Funktionstest
 
-Echte Ausführung darf erst aktiviert werden, wenn alle Bedingungen erfüllt sind:
+```env
+PTSPACE_HARNESS=opencode-docker
+PTSPACE_REAL_HARNESS_ENABLED=true
+PTSPACE_OPENCODE_RUNNER=local
+PTSPACE_OPENCODE_COMMAND=opencode
+PTSPACE_OPENCODE_ALLOW_NETWORK=false
+PTSPACE_OPENCODE_TIMEOUT_MS=120000
+```
 
-- ein Container arbeitet nur auf einem einzelnen Planungsraum-Workspace,
-- jede Dateioperation wird durch `PermissionPolicy` geprüft,
-- Netzwerkzugriff ist standardmäßig nicht frei,
-- Commands führen nicht zu Installationen, Docker-Pulls oder Runtime-Änderungen,
-- Secrets werden weder in Chat, Workspace, Git noch Export geschrieben,
-- technische Fragen werden nicht an Lehrkräfte durchgereicht,
-- Änderungen werden nach der Runtime-Ausführung validiert und versioniert.
+Dieser Modus prüft die Backend-Integration mit lokal installiertem `opencode`. Er ist kein Nachweis für produktionsnahe Isolation, weil der lokale Prozess technisch im Host-Kontext läuft.
+
+## Aktivierung für einen produktionsnahen Test
+
+```env
+PTSPACE_HARNESS=opencode-docker
+PTSPACE_REAL_HARNESS_ENABLED=true
+PTSPACE_OPENCODE_RUNNER=docker
+PTSPACE_OPENCODE_DOCKER_IMAGE=<freigegebenes-opencode-image>
+PTSPACE_OPENCODE_ALLOW_NETWORK=false
+PTSPACE_OPENCODE_TIMEOUT_MS=120000
+```
+
+Der Docker-Runner startet `opencode run --pure --format json --dir /workspace` mit genau einem gemounteten Planungsraum-`project/`-Verzeichnis. Netzwerk bleibt standardmäßig aus. Wenn ein Modellzugriff nötig ist, muss er als Admin-Entscheidung bewusst freigegeben werden.
 
 ## Policy-Fluss
 
@@ -47,18 +62,30 @@ Harness-Ereignis
 
 `ask_critical_friend` ist ausschließlich für pädagogisch entscheidbare Fragen vorgesehen. Beispiele sind Zweck, Ton, Freigabe, Unterrichtseinsatz oder Materialstatus. Shell-, Datei-, Netzwerk-, Provider- oder Secret-Fragen gehören nicht in den Lehrkräfte-Dialog.
 
+## Sicherheitsgrenzen
+
+- kein `--auto`,
+- `--pure`, damit keine externen Plugins geladen werden,
+- Ausführung nur im `project/`-Ordner des Planungsraums,
+- keine Secrets im Chat,
+- kein Host-Bridge-Zugriff,
+- keine Nextcloud-, Audio- oder Provider-Automation,
+- Runtime-Änderungen werden nach der Ausführung als Workspace-Events sichtbar und per Git-Version gespeichert.
+
 ## Testabdeckung
 
 Die aktuelle Stufe prüft:
 
+- deaktivierten Adapter ohne Feature-Flag,
+- fehlendes Docker-Image als `requires_setup`,
 - erlaubte Dateioperation im Planungsraum,
 - abgelehnte Dateioperation außerhalb des Planungsraums,
 - Admin-Pflicht für technische Commands,
 - Admin-Pflicht für Netzwerkzugriffe,
 - Ablehnung von Secrets,
 - pädagogisch sinnvolle Rückfrage über `ask_critical_friend`,
-- deaktivierten Docker-Adapter ohne echte Ausführung.
+- Fake-Runner-Ausführung mit Änderung an kuratierten Dateien.
 
-## Nächste Umsetzung
+## Nächster Schritt
 
-Die nächste Code-Stufe ist eine nicht-produktive Ende-zu-Ende-Probe mit Test-Workspace. Sie bleibt hinter einem expliziten Feature-Flag und darf keine Host-Bridge, Nextcloud, Audio-Runtime oder Provider-Konfiguration einschließen.
+Für den produktionsnahen Test braucht es jetzt ein freigegebenes opencode-Container-Image und einen nicht-sensiblen Test-Planungsraum. Erst danach sollte Netzwerk- oder Providerzugriff separat bewertet werden.
