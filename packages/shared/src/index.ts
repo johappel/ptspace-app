@@ -185,3 +185,42 @@ export function toTeacherFacingStatus(status: InternalWorkStatus): TeacherFacing
   };
   return statuses[status];
 }
+export const SensitiveFindingSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["student_name", "grade", "diagnosis", "family_detail", "personal_conflict", "secret"]),
+  severity: z.enum(["notice", "review", "block_export"]),
+  excerpt: z.string().min(1),
+  message: z.string().min(1),
+  suggestion: z.string().min(1)
+});
+export type SensitiveFinding = z.infer<typeof SensitiveFindingSchema>;
+
+export const ExportApprovalSchema = z.object({
+  id: z.string().min(1),
+  planningSpaceId: z.string().min(1),
+  exportType: z.enum(["markdown", "okf_markdown"]),
+  approvedBy: z.string().min(1),
+  approvedAt: ISODateString,
+  note: z.string().optional().default(""),
+  sensitiveFindingsReviewed: z.boolean().default(false)
+});
+export type ExportApproval = z.infer<typeof ExportApprovalSchema>;
+
+export const CreateExportApprovalSchema = z.object({
+  exportType: z.enum(["markdown", "okf_markdown"]),
+  approvedBy: z.string().min(1).default("Lehrkraft"),
+  note: z.string().optional().default(""),
+  sensitiveFindingsReviewed: z.boolean().default(false)
+});
+export type CreateExportApprovalInput = z.infer<typeof CreateExportApprovalSchema>;
+
+export const OkfPackageSchema = z.object({
+  type: z.literal("learning_design"),
+  title: z.string().min(1),
+  status: z.literal("proposal"),
+  sourceStatus: z.literal("teacher_generated_review_needed"),
+  subject: z.string().default(""),
+  targetGroup: z.string().default(""),
+  markdown: z.string().min(1)
+});
+export type OkfPackage = z.infer<typeof OkfPackageSchema>;

@@ -59,27 +59,63 @@ describe("planning-space API", () => {
     }
   });
 
-  it("exports the curated planning state without raw chat or service requests", async () => {
+  it("requires export approval before markdown export", async () => {
     const app = await buildApp();
     try {
-      const createResponse = await app.inject({
-        method: "POST",
-        url: "/api/planning-spaces",
-        payload: { title: "Exportprüfung", initialIdea: "Kuratiert exportieren." }
-      });
+      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "Exportprüfung" } });
       const space = createResponse.json<{ id: string }>();
-      await fs.writeFile(
-        path.join(tempRoot, "workspaces", space.id, "project", "decisions.md"),
-        "# Entscheidungen\n\nBleibt sichtbar.\n\n# Service Requests\nservice-request: sr-secret\nAPI_KEY=123\n",
-        "utf8"
-      );
+      const blockedResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/markdown` });
+      expect(blockedResponse.statusCode).toBe(409);
+
+      const approvalResponse = await app.inject({
+        method: "POST",
+        url: `/api/planning-spaces/${space.id}/export-approvals`,
+        payload: { exportType: "markdown", approvedBy: "Lehrkraft", sensitiveFindingsReviewed: true }
+      });
+      expect(approvalResponse.statusCode).toBe(201);
 
       const exportResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/markdown` });
       expect(exportResponse.statusCode).toBe(200);
-      expect(exportResponse.body).toContain("Bleibt sichtbar.");
-      expect(exportResponse.body).not.toContain("service-request");
-      expect(exportResponse.body).not.toContain("API_KEY");
-      expect(Number(exportResponse.headers["x-ptspace-export-filtered-lines"])).toBeGreaterThan(0);
+      expect(exportResponse.body).toContain("Dieser Export enthält den kuratierten Denkstand");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("exports OKF markdown after OKF approval", async () => {
+    const app = await buildApp();
+    try {
+      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "OKF Prüfung", subject: "Religion" } });
+      const space = createResponse.json<{ id: string }>();
+      await app.inject({
+        method: "POST",
+        url: `/api/planning-spaces/${space.id}/export-approvals`,
+        payload: { exportType: "okf_markdown", approvedBy: "Lehrkraft", sensitiveFindingsReviewed: true }
+      });
+      const okfResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/okf` });
+      expect(okfResponse.statusCode).toBe(200);
+      expect(okfResponse.body).toContain("type: learning_design");
+      expect(okfResponse.body).toContain("contains_raw_chat: false");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks export when curated state contains particularly sensitive content", async () => {
+    const app = await buildApp();
+    try {
+      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "Sensible Prüfung" } });
+      const space = createResponse.json<{ id: string }>();
+      await fs.writeFile(path.join(tempRoot, "workspaces", space.id, "project", "decisions.md"), "# Entscheidungen\n\nADHS ist bekannt.\n", "utf8");
+      await app.inject({
+        method: "POST",
+        url: `/api/planning-spaces/${space.id}/export-approvals`,
+        payload: { exportType: "markdown", approvedBy: "Lehrkraft", sensitiveFindingsReviewed: true }
+      });
+
+      const exportResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/markdown` });
+      expect(exportResponse.statusCode).toBe(409);
+      expect(exportResponse.json().message).toContain("sensible Hinweise");
     } finally {
       await app.close();
     }

@@ -135,7 +135,7 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
   - [x] `ask_critical_friend`
 - [x] PermissionPolicy fuer Workspace-Grenzen implementieren.
 - [x] Tests fuer erlaubte und verbotene Dateioperationen schreiben.
-- [ ] `OpenCodeDockerAdapter` erst nach Abschluss von Abschnitt 1.5 planen oder implementieren.
+- [x] Nächste Harness-Stufe planen; `OpenCodeDockerAdapter` noch nicht aktivieren.
 - [ ] Host-Bridge nur nach separater Sicherheitsentscheidung prototypisieren.
 
 ## 6. Frontend-MVP
@@ -163,13 +163,13 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 ## 7. Datenschutz, Sicherheit und Reputation
 
 - [x] Eingabehinweis zu Datenminimierung im Planungsraum anzeigen.
-- [ ] Sensible Inhalte mindestens regelbasiert markieren.
+- [x] Sensible Inhalte mindestens regelbasiert markieren.
   - Namen einzelner Schueler:innen.
   - Noten.
   - Diagnosen.
   - familiaere Details.
   - personenbezogene Konflikte.
-- [ ] Umformulierungen fuer sensible Lerngruppenangaben anbieten.
+- [x] Umformulierungen für sensible Lerngruppenangaben anbieten.
 - [x] Exportfilter implementieren.
   - [x] Kein roher Chat im Standardexport.
   - [x] Keine Service Requests im teacher-facing Export.
@@ -187,8 +187,8 @@ Echte `opencode`- oder andere Harness-Ausfuehrung wird erst aktiviert, wenn die 
 - [x] MarkdownExporter implementieren.
 - [x] Learning-Design-Export als Markdown erzeugen.
 - [x] Materialentwurf als Markdown erzeugen.
-- [ ] Exportfreigabe durch Lehrkraft modellieren.
-- [ ] OKF-Markdown als naechster Schritt vorbereiten.
+- [x] Exportfreigabe durch Lehrkraft modellieren.
+- [x] OKF-Markdown als nächster Schritt vorbereiten.
 - [ ] PDF/DOCX-Export erst nach stabilem Markdown-Export starten.
 - [ ] Nextcloud-Export zurueckstellen, bis Exportfilter und Freigabelogik stabil sind.
 
