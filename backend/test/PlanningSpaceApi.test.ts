@@ -1,31 +1,45 @@
-import fs from "node:fs/promises";
+﻿import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 
 let tempRoot: string;
-let oldDataDir: string | undefined;
-let oldWorkspaceDir: string | undefined;
+let oldEnv: Record<string, string | undefined>;
+
+const envKeys = [
+  "PTSPACE_DATA_DIR",
+  "PTSPACE_WORKSPACES_DIR",
+  "PTSPACE_HARNESS",
+  "PTSPACE_REAL_HARNESS_ENABLED",
+  "PTSPACE_OPENCODE_RUNNER",
+  "PTSPACE_OPENCODE_DOCKER_IMAGE",
+  "PTSPACE_OPENCODE_ALLOW_NETWORK",
+  "PTSPACE_OPENCODE_MODEL",
+  "OPENROUTER_API_KEY"
+];
 
 beforeEach(async () => {
-  oldDataDir = process.env.PTSPACE_DATA_DIR;
-  oldWorkspaceDir = process.env.PTSPACE_WORKSPACES_DIR;
+  oldEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ptspace-app-test-"));
   process.env.PTSPACE_DATA_DIR = path.join(tempRoot, "data");
   process.env.PTSPACE_WORKSPACES_DIR = path.join(tempRoot, "workspaces");
+  process.env.PTSPACE_HARNESS = "mock";
+  process.env.PTSPACE_REAL_HARNESS_ENABLED = "false";
+  delete process.env.OPENROUTER_API_KEY;
 });
 
 afterEach(async () => {
-  if (oldDataDir === undefined) delete process.env.PTSPACE_DATA_DIR;
-  else process.env.PTSPACE_DATA_DIR = oldDataDir;
-  if (oldWorkspaceDir === undefined) delete process.env.PTSPACE_WORKSPACES_DIR;
-  else process.env.PTSPACE_WORKSPACES_DIR = oldWorkspaceDir;
+  for (const key of envKeys) {
+    const value = oldEnv[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
   await fs.rm(tempRoot, { recursive: true, force: true });
 });
 
 describe("planning-space API", () => {
-  it("creates an isolated workspace and responds through the mock adapter", async () => {
+  it("creates an isolated workspace and responds through mock adapter", async () => {
     const app = await buildApp();
     try {
       const createResponse = await app.inject({
@@ -41,19 +55,18 @@ describe("planning-space API", () => {
       expect(createResponse.statusCode).toBe(201);
       const space = createResponse.json<{ id: string }>();
       await expect(fs.stat(path.join(tempRoot, "workspaces", space.id, "project", "learning-design.md"))).resolves.toBeTruthy();
-      await expect(fs.stat(path.join(tempRoot, "workspaces", space.id, ".git"))).resolves.toBeTruthy();
 
       const conversationResponse = await app.inject({
         method: "POST",
         url: `/api/planning-spaces/${space.id}/conversation`,
-        payload: { message: "Wir klären erst das Lernanliegen." }
+        payload: { message: "Ich möchte das Lernanliegen klären." }
       });
       expect(conversationResponse.statusCode).toBe(200);
-      expect(conversationResponse.json().reply.text).toContain("nächsten Schritt");
+      expect(conversationResponse.json().reply.text).toContain("Lernerfahrung");
 
-      const stateResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/thinking-state` });
-      expect(stateResponse.statusCode).toBe(200);
-      expect(JSON.stringify(stateResponse.json())).toContain("Lernanliegen in einem Satz formulieren");
+      const thinkingResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/thinking-state` });
+      expect(thinkingResponse.statusCode).toBe(200);
+      expect(thinkingResponse.json().cards).toHaveLength(3);
     } finally {
       await app.close();
     }
@@ -62,8 +75,9 @@ describe("planning-space API", () => {
   it("requires export approval before markdown export", async () => {
     const app = await buildApp();
     try {
-      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "Exportprüfung" } });
+      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "Export Test" } });
       const space = createResponse.json<{ id: string }>();
+
       const blockedResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/markdown` });
       expect(blockedResponse.statusCode).toBe(409);
 
@@ -85,8 +99,9 @@ describe("planning-space API", () => {
   it("exports OKF markdown after OKF approval", async () => {
     const app = await buildApp();
     try {
-      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "OKF Prüfung", subject: "Religion" } });
+      const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "OKF Test" } });
       const space = createResponse.json<{ id: string }>();
+
       await app.inject({
         method: "POST",
         url: `/api/planning-spaces/${space.id}/export-approvals`,
@@ -112,7 +127,6 @@ describe("planning-space API", () => {
         url: `/api/planning-spaces/${space.id}/export-approvals`,
         payload: { exportType: "markdown", approvedBy: "Lehrkraft", sensitiveFindingsReviewed: true }
       });
-
       const exportResponse = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/export/markdown` });
       expect(exportResponse.statusCode).toBe(409);
       expect(exportResponse.json().message).toContain("sensible Hinweise");

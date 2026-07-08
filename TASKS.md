@@ -20,195 +20,89 @@ Diese Liste ist das operative Arbeitsdokument für die erste Umsetzung von `ptsp
 - [x] Docker-Compose-Setup vorhanden.
 - [x] Entwicklungs-README mit konkretem Startbefehl vorhanden.
 
-## 1. Startentscheidungen vor dem ersten Code
+## 1. Startentscheidungen
 
-Diese Punkte sollten vor oder direkt mit dem Scaffolding entschieden werden, weil sie die Projektstruktur festlegen.
+- [x] Frontend-Stack festgelegt: SvelteKit, TypeScript, Tailwind CSS, Lucide Icons.
+- [x] Backend-Stack festgelegt: Node.js, TypeScript, Fastify, Zod.
+- [x] Monorepo-Struktur mit `frontend`, `backend` und `packages/shared` angelegt.
+- [x] Teacher-facing Begriffe festgelegt: Planungsräume, Gemeinsam nachdenken, Denkstand, Offene Entscheidungen, Nächste Schritte, Materialien, Export.
+- [x] Lokaler Git-Store als interne Versionierung gewählt.
+- [x] Nextcloud als externe Zielablage zurückgestellt.
+- [x] `opencode` als Referenz-Harness hinter Adaptergrenze vorbereitet.
 
-- [x] Frontend-Stack verbindlich festlegen.
-  - Vorschlag: SvelteKit, TypeScript, Tailwind CSS, Lucide Icons.
-  - Grund: entspricht `TECH_STACK.md` und passt zur ruhigen, reaktiven Planungsraum-UI.
-- [x] Backend-Stack verbindlich festlegen.
-  - Vorschlag: Node.js, TypeScript, Fastify, Zod, PostgreSQL später, lokale In-Memory- oder SQLite-Entwicklung zuerst nur wenn klar als Dev-Modus markiert.
-  - Grund: gemeinsames TypeScript-Typmodell mit Frontend und klare Backend-Schutzschicht.
-- [x] Paketmanager festlegen.
-  - Vorschlag: `pnpm` Workspace mit `frontend/`, `backend/`, optional `packages/shared/`.
-- [ ] Kernel-Einbindung für MVP festlegen.
-  - Minimaler Start: Template-Kopie pro Planungsraum aus `kernel/templates/`.
-  - Später prüfen: Git-Submodule oder Paket.
-- [ ] Persistenzstrategie für v0.1 festlegen.
-  - Minimaler Start: Backend speichert Metadaten in Datei oder SQLite, Inhalte im isolierten Workspace.
-  - Produktziel: PostgreSQL.
-- [x] Harness-Modus für lokale Entwicklung festlegen.
-  - Minimaler Start: `MockHarnessAdapter` plus unveränderte Adapter-Grenze.
-  - Nächster Schritt: produktionsnahen Test mit freigegebenem opencode-Container-Image durchführen; Host-Bridge bleibt zurückgestellt.
+## 2. Domain und Backend
 
-## 1.5 Verbindliche Reihenfolge für echte Harness-Ausführung
+- [x] Gemeinsame Zod-Schemas und TypeScript-Typen für Kernobjekte implementiert.
+- [x] Planungsraum-Erstellung implementiert.
+- [x] Isolierten Workspace pro Planungsraum implementiert.
+- [x] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
+- [x] Lokale Git-Versionen durch das Backend erzeugen.
+- [x] Conversation-Route implementiert.
+- [x] Thinking-State-Route implementiert.
+- [x] Export-Route für Markdown und OKF-Markdown implementiert.
+- [x] Fehler- und Statusantworten in Lehrkräfte-Sprache übersetzt.
+- [x] Direkte Browser-Kommunikation mit Harness oder Shell ausgeschlossen.
 
-Echte `opencode`- oder andere Harness-Ausführung wird erst aktiviert, wenn die Schutzgrenzen technisch erzwungen und getestet sind.
+## 3. Frontend-MVP
 
-1. [x] Domain-Schemas definieren.
-   - `PlanningSpace`
-   - `LearningDesign`
-   - `Decision`
-   - `NextStep`
-   - `ServiceRequest`
-2. [x] WorkspaceManager implementieren.
-   - isolierter Workspace pro Planungsraum
-   - kein Zugriff auf Repo-Root, Home-Verzeichnis oder globale Configs
-   - sichere Pfadnormalisierung und Pfadprüfung
-3. [x] PermissionPolicy implementieren.
-   - `allow`
-   - `deny`
-   - `requires_admin_approval`
-   - `ask_critical_friend`
-4. [x] MockHarnessAdapter implementieren.
-   - nutzt dieselbe Backend-Schnittstelle wie später `opencode`
-   - aktualisiert testweise Denkstand-Dateien
-   - reicht keine technischen Prompts an die UI durch
-5. [x] Schutzgrenzen testen.
-   - Schreiben außerhalb des Workspaces wird abgelehnt.
-   - Lesen sensibler oder externer Pfade wird abgelehnt.
-   - technische Permission-Prompts werden nicht teacher-facing.
-   - API-Keys oder Secrets werden nicht in Chat, Workspace, Git oder Export gespeichert.
-6. [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter vorbereiten.
-   - nur hinter `HarnessAdapter`
-   - mit strukturierter Verfügbarkeit und Ereignissen
-   - mit Policy-Simulation für `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend`
-   - mit lokalem Fake-Runner-Test für echte Adapterausführung
-   - echte `opencode`-Ausführung standardmäßig blockiert
-   - keine direkte Browser-Harness-Kommunikation
-7. [x] Nicht-produktive Ende-zu-Ende-Probe im Test-Workspace vorbereiten.
-   - Containergrenze für genau einen Planungsraum beschreiben
-   - Feature-Flag für echte Ausführung ergänzen
-   - Runtime-Änderungen nach Ausführung validieren und versionieren
-8. [ ] Produktionsnahen opencode-Test durchführen.
-   - freigegebenes opencode-Container-Image bereitstellen
-   - nicht-sensiblen Test-Planungsraum nutzen
-   - Netzwerk- und Providerfreigabe separat entscheiden
+- [x] SvelteKit-App scaffolden.
+- [x] Grundlayout mit Planungsräumen, Gespräch, Denkstand, nächsten Schritten, Materialien und Export umsetzen.
+- [x] Hauptbereich als "Gemeinsam nachdenken" formulieren.
+- [x] Navigation oben links bewusst mit "Planungsräume" formulieren.
+- [x] Chat-UI implementieren.
+- [x] Nachricht mit `Ctrl + Return` abschicken.
+- [x] Denkstand-Karten kompakt anzeigen.
+- [x] Material- und Exportbereich vorbereiten.
+- [x] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
+- [x] Keine Ersatzumlaute in UI-Texten verwenden.
 
-## 2. Repo-Grundstruktur
+## 4. Datenschutz, Sicherheit und Reputation
 
-- [x] `frontend/` scaffolden.
-- [x] `backend/` scaffolden.
-- [x] `packages/shared/` für gemeinsame Typen und Schemas anlegen.
-- [x] `docs/` anlegen und Architekturentscheidungen aus den Specs verdichten.
-- [x] `examples/planning-spaces/` für Beispiel-Planungsräume anlegen.
-- [x] `.env.example` mit nicht-sensiblen Platzhaltern anlegen.
-- [x] `docker-compose.yml` für lokale Entwicklung vorbereiten.
-- [x] `README.md` um konkrete Entwicklungsbefehle ergaenzen.
-
-## 3. Gemeinsame Domain-Modelle
-
-- [x] `PlanningSpace` als TypeScript-Typ und Zod-Schema modellieren.
-- [x] `LearningDesign` als TypeScript-Typ und Zod-Schema modellieren.
-- [x] `Decision` als TypeScript-Typ und Zod-Schema modellieren.
-- [x] `OpenQuestion` als TypeScript-Typ und Zod-Schema modellieren.
-- [x] `NextStep` als teacher-facing Oberfläche eines internen Service Requests modellieren.
-- [x] `ServiceRequest` intern nach Kernel-Schema modellieren.
-- [x] `Material` und `ExportPackage` modellieren.
-- [x] Statuswerte zwischen intern und UI-sichtbar sauber trennen.
-- [x] Tests für Schemas und Statusübersetzungen schreiben.
-
-## 4. Backend-MVP
-
-- [x] Fastify-App mit Health-Route anlegen.
-- [x] API für Planungsraum-Liste und Planungsraum-Erstellung implementieren.
-- [x] WorkspaceManager implementieren.
-  - [x] Planungsraum-Workspace isoliert anlegen.
-  - [x] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
-  - [x] Keine personenbezogenen Beispielinhalte erzeugen.
-- [x] GitManager implementieren.
-  - [x] Repo pro Workspace initialisieren.
-  - [x] Backend-generierte Versionen speichern.
-  - [x] Teacher-facing Versionslabel erzeugen.
-- [x] Conversation-Route implementieren.
-  - [x] Nachricht der Lehrkraft an Backend senden.
-  - [x] Backend gibt Antwort des Harness-Adapters zurück.
-  - [x] Keine direkte Browser-Harness-Kommunikation.
-- [x] ThinkingState-Route implementieren.
-  - [x] Denkstand aus Workspace-Dateien lesen.
-  - [x] Offene Entscheidungen und nächste Schritte teacher-facing zurückgeben.
-- [x] Export-Route für Markdown implementieren.
-- [x] Fehler- und Statusantworten in Lehrkräfte-Sprache übersetzen.
+- [x] Eingabehinweis für pseudonymisierte Lerngruppenangaben implementieren.
+- [x] Sensible Inhalte regelbasiert markieren.
+- [x] Umformulierungen für sensible Lerngruppenangaben anbieten.
+- [x] Exportfilter implementieren.
+- [x] Roher Chat, interne Service Requests, Secrets und technische Logs vom Standardexport ausschließen.
+- [x] Exportfreigabe durch Lehrkraft modellieren.
+- [x] API-Keys nicht in Chatnachrichten speichern.
+- [x] OpenRouter-Key nur temporär als Docker-Secret-Mount außerhalb von Chat, Workspace und Git bereitstellen.
+- [ ] Integration-Status nur als Status anzeigen, nie als Secret oder Provider-Konfiguration im Lehrkräfte-Dialog.
+- [ ] Reputationstest für UI-Texte durchführen.
+- [ ] Keine unrealistischen Wirksamkeitsversprechen in UI und Dokumentation stehen lassen.
+- [ ] Keine wissenschaftlich unbelegten Behauptungen in UI und Dokumentation stehen lassen.
+- [ ] Transparenzhinweise für KI-generierte Materialien vorbereiten.
 
 ## 5. Harness-Adapter
 
-- [x] Gemeinsames `HarnessAdapter` Interface implementieren.
+- [x] Gemeinsames `HarnessAdapter`-Interface implementieren.
 - [x] `MockHarnessAdapter` implementieren.
-  - [x] Ruhige Antworten erzeugen.
-  - [x] Beispielhaft Denkstand-Dateien aktualisieren.
-  - [x] Keine technischen Permissions an UI durchreichen.
-- [x] Policy-Entscheidungstypen implementieren.
-  - [x] `allow`
-  - [x] `deny`
-  - [x] `requires_admin_approval`
-  - [x] `ask_critical_friend`
+- [x] Policy-Entscheidungstypen implementieren: `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend`.
 - [x] PermissionPolicy für Workspace-Grenzen implementieren.
-- [x] Tests für erlaubte und verbotene Dateioperationen schreiben.
-- [x] Nächste Harness-Stufe planen.
-- [x] `HarnessAdapter` um Verfügbarkeit, Ereignisse und Policy-Simulation erweitern.
-- [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter implementieren.
-- [x] Policy-Simulation für `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend` testen.
-- [x] Lokalen Fake-Runner-Test für echte Adapterausführung ergänzen.
+- [x] Schutzgrenzen testen.
+- [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter vorbereiten.
 - [x] Echte `opencode`-Ausführung standardmäßig blockieren.
-- [ ] Produktionsnahen Docker-Test mit freigegebenem Image ausführen.
+- [x] Nicht-produktive Ende-zu-Ende-Probe im Test-Workspace vorbereiten.
+- [x] Produktionsnahen Docker-Test mit gebautem Image ohne Provider ausführen.
+- [x] opencode-Testimage `ptspace/opencode-test:1.17.13` bauen und Version prüfen.
+- [x] OpenRouter-Modell- und Providerkonfiguration vorbereiten.
+- [x] OpenRouter-Secret-Übergabe ohne Chat-, Workspace- oder Git-Leak vorbereiten.
+- [x] PTSPACE-Kernel als pädagogische Engine in den Harness-Kontext einbinden.
+- [x] Externen Vollkernel-Kontext ohne Admin-Freigabe blockieren.
+- [x] Beschreibbare Kernel-Arbeitsbereiche für kontrollierte Evolution modellieren.
+- [x] OpenRouter-Dialogtest mit erfolgreicher Modellantwort ausführen.
 - [ ] Host-Bridge nur nach separater Sicherheitsentscheidung prototypisieren.
 
-## 6. Frontend-MVP
-
-- [x] SvelteKit-App scaffolden.
-- [x] Grundlayout umsetzen.
-  - [x] Hauptbereich: Gemeinsam nachdenken.
-  - [x] Rechte Spalte: Denkstand-Karten.
-  - [x] Bereiche: Denkstand, Offene Entscheidungen, Nächste Schritte, Entwürfe, Für den Unterricht bereit.
-- [x] Planungsraum anlegen.
-  - [x] Titel.
-  - [x] Fach/Lernbereich optional.
-  - [x] Zielgruppe optional.
-  - [x] kurze Idee.
-- [x] Chat-UI implementieren.
-  - [x] Lehrkraft-Nachricht.
-  - [x] Antwort des Gegenübers.
-  - [x] Lade-/Arbeitsstatus in Lehrkräftesprache.
-- [x] Denkstand-Karten kompakt und aufklappbar umsetzen.
-- [x] Nächste Schritte als pädagogische Vorschlaege anzeigen.
-- [x] Materialbereich für Entwürfe und freigegebene Materialien vorbereiten.
-- [x] Exportbereich für Markdown vorbereiten.
-- [x] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
-
-## 7. Datenschutz, Sicherheit und Reputation
-
-- [x] Eingabehinweis zu Datenminimierung im Planungsraum anzeigen.
-- [x] Sensible Inhalte mindestens regelbasiert markieren.
-  - Namen einzelner Schüler:innen.
-  - Noten.
-  - Diagnosen.
-  - familiäre Details.
-  - personenbezogene Konflikte.
-- [x] Umformulierungen für sensible Lerngruppenangaben anbieten.
-- [x] Exportfilter implementieren.
-  - [x] Kein roher Chat im Standardexport.
-  - [x] Keine Service Requests im teacher-facing Export.
-  - [x] Keine Secrets oder technischen Logs.
-- [ ] Secret-Policy technisch absichern.
-  - [x] API-Keys nicht in Chatnachrichten speichern.
-  - [ ] Integration-Status nur als Status anzeigen.
-- [ ] Reputationstest für UI-Texte durchfuehren.
-  - [ ] Keine unrealistischen Wirksamkeitsversprechen.
-  - [ ] Keine wissenschaftlich unbelegten Behauptungen.
-  - [ ] Transparenzhinweise für KI-generierte Materialien vorbereiten.
-
-## 8. Material- und Export-MVP
+## 6. Material- und Export-MVP
 
 - [x] MarkdownExporter implementieren.
 - [x] Learning-Design-Export als Markdown erzeugen.
 - [x] Materialentwurf als Markdown erzeugen.
-- [x] Exportfreigabe durch Lehrkraft modellieren.
-- [x] OKF-Markdown als nächster Schritt vorbereiten.
+- [x] OKF-Markdown vorbereiten.
+- [x] OKF exportiert kuratierte Ergebnisse, nicht den rohen Denkprozess.
 - [ ] PDF/DOCX-Export erst nach stabilem Markdown-Export starten.
 - [ ] Nextcloud-Export zurückstellen, bis Exportfilter und Freigabelogik stabil sind.
 
-## 9. Audio Worker Capability
+## 7. Audio Worker Capability
 
 - [ ] Audio im MVP nicht als direkte TTS-Funktion starten.
 - [ ] Zuerst Capability-Modell anlegen.
@@ -216,10 +110,10 @@ Echte `opencode`- oder andere Harness-Ausführung wird erst aktiviert, wenn die 
 - [ ] Transcript-Pflicht abbilden.
 - [ ] Review-Vermerk abbilden.
 - [ ] Transparenzhinweis für Unterrichtseinsatz abbilden.
-- [ ] Voice Cloning realer oder identifizierbarer Personen im Default ausschliessen.
+- [ ] Voice Cloning realer oder identifizierbarer Personen im Default ausschließen.
 - [ ] Providerwahl nicht als Lehrkraft-Entscheidung in die UI legen.
 
-## 10. Tests und Qualität
+## 8. Tests und Qualität
 
 - [x] Unit-Tests für Domain-Schemas.
 - [x] Unit-Tests für Statusübersetzungen.
@@ -230,19 +124,24 @@ Echte `opencode`- oder andere Harness-Ausführung wird erst aktiviert, wenn die 
 - [x] Integrationstest: Denkstand wird aus Workspace-Dateien gelesen.
 - [x] UI-Test: Lehrer:innen-Modus zeigt keine Git-, Shell-, YAML- oder Harness-Prompts.
 - [x] UI-Test: Mobile und Desktop Layout ohne Textüberlagerung.
+- [ ] Repo-weite UTF-8-/Mojibake-Prüfung regelmäßig ausführen.
+- [ ] `git diff --check` vor Abschluss sauber halten.
+- [ ] Backend-Checks und Tests vor Abschluss ausführen.
+- [ ] Frontend-/Gesamtbuild vor Abschluss ausführen.
 
-## 11. Dokumentation
+## 9. Dokumentation
 
 - [x] `docs/architecture.md` aus den bestehenden Specs extrahieren.
 - [x] `docs/data-protection.md` konkretisieren.
-- [x] `docs/ui-language.md` mit erlaubten und verbotenen Begriffen pflegen.
-- [x] `docs/harness-opencode.md` für Adapter-Implementierung schreiben.
-- [ ] `docs/okf-export.md` für Exportregeln schreiben.
-- [ ] `docs/nextcloud-integration.md` als späteres Integrationskonzept vorbereiten.
+- [x] `docs/ui-language.md` konkretisieren.
+- [x] `docs/harness-opencode.md` ergänzen.
+- [x] `docs/next-harness-stage.md` ergänzen.
+- [x] `docs/okf-export.md` ergänzen.
+- [x] `docs/nextcloud-integration.md` ergänzen.
+- [x] `docs/operations-security.md` ergänzen.
+- [x] Dokumentation nach erfolgreichem OpenRouter-Dialogtest aktualisieren.
 
-## 12. Fehlendes vor produktiver Umsetzung
-
-Diese Punkte blockieren nicht den Mock-MVP, sollten aber vor ernsthafter Harness- oder Schulserver-Nutzung geklärt werden.
+## 10. Vor produktiver Schulnutzung klären
 
 - [ ] Konkrete Authentifizierungsstrategie.
 - [ ] Rollen- und Rechtekonzept für mehrere Lehrkräfte.
@@ -250,44 +149,17 @@ Diese Punkte blockieren nicht den Mock-MVP, sollten aber vor ernsthafter Harness
 - [ ] Datenaufbewahrung und Löschkonzept.
 - [ ] Mandanten-/Schultrennung.
 - [ ] Admin-Oberfläche für Integrationen und Runtimes.
-- [ ] Sicherheitsmodell für echten opencode- oder Host-Bridge-Betrieb.
+- [ ] Sicherheitsmodell für echten `opencode`- oder Host-Bridge-Betrieb.
 - [ ] Wissenschaftlich belastbare Quellenstrategie für fachliche Aussagen.
 - [ ] Lizenz- und OER-Metadaten für Exporte.
 
-## 13. Empfohlener erster Umsetzungsschnitt
+## 11. Aktueller nächster Umsetzungsschnitt
 
-Wir können mit der Umsetzung starten, wenn der erste Schnitt bewusst klein bleibt:
+1. Abschlusschecks sauber halten: Encoding-Scan, Backend-Checks, Backend-Tests, Build und `git diff --check`.
+2. Kernel-Evolutionsläufe für Knowledge, Capabilities, Services und Worker als eigene Freigabe-Workflows modellieren.
+3. Host-Bridge nur nach separater Sicherheitsentscheidung planen.
+4. Vor Schulnutzung Authentifizierung, Rollen, Secret-Store, Datenaufbewahrung und Admin-Oberfläche klären.
 
-1. `pnpm` Monorepo mit `frontend`, `backend`, `packages/shared`.
-2. Shared Domain-Schemas für `PlanningSpace`, `LearningDesign`, `Decision`, `NextStep`, `ServiceRequest`.
-3. Backend mit Planungsraum-Erstellung, WorkspaceManager, GitManager und `MockHarnessAdapter`.
-4. Frontend mit Planungsraum-Erstellung, Chat und rechter Denkstand-Spalte.
-5. Markdown-Export mit Exportfilter.
+Startklar für lokale Mock-Harness-Nutzung: ja.
 
-Noch nicht starten sollten wir mit:
-
-- echter opencode-Ausführung ohne Policy-Tests,
-- Host-Bridge ohne eigenes Sicherheitsreview,
-- Nextcloud-Export ohne Exportfilter,
-- Audio-TTS ohne Transcript-, Review- und Transparenzworkflow,
-- produktiver Provider-/Secret-Konfiguration.
-
-## 14. Startklar-Einschätzung
-
-Startklar für Umsetzung: ja, für einen lokalen Mock-Harness-MVP.
-
-Noch nicht startklar für produktiven Harness-Betrieb: Die Testintegration ist vorbereitet, aber der produktionsnahe Docker-Test mit freigegebenem opencode-Image steht noch aus.
-
-Die nächste konkrete Aufgabe sollte deshalb sein:
-
-> Als nächstes einen produktionsnahen opencode-Test mit freigegebenem Container-Image und nicht-sensiblem Test-Planungsraum durchführen, ohne Host-Bridge, Nextcloud, Provider-Secrets oder Audio-Runtime zu aktivieren.
-
-## 15. Verifikation
-
-Stand: 2026-07-08.
-
-- [x] `pnpm --filter @ptspace/backend check`
-- [x] `pnpm --filter @ptspace/shared test`
-- [x] `pnpm --filter @ptspace/backend test`
-- [x] `pnpm --filter @ptspace/frontend check`
-- [x] `pnpm build`
+Startklar für einen kontrollierten produktnahen Harness-Test: ja. Für produktiven Schulbetrieb fehlen weiterhin Authentifizierung, Rollen, Secret-Store, Datenaufbewahrung, Admin-Oberfläche und Sicherheitsreview der Host-Bridge.

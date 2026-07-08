@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, Lightbulb, MessageSquareText, Plus, ShieldCheck, TriangleAlert } from "lucide-svelte";
   import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ThinkingCard } from "$lib/api";
+  import { uuid } from "$lib/uuid";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
 
@@ -17,6 +18,7 @@
   let sending = false;
   let error = "";
   let draftMessage = "";
+let messagesElement: HTMLDivElement | null = null;
   let newRoom = { title: "", subject: "", targetGroup: "", initialIdea: "" };
 
   onMount(async () => {
@@ -50,6 +52,17 @@
   async function openSpace(space: PlanningSpace) {
     activeSpace = space;
     messages = [{ id: "welcome", author: "critical_friend", text: `Hallo, ich habe Zeit für dich. Woran möchtest du in "${space.title}" heute weiterdenken?` }];
+    
+    // Load messages from backend
+    try {
+      const result = await api.getMessages(space.id);
+      if (result.messages.length > 0) {
+        messages = result.messages;
+      }
+    } catch {
+      // Ignore if messages can't be loaded, keep the welcome message
+    }
+    
     const state = await api.getThinkingState(space.id);
     cards = state.cards;
     const exportStatus = await api.getExportStatus(space.id);
@@ -58,17 +71,24 @@
     findings = [];
   }
 
-  async function sendMessage() {
+  async function scrollConversationToEnd() {
+  await tick();
+  messagesElement?.scrollTo({ top: messagesElement.scrollHeight, behavior: "smooth" });
+}
+
+async function sendMessage() {
     if (!activeSpace || !draftMessage.trim() || sending) return;
     const text = draftMessage.trim();
     draftMessage = "";
     sending = true;
     error = "";
-    messages = [...messages, { id: crypto.randomUUID(), author: "teacher", text }];
+    messages = [...messages, { id: uuid(), author: "teacher", text }];
+    await scrollConversationToEnd();
     try {
       await scanText(text);
       const result = await api.sendMessage(activeSpace.id, text);
       messages = [...messages, { id: result.reply.id, author: "critical_friend", text: result.reply.text }];
+    await scrollConversationToEnd();
       const state = await api.getThinkingState(activeSpace.id);
       cards = state.cards;
     } catch (err) {
@@ -142,13 +162,13 @@
     {#if activeSpace}
       <section class="workspace-grid">
         <section class="conversation-panel" aria-label="Gemeinsam nachdenken">
-          <div class="messages">
+          <div class="messages" bind:this={messagesElement}>
             {#each messages as message}
               <article class:teacher={message.author === "teacher"} class="message">
                 <div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><p>{message.text}</p>
               </article>
             {/each}
-            {#if sending}<article class="message thinking"><div class="avatar">CF</div><p>Ich ordne den Gedanken und aktualisiere den Denkstand.</p></article>{/if}
+            {#if sending}<article class="message thinking"><div class="avatar">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest.</p></article>{/if}
           </div>
           <div class="composer-wrap">
             <div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div>

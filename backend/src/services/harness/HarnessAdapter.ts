@@ -18,6 +18,7 @@ export type SendHarnessMessageInput = {
   session: HarnessSession;
   space: PlanningSpace;
   message: string;
+  conversationContext?: string;
 };
 
 export type HarnessWorkspaceUpdate = {

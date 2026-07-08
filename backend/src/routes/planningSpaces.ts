@@ -16,8 +16,19 @@ export async function planningSpaceRoutes(
       return reply.code(400).send({ message: "Bitte prüfe die Angaben zum Planungsraum.", issues: parsed.error.issues });
     }
     const space = await deps.store.create(parsed.data);
-    const workspaceRoot = await deps.workspace.ensureWorkspace(space);
-    await deps.git.saveVersion(workspaceRoot, "Planungsraum angelegt");
+    try {
+      const workspaceRoot = await deps.workspace.ensureWorkspace(space);
+      await deps.git.saveVersion(workspaceRoot, "Planungsraum angelegt");
+      console.log(`✓ Workspace created for space ${space.id} at ${workspaceRoot}`);
+    } catch (error) {
+      console.error(`✗ Failed to create workspace for ${space.id}:`, error);
+      // Still return the space, but log the error
+      if (error instanceof Error) {
+        console.error(`Error message: ${error.message}, stack: ${error.stack}`);
+        return reply.code(500).send({ message: `Workspace-Erstellung fehlgeschlagen: ${error.message}` });
+      }
+      return reply.code(500).send({ message: "Workspace-Erstellung fehlgeschlagen." });
+    }
     return reply.code(201).send(space);
   });
 

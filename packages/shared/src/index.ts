@@ -142,7 +142,7 @@ export const TeacherFacingStatusSchema = z.enum([
   "bereit",
   "wartet_kurz",
   "wird_vorbereitet",
-  "liegt_zur_pruefung_bereit",
+  "liegt_zur_prüfung_bereit",
   "konnte_noch_nicht_erstellt_werden",
   "admin_freigabe_noetig"
 ]);
@@ -179,7 +179,7 @@ export function toTeacherFacingStatus(status: InternalWorkStatus): TeacherFacing
   const statuses: Record<InternalWorkStatus, TeacherFacingStatus> = {
     queued: "wartet_kurz",
     in_progress: "wird_vorbereitet",
-    completed: "liegt_zur_pruefung_bereit",
+    completed: "liegt_zur_prüfung_bereit",
     failed: "konnte_noch_nicht_erstellt_werden",
     requires_admin_approval: "admin_freigabe_noetig"
   };

@@ -84,6 +84,7 @@ input:focus, textarea:focus { border-color: #2f6f64; box-shadow: 0 0 0 3px rgba(
 .room-list small { color: #687477; font-size: 12px; }
 
 .planning-room { min-width: 0; padding: 22px 26px 28px; display: flex; flex-direction: column; gap: 18px; }
+.topbar, .workspace-grid { width: min(100%, 1280px); margin-inline: auto; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .topbar span { color: #687477; font-size: 13px; font-weight: 650; }
 h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
@@ -104,16 +105,16 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .notice { border-radius: 8px; padding: 11px 13px; display: flex; align-items: center; gap: 9px; }
 .notice.error { color: #7b2d25; background: #fff1ec; border: 1px solid #f1c7bb; }
 
-.workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; min-height: calc(100vh - 112px); }
+.workspace-grid { display: grid; grid-template-columns: minmax(620px, 860px) minmax(320px, 380px); gap: 18px; min-height: calc(100vh - 112px); justify-content: center; align-items: start; }
 .conversation-panel, .thinking-panel {
   background: #ffffff;
   border: 1px solid #dfe5df;
   border-radius: 8px;
   min-width: 0;
 }
-.conversation-panel { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
-.messages { padding: 22px; display: flex; flex-direction: column; gap: 16px; overflow: auto; }
-.message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 11px; max-width: 780px; }
+.conversation-panel { display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; min-height: calc(100vh - 112px); }
+.messages { padding: 22px; display: flex; flex-direction: column; gap: 14px; overflow: auto; scroll-behavior: smooth; }
+.message { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; max-width: min(100%, 680px); }
 .message.teacher { align-self: flex-end; grid-template-columns: minmax(0, 1fr) 36px; }
 .message.teacher .avatar { grid-column: 2; grid-row: 1; background: #dfe9e4; color: #173a35; }
 .message.teacher p { grid-column: 1; grid-row: 1; background: #eef4ef; }
@@ -194,7 +195,7 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 @media (max-width: 980px) {
   .app-shell { grid-template-columns: 1fr; }
   .room-rail { border-right: 0; border-bottom: 1px solid #dfe5df; }
-  .workspace-grid { grid-template-columns: 1fr; min-height: auto; }
+  .workspace-grid { grid-template-columns: 1fr; min-height: auto; width: 100%; }
   .topbar { align-items: flex-start; flex-direction: column; }
   .status-pill { white-space: normal; }
 }
@@ -237,3 +238,18 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .export-actions button:hover,
 .export-actions a:hover { background: #eef4ef; }
 .export-actions button:disabled { color: #7f8c87; background: #f2f4f2; cursor: not-allowed; }
+.thinking-dots {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 9px;
+  background: #2f6f64;
+  box-shadow: 13px 0 0 #9db8af, 26px 0 0 #d8e2dc;
+  animation: thinking-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes thinking-pulse {
+  0%, 80%, 100% { opacity: .42; }
+  40% { opacity: 1; }
+}

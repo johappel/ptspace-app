@@ -1,4 +1,4 @@
-﻿# Entwicklung
+# Entwicklung
 
 ## Voraussetzungen
 
@@ -37,7 +37,7 @@ Der erste produktionsnahe Test wird nicht über den normalen Compose-Stack gesta
 $env:PTSPACE_HARNESS="opencode-docker"
 $env:PTSPACE_REAL_HARNESS_ENABLED="true"
 $env:PTSPACE_OPENCODE_RUNNER="docker"
-$env:PTSPACE_OPENCODE_DOCKER_IMAGE="<freigegebenes-opencode-image>"
+$env:PTSPACE_OPENCODE_DOCKER_IMAGE=ptspace/opencode-test:1.17.13"ptspace/opencode-test:1.17.13"
 $env:PTSPACE_OPENCODE_ALLOW_NETWORK="false"
 pnpm --filter @ptspace/backend dev
 ```

@@ -1,5 +1,6 @@
-﻿import { spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { ConversationMessage, PolicyDecision } from "@ptspace/shared";
 import { HarnessPermissionRequest, PermissionPolicy } from "../policy/PermissionPolicy.js";
@@ -23,7 +24,14 @@ export type OpenCodeDockerAdapterOptions = {
   command: string;
   allowNetwork: boolean;
   timeoutMs: number;
+  kernelDir?: string;
+  kernelWriteEnabled?: boolean;
+  kernelWritableDirs?: string[];
   model?: string;
+  provider?: string;
+  baseUrl?: string;
+  openRouterApiKeyAvailable?: boolean;
+  externalKernelContextEnabled?: boolean;
   runProcess?: ProcessRunner;
 };
 
@@ -43,6 +51,11 @@ type ProcessResult = {
 
 type FileSnapshot = Map<string, string>;
 
+type DockerSecretMount = {
+  tempDir: string;
+  authFile: string;
+};
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -55,7 +68,6 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
   id = "opencode-docker";
   label = "Integrierter geschützter Harness";
   mode = "docker" as const;
-
   private readonly runProcess: ProcessRunner;
 
   constructor(private readonly options: OpenCodeDockerAdapterOptions) {
@@ -69,12 +81,27 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
         teacherFacingMessage: "Die nächste Ausführungsstufe ist vorbereitet, aber noch nicht freigegeben."
       };
     }
+    if (this.options.provider === "openrouter" && !this.options.openRouterApiKeyAvailable) {
+      return {
+        status: "requires_setup",
+        teacherFacingMessage: "Für den OpenRouter-Test fehlt noch die freigegebene API-Key-Konfiguration."
+      };
+    }
     if (this.options.runner === "docker" && !this.options.dockerImage) {
       return {
         status: "requires_setup",
         teacherFacingMessage: "Für den geschützten Test fehlt noch das freigegebene opencode-Container-Image."
       };
     }
+    const kernelStatus = await this.checkKernelAvailability();
+    if (kernelStatus) return kernelStatus;
+    if (this.options.provider === "openrouter" && !this.options.externalKernelContextEnabled) {
+      return {
+        status: "requires_admin_configuration",
+        teacherFacingMessage: "Die pädagogische Engine ist verbunden, darf aber für externe Modellzugriffe noch nicht freigegeben werden."
+      };
+    }
+
     const tool = this.options.runner === "docker" ? "docker" : this.options.command;
     const available = await commandAvailable(tool, this.runProcess);
     if (!available) {
@@ -104,23 +131,37 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     const projectDir = path.join(input.session.workspaceRoot, "project");
     await assertProjectDirectory(projectDir, input.session.workspaceRoot);
     const before = await snapshotProject(projectDir);
-    const { command, args, cwd } = this.buildCommand(projectDir, input.message);
-    const result = await this.runProcess(command, args, {
-      cwd,
-      timeoutMs: this.options.timeoutMs,
-      env: process.env
-    });
+    const secretMount = await this.prepareDockerSecretMount();
+    
+    // Use conversation context from input or read from file
+    let conversationContext = input.conversationContext ?? "";
+    if (!conversationContext) {
+      try {
+        const conversationSummaryPath = path.join(projectDir, "conversation-summary.md");
+        conversationContext = await fs.readFile(conversationSummaryPath, "utf8");
+      } catch {
+        // Ignore if conversation summary does not exist yet
+      }
+    }
+    
+    let result: ProcessResult;
+    try {
+      const { command, args, cwd } = this.buildCommand(projectDir, input.message, secretMount, conversationContext);
+      result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
+    } finally {
+      if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
+    }
     const after = await snapshotProject(projectDir);
     const changedFiles = diffSnapshots(before, after);
     const stdout = normalizeOutput(result.stdout);
     const stderr = normalizeOutput(result.stderr);
-    const replyText = createReplyText(result, stdout, stderr);
+    const reply = createReply(result, stdout, stderr);
 
     return {
-      reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: replyText, createdAt: nowIso() },
+      reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: reply.text, createdAt: nowIso() },
       workspaceUpdates: [],
       events: [
-        { type: "status", status: result.exitCode === 0 ? "ready" : "failed", message: replyText },
+        { type: "status", status: reply.ok ? "ready" : "failed", message: reply.text },
         ...changedFiles.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath }))
       ]
     };
@@ -145,12 +186,80 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     return;
   }
 
-  private buildCommand(projectDir: string, message: string): { command: string; args: string[]; cwd: string } {
+  private async checkKernelAvailability(): Promise<HarnessAvailability | undefined> {
+    if (!this.options.kernelDir) {
+      return {
+        status: "requires_setup",
+        teacherFacingMessage: "Die pädagogische Engine ist für diese Ausführungsstufe noch nicht verbunden."
+      };
+    }
+    try {
+      await fs.access(path.join(this.options.kernelDir, "AGENTS.md"));
+      await fs.access(path.join(this.options.kernelDir, "CRITICAL_FRIEND.de.md"));
+      await fs.access(path.join(this.options.kernelDir, "LEARNING_DESIGN.de.md"));
+      await fs.access(path.join(this.options.kernelDir, "ORCHESTRATION.md"));
+    } catch {
+      return {
+        status: "requires_setup",
+        teacherFacingMessage: "Die pädagogische Engine ist für diese Ausführungsstufe noch nicht vollständig verfügbar."
+      };
+    }
+    return undefined;
+  }
+
+  private buildCommand(projectDir: string, message: string, secretMount?: DockerSecretMount, conversationContext?: string): { command: string; args: string[]; cwd: string } {
+    const criticalFriendInstructions = `
+## CRITICAL FRIEND – ROLLE UND HALTUNG
+
+Du bist der Critical Friend in einem pädagogischen Denkraum.
+
+### Deine Aufgabe
+- Begleite die Lehrkraft in professionellem pädagogischem Denken
+- Halte Denkprozesse sichtbar und strukturiert
+- Fasse zusammen, markiere Dissens, hebe offene Entscheidungen hervor
+- Schütze vor vorschneller Produktion und unreflektierten Entscheidungen
+
+### Deine Haltung
+- Kollegial, ruhig, erfahren
+- Nicht: technischer Agent, Materialgenerator, Chatbot
+- Sprich aus dem Schulalltag, nicht aus Agenten-/IT-Logik
+- Keine generische KI-Floskeln
+
+### Was du fragst und moderierst
+✓ pädagogische Intention und Sinn
+✓ Lernprozesse und -momente
+✓ Zielgruppe und Kontexte
+✓ Entscheidungen und Begründungen
+✓ offene Fragen und Unsicherheiten
+✓ Ton, Freigabe, Unterrichtseinsatz
+
+### Was du NICHT fragst oder tust
+✗ technische Risks und Permissions
+✗ Shell-, Docker-, Paketbefehle
+✗ API-Keys, Tokens, Secrets
+✗ Provider-Freigaben
+✗ Installation oder System-Konfiguration
+
+### Sprache und Begriffe
+- Nutze: Gespräch, Denkstand, Entscheidung, Entwurf, Material, Lernreise
+- Nicht: Task, Agent, Render, Artifact, Service Request, Repository, Branch
+- Nicht: "Soll ich das installieren?", "Docker ausführen?", "pip install?"
+
+### Konversation führen
+- Immer nur EIN sinnvoller nächster Schritt
+- Keine Listenflut, keine Automationsvorschläge
+- Behalte Kontext und Konsistenz
+- Erkenne, wenn die Lehrkraft sich wiederholt oder widerspricht
+`;
+
     const guardedMessage = [
+      criticalFriendInstructions,
+      "",
       "Arbeite ausschließlich im aktuellen Planungsraum.",
-      "Verändere nur kuratierte Markdown-Dateien wie learning-design.md, decisions.md, open-questions.md oder next-steps.md.",
+      `Nutze den pädagogischen Kernel als Engine-Kontext: ${this.kernelReferencePath()}.`,
       "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
-      "Antworte knapp als Critical Friend in pädagogischer Sprache.",
+      "Antworte knapp als Critical Friend in pädagogischer Sprache. Nenne keine Dateinamen, Pfade, Markdown-Dateien, technischen Werkzeuge oder Provider.",
+      ...(conversationContext ? ["", "Bisheriger Gesprächskontext:", conversationContext] : []),
       "",
       message
     ].join("\n");
@@ -167,10 +276,12 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
           `${projectDir}:/workspace`,
           "--workdir",
           "/workspace",
+          ...this.kernelDockerArgs(),
+          ...this.dockerSecretArgs(secretMount),
           this.options.dockerImage ?? "",
-          "opencode",
           "run",
           "--pure",
+          "--auto",
           "--format",
           "json",
           "--dir",
@@ -183,8 +294,49 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     return {
       command: this.options.command,
       cwd: projectDir,
-      args: ["run", "--pure", "--format", "json", "--dir", projectDir, ...modelArgs, guardedMessage]
+      args: ["run", "--pure", "--auto", "--format", "json", "--dir", projectDir, ...modelArgs, guardedMessage]
     };
+  }
+
+  private async prepareDockerSecretMount(): Promise<DockerSecretMount | undefined> {
+    if (this.options.runner !== "docker") return undefined;
+    if (this.options.provider !== "openrouter" || !this.options.openRouterApiKeyAvailable) return undefined;
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key) return undefined;
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ptspace-opencode-auth-"));
+    const authFile = path.join(tempDir, "auth.json");
+    await fs.writeFile(authFile, JSON.stringify({ openrouter: { type: "api", key } }), "utf8");
+    return { tempDir, authFile };
+  }
+
+  private kernelReferencePath(): string {
+    if (this.options.runner === "docker") return "/ptspace-kernel";
+    return this.options.kernelDir ?? "pedagogical-thinking-space";
+  }
+
+  private kernelDockerArgs(): string[] {
+    if (this.options.runner !== "docker" || !this.options.kernelDir) return [];
+    const args = ["--volume", `${this.options.kernelDir}:/ptspace-kernel:ro`];
+    if (!this.options.kernelWriteEnabled) return args;
+    for (const relativeDir of this.kernelWritableDirs()) {
+      args.push("--volume", `${path.join(this.options.kernelDir, relativeDir)}:/ptspace-kernel/${relativeDir}:rw`);
+    }
+    return args;
+  }
+
+  private kernelWritableDirs(): string[] {
+    return (this.options.kernelWritableDirs ?? []).filter((entry) => /^[a-zA-Z0-9_-]+$/.test(entry));
+  }
+
+  private kernelWritableDescription(): string {
+    if (!this.options.kernelWriteEnabled) return "keine im aktuellen Lauf";
+    const dirs = this.kernelWritableDirs();
+    return dirs.length ? dirs.map((entry) => `/ptspace-kernel/${entry}`).join(", ") : "keine im aktuellen Lauf";
+  }
+
+  private dockerSecretArgs(secretMount?: DockerSecretMount): string[] {
+    if (!secretMount) return [];
+    return ["--volume", `${secretMount.authFile}:/root/.local/share/opencode/auth.json:ro`];
   }
 
   private createSimulationRequests(workspaceRoot: string): HarnessPermissionRequest[] {
@@ -199,7 +351,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
       },
       { type: "command", command: "opencode run" },
       { type: "network", url: "https://example.invalid" },
-      { type: "secret", name: "OPENAI_API_KEY" },
+      { type: "secret", name: "OPENROUTER_API_KEY" },
       {
         type: "pedagogical_question",
         question: "Soll der erste Entwurf eher einen offenen Gesprächseinstieg oder eine strukturierte Sicherung vorbereiten?"
@@ -253,12 +405,50 @@ function diffSnapshots(before: FileSnapshot, after: FileSnapshot): string[] {
   return [...changed].sort();
 }
 
-function createReplyText(result: ProcessResult, stdout: string, stderr: string): string {
-  if (result.exitCode === 0) {
-    return stdout || "Ich habe den Test-Planungsraum geprüft und den Denkstand aktualisiert.";
+function createReply(result: ProcessResult, stdout: string, _stderr: string): { ok: boolean; text: string } {
+  if (result.exitCode !== 0) {
+    return {
+      ok: false,
+      text: "Die geschützte Testausführung konnte noch nicht abgeschlossen werden. Die Runtime ist erreichbar, braucht aber eine freigegebene Modell- und Provider-Konfiguration."
+    };
   }
-  const detail = stderr || stdout || "Die Ausführung wurde ohne verwertbare Rückmeldung beendet.";
-  return `Die geschützte Testausführung konnte noch nicht abgeschlossen werden: ${detail}`;
+  const text = toTeacherFacingReply(extractPlainReply(stdout));
+  if (text) return { ok: true, text };
+  return {
+    ok: false,
+    text: "Die geschützte Testausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren."
+  };
+}
+
+function toTeacherFacingReply(reply: string): string {
+  return reply
+    .replace(/`?(learning-design|conversation-summary)\.md`?/gi, "den Denkstand")
+    .replace(/`?next-steps\.md`?/gi, "die nächsten Schritte")
+    .replace(/`?open-questions\.md`?/gi, "die offenen Fragen")
+    .replace(/`?decisions\.md`?/gi, "die offenen Entscheidungen")
+    .replace(/`?service-requests?\/?`?/gi, "")
+    .replace(/`?opencode`?/gi, "")
+    .replace(/`?\/workspace\/?`?/gi, "")
+    .replace(/`?\/ptspace-kernel\/?`?/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function extractPlainReply(stdout: string): string {
+  const text = stdout.trim();
+  if (!text || text.startsWith("<") || text.includes("<!DOCTYPE html")) return "";
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line) as { text?: string; message?: string; type?: string; part?: { text?: string; type?: string } };
+      const candidate = parsed.text ?? parsed.message ?? parsed.part?.text;
+      const eventType = parsed.part?.type ?? parsed.type;
+      if (candidate && eventType !== "debug") return candidate;
+    } catch {
+      // JSON event streams may contain non-message lines; fall back below.
+    }
+  }
+  return lines.find((line) => !line.startsWith("{") && !line.startsWith("[")) ?? "";
 }
 
 function runProcess(command: string, args: string[], options: ProcessRunnerOptions): Promise<ProcessResult> {

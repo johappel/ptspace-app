@@ -53,6 +53,8 @@ export const api = {
   listPlanningSpaces: () => request<PlanningSpace[]>("/planning-spaces"),
   createPlanningSpace: (input: { title: string; subject?: string; targetGroup?: string; initialIdea?: string }) =>
     request<PlanningSpace>("/planning-spaces", { method: "POST", body: JSON.stringify(input) }),
+  getMessages: (spaceId: string) =>
+    request<{ messages: Array<{ id: string; author: "teacher" | "critical_friend"; text: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/messages`),
   sendMessage: (spaceId: string, message: string) =>
     request<{ reply: { id: string; author: "critical_friend"; text: string; createdAt: string } }>(`/planning-spaces/${spaceId}/conversation`, {
       method: "POST",

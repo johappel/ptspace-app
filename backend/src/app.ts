@@ -1,10 +1,11 @@
-﻿import fs from "node:fs/promises";
+import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { loadConfig } from "./config.js";
 import { PlanningSpaceStore } from "./storage/PlanningSpaceStore.js";
 import { ExportApprovalStore } from "./storage/ExportApprovalStore.js";
+import { ConversationStore } from "./storage/ConversationStore.js";
 import { WorkspaceManager } from "./services/workspace/WorkspaceManager.js";
 import { HarnessAdapter } from "./services/harness/HarnessAdapter.js";
 import { MockHarnessAdapter } from "./services/harness/MockHarnessAdapter.js";
@@ -30,7 +31,14 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
       command: config.openCode.command,
       allowNetwork: config.openCode.allowNetwork,
       timeoutMs: config.openCode.timeoutMs,
-      model: config.openCode.model
+      kernelDir: config.kernelDir,
+      kernelWriteEnabled: config.kernelWriteEnabled,
+      kernelWritableDirs: config.kernelWritableDirs,
+      provider: config.openCode.provider,
+      baseUrl: config.openCode.baseUrl,
+      model: config.openCode.model,
+      openRouterApiKeyAvailable: config.openCode.openRouterApiKeyAvailable,
+      externalKernelContextEnabled: config.openCode.externalKernelContextEnabled
     });
   }
   return new MockHarnessAdapter();
@@ -46,6 +54,7 @@ export async function buildApp() {
 
   const store = new PlanningSpaceStore(config.dataDir);
   const approvals = new ExportApprovalStore(config.dataDir);
+  const conversation = new ConversationStore(config.workspacesDir);
   const workspace = new WorkspaceManager(config.workspacesDir);
   const policy = new PermissionPolicy();
   const harness = createHarness(config, policy);
@@ -62,7 +71,7 @@ export async function buildApp() {
   }));
 
   await app.register(planningSpaceRoutes, { prefix: "/api", store, workspace, git });
-  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness });
+  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation });
   await app.register(thinkingStateRoutes, { prefix: "/api", store, workspace });
   await app.register(exportRoutes, { prefix: "/api", store, approvals, workspace, exportFilter, okf, scanner });
   await app.register(sensitiveContentRoutes, { prefix: "/api", scanner });
