@@ -11,18 +11,26 @@ export type HarnessPermissionRequest =
   | { type: "file"; file: FilePolicyRequest }
   | { type: "network"; url: string }
   | { type: "command"; command: string }
-  | { type: "secret"; name: string };
+  | { type: "secret"; name: string }
+  | { type: "pedagogical_question"; question: string };
 
 export class PermissionPolicy {
   decide(request: HarnessPermissionRequest): PolicyDecision {
     if (request.type === "file") {
       return this.decideFile(request.file);
     }
+    if (request.type === "pedagogical_question") {
+      return {
+        decision: "ask_critical_friend",
+        reason: "pedagogical_decision_needed",
+        teacherFacingMessage: request.question
+      };
+    }
     if (request.type === "secret") {
       return {
         decision: "deny",
         reason: "secrets_do_not_belong_in_dialog_or_workspace",
-        teacherFacingMessage: "Zugangsdaten gehoeren nicht ins Gespräch. Sie werden nur in freigegebenen Einstellungen verwaltet."
+        teacherFacingMessage: "Zugangsdaten gehören nicht ins Gespräch. Sie werden nur in freigegebenen Einstellungen verwaltet."
       };
     }
     if (request.type === "command") {
@@ -51,6 +59,9 @@ export class PermissionPolicy {
         teacherFacingMessage: "Ich arbeite nur im geschützten Planungsraum."
       };
     }
-    return { decision: "allow", reason: `${request.operation}_inside_workspace` };
+    return {
+      decision: "allow",
+      reason: `file_${request.operation}_inside_workspace`
+    };
   }
 }

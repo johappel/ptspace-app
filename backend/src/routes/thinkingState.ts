@@ -41,7 +41,7 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
         {
           id: "naechste-schritte",
           title: "Nächste Schritte",
-          summary: "Ein sinnvoller naechster Schritt reicht für den Moment.",
+          summary: "Ein sinnvoller nächster Schritt reicht für den Moment.",
           previewItems: markdownItems(nextStepsMd).slice(0, 3)
         }
       ],

@@ -1,4 +1,4 @@
-﻿# Entwicklung
+# Entwicklung
 
 ## Voraussetzungen
 
@@ -16,7 +16,7 @@ pnpm --filter @ptspace/frontend dev
 Backend: http://localhost:5174
 Frontend: http://localhost:5173
 
-## Pruefen
+## Prüfen
 
 ```powershell
 pnpm --filter @ptspace/shared check
@@ -27,4 +27,4 @@ pnpm build
 
 ## Wichtige Grenze
 
-Der aktuelle MVP nutzt nur den `MockHarnessAdapter`. Echte `opencode`-Ausfuehrung wird erst nach den Gates in `TASKS.md` Abschnitt 1.5 aktiviert.
+Der aktive Entwicklungsmodus nutzt weiter den `MockHarnessAdapter`. Der `OpenCodeDockerAdapter` ist nur als deaktivierter Prototyp vorhanden. Echte `opencode`-Ausführung wird erst nach den Gates in `TASKS.md` Abschnitt 1.5 und nach einer nicht-produktiven Test-Workspace-Probe aktiviert.
