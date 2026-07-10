@@ -238,6 +238,22 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .export-actions button:hover,
 .export-actions a:hover { background: #eef4ef; }
 .export-actions button:disabled { color: #7f8c87; background: #f2f4f2; cursor: not-allowed; }
+
+.service-card strong { color: #24443d; font-size: 14px; }
+.service-actions { margin-top: 10px; }
+.service-actions button {
+  width: 100%;
+  border: 1px solid #cad8ce;
+  border-radius: 7px;
+  padding: 9px 10px;
+  background: #f5f8f4;
+  color: #24443d;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.service-actions button:hover { background: #eaf2eb; }
+.service-message { padding-top: 8px; border-top: 1px solid #e2e8e1; }
 .thinking-dots {
   width: 8px;
   height: 8px;
