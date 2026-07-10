@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ServiceRequestWorkflow } from "../src/services/serviceRequests/ServiceRequestWorkflow.js";
 import { WorkspaceManager } from "../src/services/workspace/WorkspaceManager.js";
+import { MockHarnessAdapter } from "../src/services/harness/MockHarnessAdapter.js";
 
 let tempRoot: string;
 let workspace: WorkspaceManager;
@@ -37,7 +38,7 @@ const space = {
 beforeEach(async () => {
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ptspace-service-test-"));
   workspace = new WorkspaceManager(tempRoot);
-  workflow = new ServiceRequestWorkflow(workspace);
+  workflow = new ServiceRequestWorkflow(workspace, new MockHarnessAdapter());
   await workspace.ensureWorkspace(space);
 });
 
@@ -52,13 +53,13 @@ describe("ServiceRequestWorkflow", () => {
     expect(kernel.task).toBe("create_student_instruction");
     expect(kernel.return_to).toBe("critical_friend");
     expect(kernel.requires_approval).toBe(true);
-    expect(kernel.expected_output.location).toContain("/project/drafts/student-instruction.md");
+    expect(kernel.expected_output.location).toContain("/hoffnung-trotz-krise-religion/drafts/student-instruction.md");
   });
 
   it("requires approval, runs the worker and returns the result through review", async () => {
     const request = await workflow.proposeStudentInstruction(space.id, "Die pädagogischen Entscheidungen reichen für einen ersten Entwurf.");
     expect(request.status).toBe("proposed");
-    const completed = await workflow.approveAndRun(space.id, request.id);
+    const completed = await workflow.approveAndRun(space.id, request.id, space);
     expect(completed.status).toBe("reviewed");
     expect(completed.review?.status).toBe("passed");
     const material = await workspace.readProjectFile(space.id, "drafts/student-instruction.md");
