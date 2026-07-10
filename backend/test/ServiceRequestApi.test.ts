@@ -62,7 +62,7 @@ describe("service-request API", () => {
       expect(result.serviceRequest.returnTo).toBe("critical_friend");
       expect(result.material.status).toBe("review_needed");
       expect(result.material.content).toContain("# Entwurf: Arbeitsauftrag");
-      expect(result.teacherFacingMessage).toContain("Du entscheidest");
+      expect(result.teacherFacingMessage).toContain("automatische Vorprüfung");
 
       const draft = await fs.readFile(path.join(tempRoot, "planning-workspaces", space.workspaceSlug, "drafts", "student-instruction.md"), "utf8");
       expect(draft).toContain("Status: Entwurf");
