@@ -202,7 +202,7 @@ export class ServiceRequestWorkflow {
     request.updatedAt = new Date().toISOString();
     request.review = {
       status: "passed",
-      note: "Der Entwurf ist vorhanden, als Entwurf gekennzeichnet und an den aktuellen Denkstand angebunden. Die Lehrkraft entscheidet über Freigabe oder Überarbeitung.",
+      note: "Automatische Vorprüfung bestanden: Der Entwurf ist vorhanden, vollständig gegliedert und als Entwurf gekennzeichnet. Die inhaltliche Prüfung durch den Critical Friend und die Lehrkraft steht noch aus.",
       reviewedAt: request.updatedAt
     };
   }
