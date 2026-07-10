@@ -41,6 +41,13 @@ export type ServiceRequest = {
   review?: { status: "passed" | "failed"; note: string };
 };
 
+export type WorkerMaterial = {
+  title: string;
+  status: "review_needed";
+  format: "markdown";
+  content: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${backendUrl}/api${path}`, {
     ...init,
@@ -72,6 +79,8 @@ export const api = {
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
   getServiceRequests: (spaceId: string) =>
     request<{ requests: ServiceRequest[] }>(`/planning-spaces/${spaceId}/service-requests`),
+  getStudentInstruction: (spaceId: string) =>
+    request<WorkerMaterial>(`/planning-spaces/${spaceId}/materials/student-instruction`),
   proposeStudentInstruction: (spaceId: string) =>
     request<{ serviceRequest: ServiceRequest }>(`/planning-spaces/${spaceId}/service-requests/student-instruction`, {
       method: "POST",
@@ -80,7 +89,7 @@ export const api = {
       })
     }),
   approveServiceRequest: (spaceId: string, requestId: string) =>
-    request<{ serviceRequest: ServiceRequest; teacherFacingMessage: string }>(
+    request<{ serviceRequest: ServiceRequest; material: WorkerMaterial; teacherFacingMessage: string }>(
       `/planning-spaces/${spaceId}/service-requests/${requestId}/approve`,
       { method: "POST" }
     ),
