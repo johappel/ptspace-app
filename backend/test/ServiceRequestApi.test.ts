@@ -9,9 +9,10 @@ const oldEnv: Record<string, string | undefined> = {};
 
 beforeEach(async () => {
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ptspace-service-api-test-"));
-  for (const key of ["PTSPACE_DATA_DIR", "PTSPACE_WORKSPACES_DIR", "PTSPACE_HARNESS", "PTSPACE_REAL_HARNESS_ENABLED"]) oldEnv[key] = process.env[key];
+  for (const key of ["PTSPACE_DATA_DIR", "PTSPACE_WORKSPACES_DIR", "PTSPACE_PLANNING_WORKSPACES_DIR", "PTSPACE_HARNESS", "PTSPACE_REAL_HARNESS_ENABLED"]) oldEnv[key] = process.env[key];
   process.env.PTSPACE_DATA_DIR = path.join(tempRoot, "data");
   process.env.PTSPACE_WORKSPACES_DIR = path.join(tempRoot, "workspaces");
+  process.env.PTSPACE_PLANNING_WORKSPACES_DIR = path.join(tempRoot, "planning-workspaces");
   process.env.PTSPACE_HARNESS = "mock";
   process.env.PTSPACE_REAL_HARNESS_ENABLED = "false";
 });
@@ -39,7 +40,7 @@ describe("service-request API", () => {
         }
       });
       expect(created.statusCode).toBe(201);
-      const space = created.json<{ id: string }>();
+      const space = created.json<{ id: string; workspaceSlug: string }>();
 
       const proposed = await app.inject({
         method: "POST",
@@ -62,7 +63,7 @@ describe("service-request API", () => {
       expect(result.material.status).toBe("review_needed");
       expect(result.teacherFacingMessage).toContain("Du entscheidest");
 
-      const draft = await fs.readFile(path.join(tempRoot, "workspaces", space.id, "project", "drafts", "student-instruction.md"), "utf8");
+      const draft = await fs.readFile(path.join(tempRoot, "planning-workspaces", space.workspaceSlug, "drafts", "student-instruction.md"), "utf8");
       expect(draft).toContain("Status: Entwurf");
     } finally {
       await app.close();
