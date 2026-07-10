@@ -231,8 +231,8 @@ export const LearningLandscapeStructureSchema = z.enum(["linear", "stations", "b
 export type LearningLandscapeStructure = z.infer<typeof LearningLandscapeStructureSchema>;
 
 export const LearningMomentKindSchema = z.enum([
-  "impulse", "learning_place", "positioning", "exploration", "choice", "practice",
-  "project", "product", "reflection", "assessment"
+  "impulse", "learning_place", "positioning", "inquiry", "choice", "practice",
+  "project", "product", "reflection", "assessment", "other"
 ]);
 export type LearningMomentKind = z.infer<typeof LearningMomentKindSchema>;
 
