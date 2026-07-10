@@ -3,11 +3,20 @@ import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 
 function markdownItems(markdown: string): string[] {
-  return markdown
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- "))
-    .map((line) => line.slice(2).trim());
+  const items: string[] = [];
+  let heading = "";
+  for (const rawLine of markdown.split("\n")) {
+    const line = rawLine.trim();
+    if (line.startsWith("## ")) {
+      heading = line.slice(3).trim();
+      continue;
+    }
+    if (!line || line.startsWith("#") || line.startsWith(">")) continue;
+    const value = line.replace(/^[-*]\s+/, "").trim();
+    if (!value || /^(noch (?:offen|zu klären|zu entwickeln)|noch keine)/i.test(value)) continue;
+    items.push(heading && !line.startsWith("- ") ? `${heading}: ${value}` : value);
+  }
+  return [...new Set(items)];
 }
 
 export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager }) {
@@ -18,8 +27,9 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
       return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     }
     await deps.workspace.ensureWorkspace(space);
-    const [learningDesign, openQuestionsMd, nextStepsMd, summary] = await Promise.all([
+    const [learningDesign, decisionsMd, openQuestionsMd, nextStepsMd, summary] = await Promise.all([
       deps.workspace.readProjectFile(id, "learning-design.md"),
+      deps.workspace.readProjectFile(id, "decisions.md"),
       deps.workspace.readProjectFile(id, "open-questions.md"),
       deps.workspace.readProjectFile(id, "next-steps.md"),
       deps.workspace.readProjectFile(id, "conversation-summary.md")
@@ -36,7 +46,10 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
           id: "offene-entscheidungen",
           title: "Offene Entscheidungen",
           summary: "Was vor einem Materialentwurf noch geklärt werden sollte.",
-          previewItems: markdownItems(openQuestionsMd).slice(0, 3)
+          previewItems: [
+            ...markdownItems(decisionsMd),
+            ...markdownItems(openQuestionsMd).map((item) => `Offen: ${item}`)
+          ].slice(0, 3)
         },
         {
           id: "nächste-schritte",
