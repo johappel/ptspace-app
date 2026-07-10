@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, Lightbulb, MessageSquareText, Plus, ShieldCheck, TriangleAlert } from "lucide-svelte";
-  import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ThinkingCard } from "$lib/api";
+  import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
   import { uuid } from "$lib/uuid";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
@@ -13,6 +13,10 @@
   let findings: SensitiveFinding[] = [];
   let markdownApproval: ExportApproval | null = null;
   let okfApproval: ExportApproval | null = null;
+  let serviceRequests: ServiceRequest[] = [];
+  let serviceMessage = "";
+  let workerMaterial: WorkerMaterial | null = null;
+  let showWorkerMaterial = false;
   let expandedCard = "denkstand";
   let loading = true;
   let sending = false;
@@ -68,6 +72,19 @@ let messagesElement: HTMLDivElement | null = null;
     const exportStatus = await api.getExportStatus(space.id);
     markdownApproval = exportStatus.markdown;
     okfApproval = exportStatus.okfMarkdown;
+    serviceRequests = (await api.getServiceRequests(space.id)).requests;
+    const hasReviewedStudentInstruction = serviceRequests.some((item) => item.status === "reviewed");
+    if (hasReviewedStudentInstruction) {
+      try {
+        workerMaterial = await api.getStudentInstruction(space.id);
+      } catch {
+        workerMaterial = null;
+      }
+    } else {
+      workerMaterial = null;
+    }
+    showWorkerMaterial = false;
+    serviceMessage = "";
     findings = [];
   }
 
@@ -109,6 +126,31 @@ async function sendMessage() {
     const approval = await api.approveExport(activeSpace.id, exportType, findings.length > 0);
     if (exportType === "markdown") markdownApproval = approval;
     else okfApproval = approval;
+  }
+
+  async function proposeStudentInstruction() {
+    if (!activeSpace) return;
+    error = "";
+    try {
+      const result = await api.proposeStudentInstruction(activeSpace.id);
+      serviceRequests = [...serviceRequests, result.serviceRequest];
+      serviceMessage = "Der Schritt ist vorgemerkt. Erst deine Zustimmung startet die Vorbereitung.";
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Der nächste Schritt konnte noch nicht vorgemerkt werden.";
+    }
+  }
+
+  async function approveServiceRequest(serviceRequest: ServiceRequest) {
+    if (!activeSpace) return;
+    error = "";
+    try {
+      const result = await api.approveServiceRequest(activeSpace.id, serviceRequest.id);
+      serviceRequests = serviceRequests.map((item) => item.id === result.serviceRequest.id ? result.serviceRequest : item);
+      workerMaterial = result.material;
+      serviceMessage = result.teacherFacingMessage;
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Der Entwurf konnte noch nicht vorbereitet werden.";
+    }
   }
 
   function handleComposerKeydown(event: KeyboardEvent) {
@@ -200,6 +242,32 @@ async function sendMessage() {
               {#if expandedCard === card.id}<ul>{#each card.previewItems.length ? card.previewItems : ["Noch nichts festgehalten."] as item}<li>{item}</li>{/each}</ul>{/if}
             </section>
           {/each}
+
+          <section class="thinking-card service-card">
+            <strong>Materialentwurf</strong>
+            {#if serviceRequests.length === 0}
+              <p>Wenn der Denkstand trägt, kannst du einen ersten Arbeitsauftrag als prüfbaren Entwurf vormerken.</p>
+              <div class="service-actions"><button on:click={proposeStudentInstruction}>Als nächsten Schritt vorschlagen</button></div>
+            {:else}
+              {#each serviceRequests as serviceRequest}
+                {#if serviceRequest.status === "proposed"}
+                  <p>„Arbeitsauftrag vorbereiten“ ist vorgemerkt und wartet auf deine Zustimmung.</p>
+                  <div class="service-actions"><button on:click={() => approveServiceRequest(serviceRequest)}>Entwurf vorbereiten lassen</button></div>
+                {:else if serviceRequest.status === "reviewed"}
+                  <p>{serviceRequest.review?.note ?? "Der Entwurf wurde geprüft und liegt zur Entscheidung bereit."}</p>
+                  {#if workerMaterial}
+                    <div class="service-actions"><button on:click={() => (showWorkerMaterial = !showWorkerMaterial)}>{showWorkerMaterial ? "Entwurf schließen" : "Entwurf ansehen"}</button></div>
+                    {#if showWorkerMaterial}<pre class="worker-material">{workerMaterial.content}</pre>{/if}
+                  {/if}
+                {:else if serviceRequest.status === "failed"}
+                  <p>Der Entwurf konnte noch nicht sicher vorbereitet werden.</p>
+                {:else}
+                  <p>Der Entwurf wird vorbereitet und kehrt zunächst zum Critical Friend zurück.</p>
+                {/if}
+              {/each}
+            {/if}
+            {#if serviceMessage}<p class="service-message">{serviceMessage}</p>{/if}
+          </section>
 
           <section class="ready-card"><CheckCircle2 size={18} /><div><strong>Für den Unterricht bereit</strong><span>{markdownApproval ? "Markdown freigegeben." : "Noch nichts freigegeben."}</span></div></section>
 

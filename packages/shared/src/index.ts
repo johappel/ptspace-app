@@ -106,6 +106,7 @@ export type Material = z.infer<typeof MaterialSchema>;
 
 export const PlanningSpaceSchema = z.object({
   id: z.string().min(1),
+  workspaceSlug: z.string().min(1).optional(),
   title: z.string().min(1),
   subject: z.string().optional().default(""),
   targetGroup: z.string().optional().default(""),

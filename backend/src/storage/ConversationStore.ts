@@ -25,6 +25,7 @@ export class ConversationStore {
     const filePath = path.join(this.workspacesDir, spaceId, "project", "messages.json");
     const messages = await this.getMessages(spaceId);
     messages.push(message);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(messages, null, 2), "utf8");
   }
 

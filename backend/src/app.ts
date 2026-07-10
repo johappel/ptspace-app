@@ -15,11 +15,13 @@ import { ExportFilter } from "./services/export/ExportFilter.js";
 import { OkfExporter } from "./services/okf/OkfExporter.js";
 import { PermissionPolicy } from "./services/policy/PermissionPolicy.js";
 import { SensitiveContentScanner } from "./services/privacy/SensitiveContentScanner.js";
+import { ServiceRequestWorkflow } from "./services/serviceRequests/ServiceRequestWorkflow.js";
 import { planningSpaceRoutes } from "./routes/planningSpaces.js";
 import { conversationRoutes } from "./routes/conversation.js";
 import { thinkingStateRoutes } from "./routes/thinkingState.js";
 import { exportRoutes } from "./routes/exports.js";
 import { sensitiveContentRoutes } from "./routes/sensitiveContent.js";
+import { serviceRequestRoutes } from "./routes/serviceRequests.js";
 
 function createHarness(config: ReturnType<typeof loadConfig>, policy: PermissionPolicy): HarnessAdapter {
   if (config.harness === "opencode-docker") {
@@ -55,13 +57,14 @@ export async function buildApp() {
   const store = new PlanningSpaceStore(config.dataDir);
   const approvals = new ExportApprovalStore(config.dataDir);
   const conversation = new ConversationStore(config.workspacesDir);
-  const workspace = new WorkspaceManager(config.workspacesDir);
+  const workspace = new WorkspaceManager(config.planningWorkspacesDir);
   const policy = new PermissionPolicy();
   const harness = createHarness(config, policy);
   const git = new GitManager();
   const exportFilter = new ExportFilter();
   const okf = new OkfExporter();
   const scanner = new SensitiveContentScanner();
+  const serviceWorkflow = new ServiceRequestWorkflow(workspace, harness);
 
   app.get("/health", async () => ({
     status: "ok",
@@ -73,6 +76,7 @@ export async function buildApp() {
   await app.register(planningSpaceRoutes, { prefix: "/api", store, workspace, git });
   await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation });
   await app.register(thinkingStateRoutes, { prefix: "/api", store, workspace });
+  await app.register(serviceRequestRoutes, { prefix: "/api", store, workspace, git, workflow: serviceWorkflow });
   await app.register(exportRoutes, { prefix: "/api", store, approvals, workspace, exportFilter, okf, scanner });
   await app.register(sensitiveContentRoutes, { prefix: "/api", scanner });
 

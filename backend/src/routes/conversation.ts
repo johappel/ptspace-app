@@ -73,7 +73,12 @@ export async function conversationRoutes(
       for (const update of result.workspaceUpdates) {
         await deps.workspace.writeProjectFile(space.id, update.relativePath, update.content);
       }
-      const version = await deps.git.saveVersion(workspaceRoot, "Denkstand aktualisiert");
+      const stateChanged = result.events.some(
+        (event) =>
+          event.type === "workspace_update" &&
+          ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"].includes(event.relativePath)
+      );
+      const version = await deps.git.saveVersion(workspaceRoot, stateChanged ? "Denkstand aktualisiert" : "Gespräch fortgeführt");
       return { status: "wird_vorbereitet", reply: result.reply, version, events: result.events };
     } catch (error) {
       request.log.error({ err: error }, "harness conversation failed");

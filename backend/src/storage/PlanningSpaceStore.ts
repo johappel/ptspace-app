@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { CreatePlanningSpaceInput, PlanningSpace, createEmptyLearningDesign } from "@ptspace/shared";
 import { newId, nowIso } from "../ids.js";
+import { planningSpaceSlug } from "../workspaceSlug.js";
 
 export class PlanningSpaceStore {
   private readonly filePath: string;
@@ -21,8 +22,15 @@ export class PlanningSpaceStore {
 
   async create(input: CreatePlanningSpaceInput): Promise<PlanningSpace> {
     const timestamp = nowIso();
+    const spaces = await this.readAll();
+    const baseSlug = planningSpaceSlug(input.title, input.subject);
+    const usedSlugs = new Set(spaces.map((entry) => entry.workspaceSlug).filter(Boolean));
+    let workspaceSlug = baseSlug;
+    let suffix = 2;
+    while (usedSlugs.has(workspaceSlug)) workspaceSlug = `${baseSlug}-${suffix++}`;
     const space: PlanningSpace = {
       id: newId("space"),
+      workspaceSlug,
       title: input.title,
       subject: input.subject ?? "",
       targetGroup: input.targetGroup ?? "",
@@ -54,7 +62,6 @@ export class PlanningSpaceStore {
       materials: []
     };
 
-    const spaces = await this.readAll();
     spaces.push(space);
     await this.writeAll(spaces);
     return space;

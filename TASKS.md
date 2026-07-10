@@ -1,165 +1,119 @@
-# TASKS.md
+# ptspace-app – Umsetzungsliste
 
-# ptspace-app Umsetzungsliste
+Stand: 2026-07-10
 
-Stand: 2026-07-08
+Diese Liste ist das operative Arbeitsdokument für Agenten. Pädagogische Semantik kommt aus dem Kernel:
 
-Diese Liste ist das operative Arbeitsdokument für die erste Umsetzung von `ptspace-app`. Die fachliche Quelle bleiben `PRODUCT_SPEC.md`, `UI_SPEC.md`, `TECH_STACK.md`, `HARNESS_ADAPTERS.md`, `HARNESS_FIRST_ARCHITECTURE.md` und `AUDIO_WORKER_SCENARIO.md`.
+- `pedagogical-thinking-space/specs/LEARNING_LANDSCAPE_SCHEMA.md`
+- `pedagogical-thinking-space/specs/PLANNING_BOARD_SCHEMA.md`
 
-## 0. Aktueller Repo-Stand
+Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md` beschrieben.
 
-- [x] Produktidee, MVP-Ziel und Nicht-Ziele dokumentiert.
-- [x] UI-Sprache und Grundlayout dokumentiert.
-- [x] Harness-first-Architektur dokumentiert.
-- [x] Adapter- und Host-Bridge-Regeln dokumentiert.
-- [x] Audio Worker Capability fachlich beschrieben.
-- [x] Lauffähige Frontend-App vorhanden.
-- [x] Lauffähiges Backend vorhanden.
-- [x] Domain-Modelle als Code vorhanden.
-- [x] Tests vorhanden.
-- [x] Docker-Compose-Setup vorhanden.
-- [x] Entwicklungs-README mit konkretem Startbefehl vorhanden.
+## Aktueller Stand
 
-## 1. Startentscheidungen
+- [x] SvelteKit-Frontend, Fastify-Backend und gemeinsame Domain-Schemas.
+- [x] Planungsräume verwenden den Kernel-Workspace als inhaltliche Quelle.
+- [x] Gespräch, Denkstand, offene Entscheidungen und Markdown/OKF-Export.
+- [x] geschützte Harness-Grenze und Mock-/OpenCode-Adapter.
+- [x] erster Worker-Auftrag für einen Arbeitsauftrag als Entwurf.
+- [x] automatische strukturelle Vorprüfung von Worker-Ergebnissen.
+- [ ] modellgestützte Critical-Friend-Review von Worker-Ergebnissen.
+- [ ] echter Knowledge-Adapter mit Quellen, Abrufdatum und Unsicherheit.
+- [ ] Lernlandschaft, zeitliche Dramaturgie und Planungsboard.
 
-- [x] Frontend-Stack festgelegt: SvelteKit, TypeScript, Tailwind CSS, Lucide Icons.
-- [x] Backend-Stack festgelegt: Node.js, TypeScript, Fastify, Zod.
-- [x] Monorepo-Struktur mit `frontend`, `backend` und `packages/shared` angelegt.
-- [x] Teacher-facing Begriffe festgelegt: Planungsräume, Gemeinsam nachdenken, Denkstand, Offene Entscheidungen, Nächste Schritte, Materialien, Export.
-- [x] Lokaler Git-Store als interne Versionierung gewählt.
-- [x] Nextcloud als externe Zielablage zurückgestellt.
-- [x] `opencode` als Referenz-Harness hinter Adaptergrenze vorbereitet.
+## L0 — Voraussetzung: Kernel-Verträge
 
-## 2. Domain und Backend
+- [ ] Kernel-PR für Lernlandschaft und Planungsboard einbinden.
+- [ ] Zod-Schemas aus den Kernel-Verträgen ableiten.
+- [ ] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
+- [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Nächste Schritte“ wird daraus abgeleitet.
+- [ ] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
+- [ ] Ungültige Node-IDs, Kanten und Referenzen mit lehrkräfteverständlichen Fehlern ablehnen.
 
-- [x] Gemeinsame Zod-Schemas und TypeScript-Typen für Kernobjekte implementiert.
-- [x] Planungsraum-Erstellung implementiert.
-- [x] Isolierten Workspace pro Planungsraum implementiert.
-- [x] Grunddateien erzeugen: `learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`.
-- [x] Lokale Git-Versionen durch das Backend erzeugen.
-- [x] Conversation-Route implementiert.
-- [x] Thinking-State-Route implementiert.
-- [x] Export-Route für Markdown und OKF-Markdown implementiert.
-- [x] Fehler- und Statusantworten in Lehrkräfte-Sprache übersetzt.
-- [x] Direkte Browser-Kommunikation mit Harness oder Shell ausgeschlossen.
+**Done when:** App und Kernel lesen denselben kanonischen Inhalt ohne parallele Datenmodelle.
 
-## 3. Frontend-MVP
+## L1 — Domain und API
 
-- [x] SvelteKit-App scaffolden.
-- [x] Grundlayout mit Planungsräumen, Gespräch, Denkstand, nächsten Schritten, Materialien und Export umsetzen.
-- [x] Hauptbereich als "Gemeinsam nachdenken" formulieren.
-- [x] Navigation oben links bewusst mit "Planungsräume" formulieren.
-- [x] Chat-UI implementieren.
-- [x] Nachricht mit `Ctrl + Return` abschicken.
-- [x] Denkstand-Karten kompakt anzeigen.
-- [x] Material- und Exportbereich vorbereiten.
-- [x] Keine technischen Begriffe im Lehrer:innen-Modus anzeigen.
-- [x] Keine Ersatzumlaute in UI-Texten verwenden.
+- [ ] Domain-Typen implementieren:
+  - `LearningLandscape`
+  - `LearningMoment`
+  - `LandscapeTransition`
+  - `TeachingWindow`
+  - `TimePlacement`
+  - `PlanningBoardItem`
+  - `LandscapeChangeProposal`
+- [ ] API: Lernlandschaft lesen und speichern.
+- [ ] API: Unterrichtsfenster und Platzierungen lesen und speichern.
+- [ ] API: Planungsboard lesen, Vorschlag anlegen, bestätigen, verschieben und schließen.
+- [ ] API: Material einem Lernmoment oder Board-Item zuordnen.
+- [ ] Jede semantische Änderung als verständliche Git-Version speichern.
+- [ ] Layoutdaten getrennt von semantischen Daten speichern.
 
-## 4. Datenschutz, Sicherheit und Reputation
+**Done when:** alle UI-Operationen serverseitig validiert und versioniert sind.
 
-- [x] Eingabehinweis für pseudonymisierte Lerngruppenangaben implementieren.
-- [x] Sensible Inhalte regelbasiert markieren.
-- [x] Umformulierungen für sensible Lerngruppenangaben anbieten.
-- [x] Exportfilter implementieren.
-- [x] Roher Chat, interne Service Requests, Secrets und technische Logs vom Standardexport ausschließen.
-- [x] Exportfreigabe durch Lehrkraft modellieren.
-- [x] API-Keys nicht in Chatnachrichten speichern.
-- [x] OpenRouter-Key nur temporär als Docker-Secret-Mount außerhalb von Chat, Workspace und Git bereitstellen.
-- [ ] Integration-Status nur als Status anzeigen, nie als Secret oder Provider-Konfiguration im Lehrkräfte-Dialog.
-- [ ] Reputationstest für UI-Texte durchführen.
-- [ ] Keine unrealistischen Wirksamkeitsversprechen in UI und Dokumentation stehen lassen.
-- [ ] Keine wissenschaftlich unbelegten Behauptungen in UI und Dokumentation stehen lassen.
-- [ ] Transparenzhinweise für KI-generierte Materialien vorbereiten.
+## L2 — Lernlandschaft-Modal
 
-## 5. Harness-Adapter
+- [ ] großes Modal „Unterrichtsplanung“ implementieren.
+- [ ] Tab „Lernlandschaft“ implementieren.
+- [ ] `@xyflow/svelte` integrieren.
+- [ ] Custom Nodes für die vereinbarten Lernmoment-Typen bauen.
+- [ ] Knoten-Detailkarte implementieren.
+- [ ] Verbindung nur über Auswahl einer didaktischen Bedeutung erzeugen.
+- [ ] Gruppenflächen für Phasen, Räume und Stationen implementieren.
+- [ ] Zoom, MiniMap, Tastaturbedienung und Rücksetzen des Layouts implementieren.
+- [ ] Canvas- und lineare Lesansicht aus derselben Landschaft anbieten.
 
-- [x] Gemeinsames `HarnessAdapter`-Interface implementieren.
-- [x] `MockHarnessAdapter` implementieren.
-- [x] Policy-Entscheidungstypen implementieren: `allow`, `deny`, `requires_admin_approval`, `ask_critical_friend`.
-- [x] PermissionPolicy für Workspace-Grenzen implementieren.
-- [x] Schutzgrenzen testen.
-- [x] `OpenCodeDockerAdapter` als Feature-Flag-Testadapter vorbereiten.
-- [x] Echte `opencode`-Ausführung standardmäßig blockieren.
-- [x] Nicht-produktive Ende-zu-Ende-Probe im Test-Workspace vorbereiten.
-- [x] Produktionsnahen Docker-Test mit gebautem Image ohne Provider ausführen.
-- [x] opencode-Testimage `ptspace/opencode-test:1.17.13` bauen und Version prüfen.
-- [x] OpenRouter-Modell- und Providerkonfiguration vorbereiten.
-- [x] OpenRouter-Secret-Übergabe ohne Chat-, Workspace- oder Git-Leak vorbereiten.
-- [x] PTSPACE-Kernel als pädagogische Engine in den Harness-Kontext einbinden.
-- [x] Externen Vollkernel-Kontext ohne Admin-Freigabe blockieren.
-- [x] Beschreibbare Kernel-Arbeitsbereiche für kontrollierte Evolution modellieren.
-- [x] OpenRouter-Dialogtest mit erfolgreicher Modellantwort ausführen.
-- [ ] Host-Bridge nur nach separater Sicherheitsentscheidung prototypisieren.
+**Done when:** eine Lehrkraft eine lineare, stationäre und hybride Lernlandschaft ohne technische Begriffe anlegen kann.
 
-## 6. Material- und Export-MVP
+## L3 — Zeit & Dramaturgie
 
-- [x] MarkdownExporter implementieren.
-- [x] Learning-Design-Export als Markdown erzeugen.
-- [x] Materialentwurf als Markdown erzeugen.
-- [x] OKF-Markdown vorbereiten.
-- [x] OKF exportiert kuratierte Ergebnisse, nicht den rohen Denkprozess.
-- [ ] PDF/DOCX-Export erst nach stabilem Markdown-Export starten.
-- [ ] Nextcloud-Export zurückstellen, bis Exportfilter und Freigabelogik stabil sind.
+- [ ] Tab „Zeit & Dramaturgie“ implementieren.
+- [ ] Unterrichtsfenster anlegen und benennen.
+- [ ] Lernmomente zeitlich zuordnen, auch mehrfach.
+- [ ] Wahl- und Stationsmomente als nicht-lineare Platzierung darstellen.
+- [ ] zeitliche Konflikte und unzugeordnete Lernmomente sichtbar machen.
+- [ ] Wechsel zwischen Canvas und Zeitansicht ohne Informationsverlust testen.
 
-## 7. Audio Worker Capability
+**Done when:** die Lehrkraft erkennen kann, was wann stattfindet, ohne die didaktische Offenheit zu verlieren.
 
-- [ ] Audio im MVP nicht als direkte TTS-Funktion starten.
-- [ ] Zuerst Capability-Modell anlegen.
-- [ ] Script-only-Fallback als sichere erste Umsetzung modellieren.
-- [ ] Transcript-Pflicht abbilden.
-- [ ] Review-Vermerk abbilden.
-- [ ] Transparenzhinweis für Unterrichtseinsatz abbilden.
-- [ ] Voice Cloning realer oder identifizierbarer Personen im Default ausschließen.
-- [ ] Providerwahl nicht als Lehrkraft-Entscheidung in die UI legen.
+## L4 — Planungsboard und Materialien
 
-## 8. Tests und Qualität
+- [ ] Tab „Planungsboard“ implementieren.
+- [ ] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
+- [ ] Board-Karten mit Lernmomenten, Unterrichtsfenstern und Materialien verknüpfen.
+- [ ] „Nächste Schritte“ in der Seitenleiste auf exakt ein priorisiertes Board-Arbeitsvorhaben umstellen; Klick öffnet die zugehörige Karte im Modal.
+- [ ] keine parallele „Nächste-Schritte“-Liste neben dem Board führen.
+- [ ] Materialtab mit Zuordnung zu Lernmomenten und Status implementieren.
+- [ ] Worker-Ausgabe aus einer Board-Karte heraus starten, nicht über einen pauschalen Materialbutton.
 
-- [x] Unit-Tests für Domain-Schemas.
-- [x] Unit-Tests für Statusübersetzungen.
-- [x] Unit-Tests für PermissionPolicy.
-- [x] Unit-Tests für Exportfilter.
-- [x] Integrationstest: Planungsraum erstellen erzeugt isolierten Workspace.
-- [x] Integrationstest: Chat-Nachricht läuft über Backend und MockHarnessAdapter.
-- [x] Integrationstest: Denkstand wird aus Workspace-Dateien gelesen.
-- [x] UI-Test: Lehrer:innen-Modus zeigt keine Git-, Shell-, YAML- oder Harness-Prompts.
-- [x] UI-Test: Mobile und Desktop Layout ohne Textüberlagerung.
-- [ ] Repo-weite UTF-8-/Mojibake-Prüfung regelmäßig ausführen.
-- [ ] `git diff --check` vor Abschluss sauber halten.
-- [ ] Backend-Checks und Tests vor Abschluss ausführen.
-- [ ] Frontend-/Gesamtbuild vor Abschluss ausführen.
+**Done when:** eine Unterrichtsstunde nicht mehr als „Nächster Schritt“ erscheint, „Nächste Schritte“ immer auf eine Board-Karte verweist und jedes Material einen didaktischen Bezug hat.
 
-## 9. Dokumentation
+## L5 — AI-Vorschläge und Review
 
-- [x] `docs/architecture.md` aus den bestehenden Specs extrahieren.
-- [x] `docs/data-protection.md` konkretisieren.
-- [x] `docs/ui-language.md` konkretisieren.
-- [x] `docs/harness-opencode.md` ergänzen.
-- [x] `docs/next-harness-stage.md` ergänzen.
-- [x] `docs/okf-export.md` ergänzen.
-- [x] `docs/nextcloud-integration.md` ergänzen.
-- [x] `docs/operations-security.md` ergänzen.
-- [x] Dokumentation nach erfolgreichem OpenRouter-Dialogtest aktualisieren.
+- [ ] `LandscapeChangeProposal` als eigenes Artefakt implementieren.
+- [ ] Canvas-Diff für neue, geänderte und entfernte Knoten/Kanten implementieren.
+- [ ] Lehreraktionen: Vorschau, Übernehmen, Gespräch, Verwerfen.
+- [ ] KI darf ohne Zustimmung keine kanonische Lernlandschaft oder Zeitplanung ändern.
+- [ ] Board-Proposal erzeugt erst nach Zustimmung einen Service Request.
+- [ ] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren.
+- [ ] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden.
 
-## 10. Vor produktiver Schulnutzung klären
+**Done when:** KI-Entwürfe nachvollziehbar, reversibel und lehrkraftgesteuert sind.
 
-- [ ] Konkrete Authentifizierungsstrategie.
-- [ ] Rollen- und Rechtekonzept für mehrere Lehrkräfte.
-- [ ] Secret-Store für produktive Deployments.
-- [ ] Datenaufbewahrung und Löschkonzept.
-- [ ] Mandanten-/Schultrennung.
-- [ ] Admin-Oberfläche für Integrationen und Runtimes.
-- [ ] Sicherheitsmodell für echten `opencode`- oder Host-Bridge-Betrieb.
-- [ ] Wissenschaftlich belastbare Quellenstrategie für fachliche Aussagen.
-- [ ] Lizenz- und OER-Metadaten für Exporte.
+## L6 — Knowledge und Qualität
 
-## 11. Aktueller nächster Umsetzungsschnitt
+- [ ] Knowledge-Adapter mit freigegebenen Quellen integrieren.
+- [ ] Quellen, Abrufdatum, Prüfstatus und Unsicherheit speichern und anzeigen.
+- [ ] Lehrplanbezug als Board-Aufgabe und Knowledge-Ergebnis modellieren.
+- [ ] E2E-Test: Chat → Proposal → Canvas-Vorschau → Zustimmung → Workspace → UI.
+- [ ] E2E-Test: Worker-Material → Review → Lernmoment-Zuordnung → Freigabe.
+- [ ] Barrierefreiheit: Tastatur, Fokus, Kontrast, nicht allein farbcodierte Kanten.
+- [ ] Responsive Verhalten: Canvas-Modal auf kleineren Displays.
 
-1. Abschlusschecks sauber halten: Encoding-Scan, Backend-Checks, Backend-Tests, Build und `git diff --check`.
-2. Kernel-Evolutionsläufe für Knowledge, Capabilities, Services und Worker als eigene Freigabe-Workflows modellieren.
-3. Host-Bridge nur nach separater Sicherheitsentscheidung planen.
-4. Vor Schulnutzung Authentifizierung, Rollen, Secret-Store, Datenaufbewahrung und Admin-Oberfläche klären.
+## Noch nicht beginnen
 
-Startklar für lokale Mock-Harness-Nutzung: ja.
-
-Startklar für einen kontrollierten produktnahen Harness-Test: ja. Für produktiven Schulbetrieb fehlen weiterhin Authentifizierung, Rollen, Secret-Store, Datenaufbewahrung, Admin-Oberfläche und Sicherheitsreview der Host-Bridge.
+- freie Whiteboard-Zeichnung als kanonische Quelle,
+- automatische KI-Umbauten ohne Vorschau und Zustimmung,
+- Produktivbetrieb mit Schüler:innendaten,
+- Nextcloud- oder PDF/DOCX-Export vor stabiler Landschafts- und Materialzuordnung,
+- Host Bridge ohne eigenes Sicherheitsreview.

@@ -11,6 +11,8 @@ import {
   HarnessMessageResult,
   HarnessPolicySimulationResult,
   HarnessSession,
+  HarnessTaskRequest,
+  HarnessTaskResult,
   SendHarnessMessageInput
 } from "./HarnessAdapter.js";
 
@@ -128,7 +130,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
   }
 
   async sendMessage(input: SendHarnessMessageInput): Promise<HarnessMessageResult> {
-    const projectDir = path.join(input.session.workspaceRoot, "project");
+    const projectDir = input.session.workspaceRoot;
     await assertProjectDirectory(projectDir, input.session.workspaceRoot);
     const before = await snapshotProject(projectDir);
     const secretMount = await this.prepareDockerSecretMount();
@@ -156,6 +158,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     const stdout = normalizeOutput(result.stdout);
     const stderr = normalizeOutput(result.stderr);
     const reply = createReply(result, stdout, stderr);
+    reply.text = guardUnsupportedClaims(reply.text, changedFiles);
 
     return {
       reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: reply.text, createdAt: nowIso() },
@@ -164,6 +167,33 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
         { type: "status", status: reply.ok ? "ready" : "failed", message: reply.text },
         ...changedFiles.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath }))
       ]
+    };
+  }
+
+  async requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult> {
+    if (input.service !== "worker") throw new Error("unsupported_harness_task_service");
+    if (input.capability !== "create_student_instruction") throw new Error("unsupported_worker_capability");
+    const projectDir = input.session.workspaceRoot;
+    await assertProjectDirectory(projectDir, input.session.workspaceRoot);
+    const expectedPath = safeRelativeOutputPath(projectDir, input.expectedOutput.relativePath);
+    const before = await snapshotProject(projectDir);
+    const secretMount = await this.prepareDockerSecretMount();
+    let result: ProcessResult;
+    try {
+      const prompt = this.workerPrompt(input);
+      const { command, args, cwd } = this.buildRuntimeCommand(projectDir, prompt, secretMount);
+      result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
+    } finally {
+      if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
+    }
+    if (result.exitCode !== 0) throw new Error("worker_runtime_failed");
+    const after = await snapshotProject(projectDir);
+    const changedFiles = diffSnapshots(before, after);
+    if (!changedFiles.includes(expectedPath)) throw new Error("worker_did_not_produce_expected_output");
+    return {
+      summary: "Der Worker hat den angeforderten Entwurf im Planungsraum abgelegt.",
+      workspaceUpdates: [],
+      events: changedFiles.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath }))
     };
   }
 
@@ -198,6 +228,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
       await fs.access(path.join(this.options.kernelDir, "CRITICAL_FRIEND.de.md"));
       await fs.access(path.join(this.options.kernelDir, "LEARNING_DESIGN.de.md"));
       await fs.access(path.join(this.options.kernelDir, "ORCHESTRATION.md"));
+      await fs.access(path.join(this.options.kernelDir, "capabilities", "workers", "CREATE_STUDENT_INSTRUCTION.md"));
     } catch {
       return {
         status: "requires_setup",
@@ -257,12 +288,43 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       "",
       "Arbeite ausschließlich im aktuellen Planungsraum.",
       `Nutze den pädagogischen Kernel als Engine-Kontext: ${this.kernelReferencePath()}.`,
+      `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`,
+      `Beschreibbare Kernel-Arbeitsbereiche: ${this.kernelWritableDescription()}. Änderungen dort benötigen weiterhin den vorgesehenen Freigabe-Workflow.`,
       "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
+      "Wenn sich der pädagogische Denkstand verändert, aktualisiere vor deiner Antwort die passenden Dateien im aktuellen Planungsraum: learning-design.md, decisions.md, open-questions.md und next-steps.md.",
+      "Sage nur, etwas sei festgehalten oder aktualisiert, wenn du die entsprechende Datei in diesem Lauf tatsächlich geändert hast.",
+      "Behaupte keine Recherche oder Lehrplanprüfung ohne einen quellengeprüften Knowledge-Auftrag. Formuliere Modellwissen ausdrücklich als vorläufige Einordnung.",
       "Antworte knapp als Critical Friend in pädagogischer Sprache. Nenne keine Dateinamen, Pfade, Markdown-Dateien, technischen Werkzeuge oder Provider.",
       ...(conversationContext ? ["", "Bisheriger Gesprächskontext:", conversationContext] : []),
       "",
       message
     ].join("\n");
+    return this.buildRuntimeCommand(projectDir, guardedMessage, secretMount);
+  }
+
+  private workerPrompt(input: HarnessTaskRequest): string {
+    return [
+      "Du bist ein unsichtbarer Worker im Pedagogical Thinking Space.",
+      "Du sprichst nicht mit der Lehrkraft und triffst keine pädagogischen Entscheidungen.",
+      `Lies den Capability-Vertrag unter ${this.kernelReferencePath()}/capabilities/workers/CREATE_STUDENT_INSTRUCTION.md.`,
+      "Lies im aktuellen Planungsraum learning-design.md und decisions.md vollständig.",
+      `Capability: ${input.capability}`,
+      `Begründung: ${input.reason}`,
+      `Zieltyp: ${input.expectedOutput.type}`,
+      `Schreibe ausschließlich nach: ${input.expectedOutput.relativePath}`,
+      `Constraints: ${JSON.stringify(input.constraints)}`,
+      "Wenn Lernanliegen oder erforderliche Entscheidung nicht ausreichend geklärt sind, erzeuge keine Datei und antworte nur BLOCKED.",
+      "Andernfalls erstelle die Datei exakt nach dem Capability-Vertrag. Markiere sie als Entwurf.",
+      "Verändere keine andere Datei und gib keine lehrkraftgerichtete Antwort."
+    ].join("\n");
+  }
+
+  private buildRuntimeCommand(
+    projectDir: string,
+    prompt: string,
+    secretMount?: DockerSecretMount,
+    allowNetwork = this.options.allowNetwork
+  ): { command: string; args: string[]; cwd: string } {
     const modelArgs = this.options.model ? ["--model", this.options.model] : [];
     if (this.options.runner === "docker") {
       return {
@@ -271,7 +333,7 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
         args: [
           "run",
           "--rm",
-          this.options.allowNetwork ? "--network=bridge" : "--network=none",
+          allowNetwork ? "--network=bridge" : "--network=none",
           "--volume",
           `${projectDir}:/workspace`,
           "--workdir",
@@ -287,14 +349,14 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
           "--dir",
           "/workspace",
           ...modelArgs,
-          guardedMessage
+          prompt
         ]
       };
     }
     return {
       command: this.options.command,
       cwd: projectDir,
-      args: ["run", "--pure", "--auto", "--format", "json", "--dir", projectDir, ...modelArgs, guardedMessage]
+      args: ["run", "--pure", "--auto", "--format", "json", "--dir", projectDir, ...modelArgs, prompt]
     };
   }
 
@@ -343,7 +405,7 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
     return [
       {
         type: "file",
-        file: { workspaceRoot, targetPath: path.join(workspaceRoot, "project", "learning-design.md"), operation: "write" }
+        file: { workspaceRoot, targetPath: path.join(workspaceRoot, "learning-design.md"), operation: "write" }
       },
       {
         type: "file",
@@ -360,6 +422,14 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
   }
 }
 
+function safeRelativeOutputPath(workspaceRoot: string, relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const target = path.resolve(workspaceRoot, normalized);
+  const relative = path.relative(path.resolve(workspaceRoot), target).replace(/\\/g, "/");
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("worker_output_outside_workspace");
+  return relative;
+}
+
 async function commandAvailable(command: string, runner: ProcessRunner): Promise<boolean> {
   const result = await runner(command, ["--version"], { cwd: process.cwd(), timeoutMs: 10000 });
   return result.exitCode === 0;
@@ -368,8 +438,7 @@ async function commandAvailable(command: string, runner: ProcessRunner): Promise
 async function assertProjectDirectory(projectDir: string, workspaceRoot: string): Promise<void> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolvedProject = path.resolve(projectDir);
-  const relative = path.relative(resolvedRoot, resolvedProject);
-  if (relative !== "project") throw new Error("opencode_project_dir_must_be_workspace_project");
+  if (resolvedProject !== resolvedRoot) throw new Error("opencode_project_dir_must_be_workspace_root");
   await fs.access(resolvedProject);
 }
 
@@ -418,6 +487,25 @@ function createReply(result: ProcessResult, stdout: string, _stderr: string): { 
     ok: false,
     text: "Die geschützte Testausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren."
   };
+}
+
+function guardUnsupportedClaims(reply: string, changedFiles: string[]): string {
+  const stateWasWritten = changedFiles.some((file) =>
+    ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"].includes(file)
+  );
+  const knowledgeWasWritten = changedFiles.some((file) =>
+    file.startsWith("knowledge-proposals/") || file.startsWith("service-requests/")
+  );
+  const claimsPersistence = /(?:denkstand|entscheidung|schritt).{0,40}(?:festgehalten|gespeichert|aktualisiert)/i.test(reply);
+  const makesKnowledgeClaim = /(?:kernlehrplan|lehrplanbezug|curriculum|\bIF\s?\d)/i.test(reply);
+  const notes: string[] = [];
+  if (claimsPersistence && !stateWasWritten) {
+    notes.push("Hinweis: Dieser Gedanke wurde im Gespräch formuliert, aber technisch noch nicht dauerhaft im Denkstand gespeichert.");
+  }
+  if (makesKnowledgeClaim && !knowledgeWasWritten) {
+    notes.push("Hinweis: Die Lehrplaneinordnung ist noch nicht durch einen Knowledge-Auftrag mit überprüfbaren Quellen abgesichert.");
+  }
+  return notes.length ? [reply, ...notes].join("\n\n") : reply;
 }
 
 function toTeacherFacingReply(reply: string): string {
