@@ -156,6 +156,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     const stdout = normalizeOutput(result.stdout);
     const stderr = normalizeOutput(result.stderr);
     const reply = createReply(result, stdout, stderr);
+    reply.text = guardUnsupportedClaims(reply.text, changedFiles);
 
     return {
       reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: reply.text, createdAt: nowIso() },
@@ -260,6 +261,9 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`,
       `Beschreibbare Kernel-Arbeitsbereiche: ${this.kernelWritableDescription()}. Änderungen dort benötigen weiterhin den vorgesehenen Freigabe-Workflow.`,
       "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
+      "Wenn sich der pädagogische Denkstand verändert, aktualisiere vor deiner Antwort die passenden Dateien im aktuellen Planungsraum: learning-design.md, decisions.md, open-questions.md und next-steps.md.",
+      "Sage nur, etwas sei festgehalten oder aktualisiert, wenn du die entsprechende Datei in diesem Lauf tatsächlich geändert hast.",
+      "Behaupte keine Recherche oder Lehrplanprüfung ohne einen quellengeprüften Knowledge-Auftrag. Formuliere Modellwissen ausdrücklich als vorläufige Einordnung.",
       "Antworte knapp als Critical Friend in pädagogischer Sprache. Nenne keine Dateinamen, Pfade, Markdown-Dateien, technischen Werkzeuge oder Provider.",
       ...(conversationContext ? ["", "Bisheriger Gesprächskontext:", conversationContext] : []),
       "",
@@ -420,6 +424,25 @@ function createReply(result: ProcessResult, stdout: string, _stderr: string): { 
     ok: false,
     text: "Die geschützte Testausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren."
   };
+}
+
+function guardUnsupportedClaims(reply: string, changedFiles: string[]): string {
+  const stateWasWritten = changedFiles.some((file) =>
+    ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"].includes(file)
+  );
+  const knowledgeWasWritten = changedFiles.some((file) =>
+    file.startsWith("knowledge-proposals/") || file.startsWith("service-requests/")
+  );
+  const claimsPersistence = /(?:denkstand|entscheidung|schritt).{0,40}(?:festgehalten|gespeichert|aktualisiert)/i.test(reply);
+  const makesKnowledgeClaim = /(?:kernlehrplan|lehrplanbezug|curriculum|\bIF\s?\d)/i.test(reply);
+  const notes: string[] = [];
+  if (claimsPersistence && !stateWasWritten) {
+    notes.push("Hinweis: Dieser Gedanke wurde im Gespräch formuliert, aber technisch noch nicht dauerhaft im Denkstand gespeichert.");
+  }
+  if (makesKnowledgeClaim && !knowledgeWasWritten) {
+    notes.push("Hinweis: Die Lehrplaneinordnung ist noch nicht durch einen Knowledge-Auftrag mit überprüfbaren Quellen abgesichert.");
+  }
+  return notes.length ? [reply, ...notes].join("\n\n") : reply;
 }
 
 function toTeacherFacingReply(reply: string): string {
