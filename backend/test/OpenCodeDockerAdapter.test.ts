@@ -41,6 +41,12 @@ beforeEach(async () => {
   await fs.writeFile(path.join(kernelDir, "CRITICAL_FRIEND.de.md"), "# Critical Friend\n", "utf8");
   await fs.writeFile(path.join(kernelDir, "LEARNING_DESIGN.de.md"), "# Learning Design\n", "utf8");
   await fs.writeFile(path.join(kernelDir, "ORCHESTRATION.md"), "# Orchestration\n", "utf8");
+  await fs.mkdir(path.join(kernelDir, "capabilities", "workers"), { recursive: true });
+  await fs.writeFile(
+    path.join(kernelDir, "capabilities", "workers", "CREATE_STUDENT_INSTRUCTION.md"),
+    "# Worker Capability\n",
+    "utf8"
+  );
 });
 
 afterEach(async () => {
@@ -176,6 +182,41 @@ describe("OpenCodeDockerAdapter", () => {
     const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({ session, message: "Wo steht das im Lehrplan?", space: testSpace() });
     expect(result.reply.text).toContain("nicht durch einen Knowledge-Auftrag");
+  });
+
+  it("runs a Worker task through the harness and requires the expected artefact", async () => {
+    const adapter = new OpenCodeDockerAdapter({
+      enabled: true,
+      policy: new PermissionPolicy(),
+      runner: "local",
+      kernelDir,
+      command: "opencode",
+      allowNetwork: true,
+      timeoutMs: 10000,
+      runProcess: async (_command, args, options) => {
+        if (args.includes("--version")) return { exitCode: 0, stdout: "opencode", stderr: "" };
+        expect(args.at(-1)).toContain("CREATE_STUDENT_INSTRUCTION.md");
+        await fs.mkdir(path.join(options.cwd, "drafts"), { recursive: true });
+        await fs.writeFile(
+          path.join(options.cwd, "drafts", "student-instruction.md"),
+          "# Entwurf: Arbeitsauftrag\n\n## Auftrag\nPrüft die Situation.\n\n## Vorgehen\nArbeitet zu zweit.\n\n## Rückmeldung oder Ergebnis\nNotiert eine Frage.\n\n> Status: Entwurf",
+          "utf8"
+        );
+        return { exitCode: 0, stdout: "done", stderr: "" };
+      }
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    const result = await adapter.requestTask({
+      session,
+      space: testSpace(),
+      service: "worker",
+      capability: "create_student_instruction",
+      reason: "Eine Entscheidung ist getroffen.",
+      input: { learningDesign: "learning-design.md" },
+      expectedOutput: { type: "student_instruction", relativePath: "drafts/student-instruction.md" },
+      constraints: { language: "de" }
+    });
+    expect(result.events).toContainEqual({ type: "workspace_update", relativePath: "drafts/student-instruction.md" });
   });
 
 
