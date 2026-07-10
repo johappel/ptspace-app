@@ -62,6 +62,14 @@ export class WorkspaceManager {
     }
   }
 
+  private learningLandscapeTemplate(): string {
+    return `# Lernlandschaft\\n\\n## Struktur\\nlinear\\n\\n## Lernmomente\\nNoch keine Lernmomente festgehalten.\\n\\n## Übergänge\\nNoch keine Übergänge festgehalten.\\n\\n## Zeit & Dramaturgie\\nNoch keine Unterrichtsfenster festgehalten.\\n`;
+  }
+
+  private planningBoardTemplate(): string {
+    return `schema: ptspace.planning-board/v1\\nitems: []\\n`;
+  }
+
   private learningDesignTemplate(space: PlanningSpace): string {
     return `# Denkstand\n\n## Thema\n${space.title}\n\n## Fach / Lernbereich\n${space.subject || "noch offen"}\n\n## Zielgruppe\n${space.targetGroup || "noch offen"}\n\n## Erste Idee\n${space.initialIdea || "noch offen"}\n\n## Lernanliegen\nNoch zu klären.\n\n## Lernreise\nNoch zu entwickeln.\n`;
   }
