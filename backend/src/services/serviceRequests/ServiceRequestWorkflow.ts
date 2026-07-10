@@ -150,6 +150,7 @@ export class ServiceRequestWorkflow {
   }
 
   toKernelContract(request: AppServiceRequest): KernelServiceRequest {
+    const workspaceName = path.basename(this.workspace.getWorkspaceRoot(request.planningSpaceId));
     return {
       id: request.id,
       status: request.status,
@@ -157,10 +158,10 @@ export class ServiceRequestWorkflow {
       mode: request.mode,
       task: request.capability,
       reason: request.reason,
-      input: { ...request.input, learning_design: `workspace/${request.planningSpaceId}/project/learning-design.md` },
+      input: { ...request.input, learning_design: `workspace/${workspaceName}/learning-design.md` },
       expected_output: {
         type: request.expectedOutput.type,
-        location: `workspace/${request.planningSpaceId}/project/${request.expectedOutput.location}`
+        location: `workspace/${workspaceName}/${request.expectedOutput.location}`
       },
       constraints: request.constraints,
       return_to: request.returnTo,
@@ -211,7 +212,7 @@ export class ServiceRequestWorkflow {
   }
 
   private requestsDirectory(planningSpaceId: string): string {
-    return this.workspace.resolveInsideWorkspace(planningSpaceId, path.join("project", "service-requests"));
+    return this.workspace.resolveInsideWorkspace(planningSpaceId, "service-requests");
   }
 
   private async read(planningSpaceId: string, requestId: string): Promise<AppServiceRequest> {
