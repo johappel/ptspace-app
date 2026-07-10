@@ -8,6 +8,7 @@ export type AppConfig = {
   port: number;
   dataDir: string;
   workspacesDir: string;
+  planningWorkspacesDir: string;
   kernelDir: string;
   kernelWriteEnabled: boolean;
   kernelWritableDirs: string[];
@@ -77,11 +78,16 @@ export function loadConfig(): AppConfig {
     ? "opencode"
     : process.env.PTSPACE_OPENCODE_PROVIDER ?? "openrouter";
 
+  const kernelDir = path.resolve(root, process.env.PTSPACE_KERNEL_DIR ?? "../pedagogical-thinking-space");
   return {
     port: Number(process.env.PORT ?? 5174),
     dataDir: path.resolve(root, process.env.PTSPACE_DATA_DIR ?? "backend/data"),
     workspacesDir: path.resolve(root, process.env.PTSPACE_WORKSPACES_DIR ?? "backend/workspaces"),
-    kernelDir: path.resolve(root, process.env.PTSPACE_KERNEL_DIR ?? "../pedagogical-thinking-space"),
+    planningWorkspacesDir: path.resolve(
+      root,
+      process.env.PTSPACE_PLANNING_WORKSPACES_DIR ?? path.join(kernelDir, "workspace")
+    ),
+    kernelDir,
     kernelWriteEnabled: booleanEnv("PTSPACE_KERNEL_WRITE_ENABLED", false),
     kernelWritableDirs: (process.env.PTSPACE_KERNEL_WRITABLE_DIRS ?? "capabilities,knowledge,queue,services,workspace").split(",").map((entry) => entry.trim()).filter(Boolean),
     harness: (process.env.PTSPACE_HARNESS as HarnessKind | undefined) ?? "mock",
