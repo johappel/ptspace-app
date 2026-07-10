@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, Lightbulb, MessageSquareText, Plus, ShieldCheck, TriangleAlert } from "lucide-svelte";
-  import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard } from "$lib/api";
+  import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
   import { uuid } from "$lib/uuid";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
@@ -15,6 +15,8 @@
   let okfApproval: ExportApproval | null = null;
   let serviceRequests: ServiceRequest[] = [];
   let serviceMessage = "";
+  let workerMaterial: WorkerMaterial | null = null;
+  let showWorkerMaterial = false;
   let expandedCard = "denkstand";
   let loading = true;
   let sending = false;
@@ -71,6 +73,12 @@ let messagesElement: HTMLDivElement | null = null;
     markdownApproval = exportStatus.markdown;
     okfApproval = exportStatus.okfMarkdown;
     serviceRequests = (await api.getServiceRequests(space.id)).requests;
+    try {
+      workerMaterial = await api.getStudentInstruction(space.id);
+    } catch {
+      workerMaterial = null;
+    }
+    showWorkerMaterial = false;
     serviceMessage = "";
     findings = [];
   }
@@ -133,6 +141,7 @@ async function sendMessage() {
     try {
       const result = await api.approveServiceRequest(activeSpace.id, serviceRequest.id);
       serviceRequests = serviceRequests.map((item) => item.id === result.serviceRequest.id ? result.serviceRequest : item);
+      workerMaterial = result.material;
       serviceMessage = result.teacherFacingMessage;
     } catch (err) {
       error = err instanceof Error ? err.message : "Der Entwurf konnte noch nicht vorbereitet werden.";
@@ -241,6 +250,10 @@ async function sendMessage() {
                   <div class="service-actions"><button on:click={() => approveServiceRequest(serviceRequest)}>Entwurf vorbereiten lassen</button></div>
                 {:else if serviceRequest.status === "reviewed"}
                   <p>{serviceRequest.review?.note ?? "Der Entwurf wurde geprüft und liegt zur Entscheidung bereit."}</p>
+                  {#if workerMaterial}
+                    <div class="service-actions"><button on:click={() => (showWorkerMaterial = !showWorkerMaterial)}>{showWorkerMaterial ? "Entwurf schließen" : "Entwurf ansehen"}</button></div>
+                    {#if showWorkerMaterial}<pre class="worker-material">{workerMaterial.content}</pre>{/if}
+                  {/if}
                 {:else if serviceRequest.status === "failed"}
                   <p>Der Entwurf konnte noch nicht sicher vorbereitet werden.</p>
                 {:else}
