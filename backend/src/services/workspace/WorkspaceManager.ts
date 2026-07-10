@@ -25,6 +25,8 @@ export class WorkspaceManager {
     await this.writeIfMissing(path.join(workspaceRoot, "decisions.md"), "# Offene Entscheidungen\n\nNoch keine Entscheidung festgehalten.\n");
     await this.writeIfMissing(path.join(workspaceRoot, "open-questions.md"), "# Offene Fragen\n\n- Welche Lernerfahrung soll im Mittelpunkt stehen?\n");
     await this.writeIfMissing(path.join(workspaceRoot, "next-steps.md"), "# Nächste Schritte\n\n- Lernanliegen klären\n");
+    await this.writeIfMissing(path.join(workspaceRoot, "learning-landscape.md"), this.learningLandscapeTemplate(space));
+    await this.writeIfMissing(path.join(workspaceRoot, "planning-board.yml"), this.planningBoardTemplate());
     await this.writeIfMissing(path.join(workspaceRoot, "conversation-summary.md"), "# Gesprächszusammenfassung\n\nDer Planungsraum wurde angelegt.\n");
     return workspaceRoot;
   }
@@ -62,8 +64,15 @@ export class WorkspaceManager {
     }
   }
 
-  private learningLandscapeTemplate(): string {
-    return `# Lernlandschaft\\n\\n## Struktur\\nlinear\\n\\n## Lernmomente\\nNoch keine Lernmomente festgehalten.\\n\\n## Übergänge\\nNoch keine Übergänge festgehalten.\\n\\n## Zeit & Dramaturgie\\nNoch keine Unterrichtsfenster festgehalten.\\n`;
+  private learningLandscapeTemplate(space: PlanningSpace): string {
+    return `---
+schema: ptspace.learning-landscape/v1
+title: ${space.title}
+structure: linear
+---
+
+# Lernlandschaft
+`;
   }
 
   private planningBoardTemplate(): string {
