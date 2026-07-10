@@ -1,26 +1,31 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { PlanningSpace } from "@ptspace/shared";
+import { planningSpaceSlug } from "../../workspaceSlug.js";
 
 export class WorkspaceManager {
+  private readonly aliases = new Map<string, string>();
+
   constructor(private readonly rootDir: string) {}
 
   getWorkspaceRoot(spaceId: string): string {
-    return path.resolve(this.rootDir, spaceId);
+    return path.resolve(this.rootDir, this.aliases.get(spaceId) ?? spaceId);
   }
 
   async ensureWorkspace(space: PlanningSpace): Promise<string> {
+    const slug = space.workspaceSlug ?? planningSpaceSlug(space.title, space.subject);
+    this.aliases.set(space.id, slug);
     const workspaceRoot = this.getWorkspaceRoot(space.id);
-    const projectDir = path.join(workspaceRoot, "project");
-    await fs.mkdir(path.join(projectDir, "service-requests"), { recursive: true });
-    await fs.mkdir(path.join(projectDir, "drafts"), { recursive: true });
-    await fs.mkdir(path.join(projectDir, "materials"), { recursive: true });
-    await fs.mkdir(path.join(projectDir, "exports"), { recursive: true });
-    await this.writeIfMissing(path.join(projectDir, "learning-design.md"), this.learningDesignTemplate(space));
-    await this.writeIfMissing(path.join(projectDir, "decisions.md"), "# Offene Entscheidungen\n\nNoch keine Entscheidung festgehalten.\n");
-    await this.writeIfMissing(path.join(projectDir, "open-questions.md"), "# Offene Fragen\n\n- Welche Lernerfahrung soll im Mittelpunkt stehen?\n");
-    await this.writeIfMissing(path.join(projectDir, "next-steps.md"), "# Nächste Schritte\n\n- Lernanliegen klären\n");
-    await this.writeIfMissing(path.join(projectDir, "conversation-summary.md"), "# Gesprächszusammenfassung\n\nDer Planungsraum wurde angelegt.\n");
+    await fs.mkdir(path.join(workspaceRoot, "service-requests"), { recursive: true });
+    await fs.mkdir(path.join(workspaceRoot, "drafts"), { recursive: true });
+    await fs.mkdir(path.join(workspaceRoot, "materials"), { recursive: true });
+    await fs.mkdir(path.join(workspaceRoot, "exports"), { recursive: true });
+    await fs.mkdir(path.join(workspaceRoot, "knowledge-proposals"), { recursive: true });
+    await this.writeIfMissing(path.join(workspaceRoot, "learning-design.md"), this.learningDesignTemplate(space));
+    await this.writeIfMissing(path.join(workspaceRoot, "decisions.md"), "# Offene Entscheidungen\n\nNoch keine Entscheidung festgehalten.\n");
+    await this.writeIfMissing(path.join(workspaceRoot, "open-questions.md"), "# Offene Fragen\n\n- Welche Lernerfahrung soll im Mittelpunkt stehen?\n");
+    await this.writeIfMissing(path.join(workspaceRoot, "next-steps.md"), "# Nächste Schritte\n\n- Lernanliegen klären\n");
+    await this.writeIfMissing(path.join(workspaceRoot, "conversation-summary.md"), "# Gesprächszusammenfassung\n\nDer Planungsraum wurde angelegt.\n");
     return workspaceRoot;
   }
 
@@ -34,12 +39,12 @@ export class WorkspaceManager {
   }
 
   async readProjectFile(spaceId: string, relativePath: string): Promise<string> {
-    const fullPath = this.resolveInsideWorkspace(spaceId, path.join("project", relativePath));
+    const fullPath = this.resolveInsideWorkspace(spaceId, relativePath);
     return fs.readFile(fullPath, "utf8");
   }
 
   async writeProjectFile(spaceId: string, relativePath: string, content: string): Promise<void> {
-    const fullPath = this.resolveInsideWorkspace(spaceId, path.join("project", relativePath));
+    const fullPath = this.resolveInsideWorkspace(spaceId, relativePath);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, content, "utf8");
   }
