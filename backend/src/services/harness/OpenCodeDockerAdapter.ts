@@ -181,7 +181,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     let result: ProcessResult;
     try {
       const prompt = this.workerPrompt(input);
-      const { command, args, cwd } = this.buildRuntimeCommand(projectDir, prompt, secretMount, false);
+      const { command, args, cwd } = this.buildRuntimeCommand(projectDir, prompt, secretMount);
       result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
     } finally {
       if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
