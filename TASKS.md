@@ -26,6 +26,7 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [ ] Kernel-PR für Lernlandschaft und Planungsboard einbinden.
 - [ ] Zod-Schemas aus den Kernel-Verträgen ableiten.
 - [ ] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
+- [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Nächste Schritte“ wird daraus abgeleitet.
 - [ ] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
 - [ ] Ungültige Node-IDs, Kanten und Referenzen mit lehrkräfteverständlichen Fehlern ablehnen.
 
@@ -80,11 +81,12 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [ ] Tab „Planungsboard“ implementieren.
 - [ ] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
 - [ ] Board-Karten mit Lernmomenten, Unterrichtsfenstern und Materialien verknüpfen.
-- [ ] „Nächste Schritte“ in der Seitenleiste auf das nächste Board-Arbeitsvorhaben umstellen.
+- [ ] „Nächste Schritte“ in der Seitenleiste auf exakt ein priorisiertes Board-Arbeitsvorhaben umstellen; Klick öffnet die zugehörige Karte im Modal.
+- [ ] keine parallele „Nächste-Schritte“-Liste neben dem Board führen.
 - [ ] Materialtab mit Zuordnung zu Lernmomenten und Status implementieren.
 - [ ] Worker-Ausgabe aus einer Board-Karte heraus starten, nicht über einen pauschalen Materialbutton.
 
-**Done when:** eine Unterrichtsstunde nicht mehr als „Nächster Schritt“ erscheint und jedes Material einen didaktischen Bezug hat.
+**Done when:** eine Unterrichtsstunde nicht mehr als „Nächster Schritt“ erscheint, „Nächste Schritte“ immer auf eine Board-Karte verweist und jedes Material einen didaktischen Bezug hat.
 
 ## L5 — AI-Vorschläge und Review
 
