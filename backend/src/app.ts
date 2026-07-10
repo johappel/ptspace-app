@@ -57,7 +57,7 @@ export async function buildApp() {
   const store = new PlanningSpaceStore(config.dataDir);
   const approvals = new ExportApprovalStore(config.dataDir);
   const conversation = new ConversationStore(config.workspacesDir);
-  const workspace = new WorkspaceManager(config.workspacesDir);
+  const workspace = new WorkspaceManager(config.planningWorkspacesDir);
   const policy = new PermissionPolicy();
   const harness = createHarness(config, policy);
   const git = new GitManager();
