@@ -57,14 +57,22 @@ describe("service-request API", () => {
         url: `/api/planning-spaces/${space.id}/service-requests/${proposal.serviceRequest.id}/approve`
       });
       expect(approved.statusCode).toBe(200);
-      const result = approved.json<{ serviceRequest: { status: string; returnTo: string }; material: { status: string }; teacherFacingMessage: string }>();
+      const result = approved.json<{ serviceRequest: { status: string; returnTo: string }; material: { status: string; content: string }; teacherFacingMessage: string }>();
       expect(result.serviceRequest.status).toBe("reviewed");
       expect(result.serviceRequest.returnTo).toBe("critical_friend");
       expect(result.material.status).toBe("review_needed");
+      expect(result.material.content).toContain("# Entwurf: Arbeitsauftrag");
       expect(result.teacherFacingMessage).toContain("Du entscheidest");
 
       const draft = await fs.readFile(path.join(tempRoot, "planning-workspaces", space.workspaceSlug, "drafts", "student-instruction.md"), "utf8");
       expect(draft).toContain("Status: Entwurf");
+
+      const materialResponse = await app.inject({
+        method: "GET",
+        url: `/api/planning-spaces/${space.id}/materials/student-instruction`
+      });
+      expect(materialResponse.statusCode).toBe(200);
+      expect(materialResponse.json().content).toContain("## Vorgehen");
     } finally {
       await app.close();
     }
