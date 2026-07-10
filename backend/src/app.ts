@@ -64,7 +64,7 @@ export async function buildApp() {
   const exportFilter = new ExportFilter();
   const okf = new OkfExporter();
   const scanner = new SensitiveContentScanner();
-  const serviceWorkflow = new ServiceRequestWorkflow(workspace);
+  const serviceWorkflow = new ServiceRequestWorkflow(workspace, harness);
 
   app.get("/health", async () => ({
     status: "ok",
