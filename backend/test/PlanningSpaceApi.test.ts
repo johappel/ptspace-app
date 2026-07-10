@@ -134,4 +134,42 @@ describe("planning-space API", () => {
       await app.close();
     }
   });
+
+  it("shows paragraph-based learning design and reads decisions from the correct file", async () => {
+    const app = await buildApp();
+    try {
+      const createResponse = await app.inject({
+        method: "POST",
+        url: "/api/planning-spaces",
+        payload: { title: "Denkstand Test", subject: "Religion", targetGroup: "Klasse 9" }
+      });
+      const space = createResponse.json<{ id: string }>();
+      const project = path.join(tempRoot, "workspaces", space.id, "project");
+      await fs.writeFile(
+        path.join(project, "learning-design.md"),
+        "# Denkstand\n\n## Lernanliegen\nJugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten.\n",
+        "utf8"
+      );
+      await fs.writeFile(
+        path.join(project, "decisions.md"),
+        "# Entscheidungen\n\n- Die Lernreise beginnt bei der Erfahrung politischer Ohnmacht.\n",
+        "utf8"
+      );
+      await fs.writeFile(
+        path.join(project, "open-questions.md"),
+        "# Offene Fragen\n\n- Welche religiösen Hoffnungstraditionen tragen?\n",
+        "utf8"
+      );
+      const response = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/thinking-state` });
+      const cards = response.json<{ cards: Array<{ id: string; previewItems: string[] }> }>().cards;
+      expect(cards.find((card) => card.id === "denkstand")?.previewItems).toContain(
+        "Lernanliegen: Jugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten."
+      );
+      expect(cards.find((card) => card.id === "offene-entscheidungen")?.previewItems).toContain(
+        "Die Lernreise beginnt bei der Erfahrung politischer Ohnmacht."
+      );
+    } finally {
+      await app.close();
+    }
+  });
 });
