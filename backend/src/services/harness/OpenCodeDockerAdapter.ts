@@ -11,6 +11,8 @@ import {
   HarnessMessageResult,
   HarnessPolicySimulationResult,
   HarnessSession,
+  HarnessTaskRequest,
+  HarnessTaskResult,
   SendHarnessMessageInput
 } from "./HarnessAdapter.js";
 
@@ -168,6 +170,33 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     };
   }
 
+  async requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult> {
+    if (input.service !== "worker") throw new Error("unsupported_harness_task_service");
+    if (input.capability !== "create_student_instruction") throw new Error("unsupported_worker_capability");
+    const projectDir = input.session.workspaceRoot;
+    await assertProjectDirectory(projectDir, input.session.workspaceRoot);
+    const expectedPath = safeRelativeOutputPath(projectDir, input.expectedOutput.relativePath);
+    const before = await snapshotProject(projectDir);
+    const secretMount = await this.prepareDockerSecretMount();
+    let result: ProcessResult;
+    try {
+      const prompt = this.workerPrompt(input);
+      const { command, args, cwd } = this.buildRuntimeCommand(projectDir, prompt, secretMount, false);
+      result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
+    } finally {
+      if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
+    }
+    if (result.exitCode !== 0) throw new Error("worker_runtime_failed");
+    const after = await snapshotProject(projectDir);
+    const changedFiles = diffSnapshots(before, after);
+    if (!changedFiles.includes(expectedPath)) throw new Error("worker_did_not_produce_expected_output");
+    return {
+      summary: "Der Worker hat den angeforderten Entwurf im Planungsraum abgelegt.",
+      workspaceUpdates: [],
+      events: changedFiles.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath }))
+    };
+  }
+
   async *getEvents(_session: HarnessSession): AsyncIterable<HarnessEvent> {
     yield {
       type: "status",
@@ -199,6 +228,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
       await fs.access(path.join(this.options.kernelDir, "CRITICAL_FRIEND.de.md"));
       await fs.access(path.join(this.options.kernelDir, "LEARNING_DESIGN.de.md"));
       await fs.access(path.join(this.options.kernelDir, "ORCHESTRATION.md"));
+      await fs.access(path.join(this.options.kernelDir, "capabilities", "workers", "CREATE_STUDENT_INSTRUCTION.md"));
     } catch {
       return {
         status: "requires_setup",
@@ -269,6 +299,32 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       "",
       message
     ].join("\n");
+    return this.buildRuntimeCommand(projectDir, guardedMessage, secretMount);
+  }
+
+  private workerPrompt(input: HarnessTaskRequest): string {
+    return [
+      "Du bist ein unsichtbarer Worker im Pedagogical Thinking Space.",
+      "Du sprichst nicht mit der Lehrkraft und triffst keine pädagogischen Entscheidungen.",
+      `Lies den Capability-Vertrag unter ${this.kernelReferencePath()}/capabilities/workers/CREATE_STUDENT_INSTRUCTION.md.`,
+      "Lies im aktuellen Planungsraum learning-design.md und decisions.md vollständig.",
+      `Capability: ${input.capability}`,
+      `Begründung: ${input.reason}`,
+      `Zieltyp: ${input.expectedOutput.type}`,
+      `Schreibe ausschließlich nach: ${input.expectedOutput.relativePath}`,
+      `Constraints: ${JSON.stringify(input.constraints)}`,
+      "Wenn Lernanliegen oder erforderliche Entscheidung nicht ausreichend geklärt sind, erzeuge keine Datei und antworte nur BLOCKED.",
+      "Andernfalls erstelle die Datei exakt nach dem Capability-Vertrag. Markiere sie als Entwurf.",
+      "Verändere keine andere Datei und gib keine lehrkraftgerichtete Antwort."
+    ].join("\n");
+  }
+
+  private buildRuntimeCommand(
+    projectDir: string,
+    prompt: string,
+    secretMount?: DockerSecretMount,
+    allowNetwork = this.options.allowNetwork
+  ): { command: string; args: string[]; cwd: string } {
     const modelArgs = this.options.model ? ["--model", this.options.model] : [];
     if (this.options.runner === "docker") {
       return {
@@ -277,7 +333,7 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
         args: [
           "run",
           "--rm",
-          this.options.allowNetwork ? "--network=bridge" : "--network=none",
+          allowNetwork ? "--network=bridge" : "--network=none",
           "--volume",
           `${projectDir}:/workspace`,
           "--workdir",
@@ -293,14 +349,14 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
           "--dir",
           "/workspace",
           ...modelArgs,
-          guardedMessage
+          prompt
         ]
       };
     }
     return {
       command: this.options.command,
       cwd: projectDir,
-      args: ["run", "--pure", "--auto", "--format", "json", "--dir", projectDir, ...modelArgs, guardedMessage]
+      args: ["run", "--pure", "--auto", "--format", "json", "--dir", projectDir, ...modelArgs, prompt]
     };
   }
 
@@ -364,6 +420,14 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       }
     ];
   }
+}
+
+function safeRelativeOutputPath(workspaceRoot: string, relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const target = path.resolve(workspaceRoot, normalized);
+  const relative = path.relative(path.resolve(workspaceRoot), target).replace(/\\/g, "/");
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("worker_output_outside_workspace");
+  return relative;
 }
 
 async function commandAvailable(command: string, runner: ProcessRunner): Promise<boolean> {
