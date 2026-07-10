@@ -128,7 +128,7 @@ describe("OpenCodeDockerAdapter", () => {
       }
     });
 
-    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({
       session,
       message: "Bitte prüfe den Test-Planungsraum.",
@@ -154,7 +154,7 @@ describe("OpenCodeDockerAdapter", () => {
         return { exitCode: 0, stdout: "Der Denkstand ist festgehalten.", stderr: "" };
       }
     });
-    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({ session, message: "Bitte halte das fest.", space: testSpace() });
     expect(result.reply.text).toContain("technisch noch nicht dauerhaft");
   });
@@ -173,7 +173,7 @@ describe("OpenCodeDockerAdapter", () => {
         return { exitCode: 0, stdout: "Der NRW-Kernlehrplan ordnet das IF5 zu.", stderr: "" };
       }
     });
-    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({ session, message: "Wo steht das im Lehrplan?", space: testSpace() });
     expect(result.reply.text).toContain("nicht durch einen Knowledge-Auftrag");
   });
@@ -233,7 +233,7 @@ describe("OpenCodeDockerAdapter", () => {
     });
 
     try {
-      const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+      const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
       const result = await adapter.sendMessage({
         session,
         message: "Bitte prüfe den Test-Planungsraum.",
@@ -283,7 +283,7 @@ describe("OpenCodeDockerAdapter", () => {
       }
     });
 
-    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     await adapter.sendMessage({
       session,
       message: "Bitte prüfe die Kernel-Zonen.",
@@ -306,7 +306,7 @@ describe("OpenCodeDockerAdapter", () => {
       }
     });
 
-    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({
       session,
       message: "Bitte prüfe den Test-Planungsraum.",
