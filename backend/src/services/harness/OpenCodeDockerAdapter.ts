@@ -257,6 +257,8 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       "",
       "Arbeite ausschließlich im aktuellen Planungsraum.",
       `Nutze den pädagogischen Kernel als Engine-Kontext: ${this.kernelReferencePath()}.`,
+      `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`,
+      `Beschreibbare Kernel-Arbeitsbereiche: ${this.kernelWritableDescription()}. Änderungen dort benötigen weiterhin den vorgesehenen Freigabe-Workflow.`,
       "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
       "Antworte knapp als Critical Friend in pädagogischer Sprache. Nenne keine Dateinamen, Pfade, Markdown-Dateien, technischen Werkzeuge oder Provider.",
       ...(conversationContext ? ["", "Bisheriger Gesprächskontext:", conversationContext] : []),
