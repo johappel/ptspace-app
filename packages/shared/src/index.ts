@@ -225,3 +225,100 @@ export const OkfPackageSchema = z.object({
   markdown: z.string().min(1)
 });
 export type OkfPackage = z.infer<typeof OkfPackageSchema>;
+
+
+export const LearningLandscapeStructureSchema = z.enum(["linear", "stations", "buffet", "project", "spatial", "hybrid"]);
+export type LearningLandscapeStructure = z.infer<typeof LearningLandscapeStructureSchema>;
+
+export const LearningMomentKindSchema = z.enum([
+  "impulse", "learning_place", "positioning", "exploration", "choice", "practice",
+  "project", "product", "reflection", "assessment"
+]);
+export type LearningMomentKind = z.infer<typeof LearningMomentKindSchema>;
+
+export const LandscapeTransitionKindSchema = z.enum([
+  "required", "choice", "parallel", "return", "meeting_point", "prerequisite"
+]);
+export type LandscapeTransitionKind = z.infer<typeof LandscapeTransitionKindSchema>;
+
+export const LearningMomentSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: LearningMomentKindSchema,
+  didacticPurpose: z.string().default(""),
+  learningActivity: z.string().default(""),
+  expectedExperience: z.string().default(""),
+  materialIds: z.array(z.string().min(1)).default([]),
+  openQuestions: z.array(z.string()).default([])
+});
+export type LearningMoment = z.infer<typeof LearningMomentSchema>;
+
+export const LandscapeTransitionSchema = z.object({
+  id: z.string().min(1),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  kind: LandscapeTransitionKindSchema,
+  note: z.string().default("")
+});
+export type LandscapeTransition = z.infer<typeof LandscapeTransitionSchema>;
+
+export const TeachingWindowSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: z.enum(["lesson", "double_lesson", "project_block", "open_learning_time"]),
+  note: z.string().default("")
+});
+export type TeachingWindow = z.infer<typeof TeachingWindowSchema>;
+
+export const TimePlacementSchema = z.object({
+  nodeId: z.string().min(1),
+  windowId: z.string().min(1),
+  note: z.string().default("")
+});
+export type TimePlacement = z.infer<typeof TimePlacementSchema>;
+
+export const LearningLandscapeSchema = z.object({
+  schema: z.literal("ptspace.learning-landscape/v1"),
+  structure: LearningLandscapeStructureSchema.default("linear"),
+  title: z.string().min(1),
+  moments: z.array(LearningMomentSchema).default([]),
+  transitions: z.array(LandscapeTransitionSchema).default([]),
+  teachingWindows: z.array(TeachingWindowSchema).default([]),
+  placements: z.array(TimePlacementSchema).default([])
+}).superRefine((landscape, ctx) => {
+  const momentIds = new Set(landscape.moments.map((moment) => moment.id));
+  const windowIds = new Set(landscape.teachingWindows.map((window) => window.id));
+  for (const transition of landscape.transitions) {
+    if (!momentIds.has(transition.from) || !momentIds.has(transition.to)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "transition_references_unknown_moment" });
+    }
+  }
+  for (const placement of landscape.placements) {
+    if (!momentIds.has(placement.nodeId) || !windowIds.has(placement.windowId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "placement_references_unknown_object" });
+    }
+  }
+});
+export type LearningLandscape = z.infer<typeof LearningLandscapeSchema>;
+
+export const PlanningBoardColumnSchema = z.enum(["clarify", "prepare", "review", "ready"]);
+export type PlanningBoardColumn = z.infer<typeof PlanningBoardColumnSchema>;
+
+export const PlanningBoardItemSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: z.enum(["clarify", "research", "design", "produce", "review", "render", "export"]),
+  column: PlanningBoardColumnSchema,
+  status: z.enum(["proposed", "approved", "in_progress", "review", "ready", "blocked", "discarded"]),
+  relatedNodes: z.array(z.string().min(1)).default([]),
+  relatedWindows: z.array(z.string().min(1)).default([]),
+  materialIds: z.array(z.string().min(1)).default([]),
+  requiresTeacherApproval: z.boolean().default(true)
+});
+export type PlanningBoardItem = z.infer<typeof PlanningBoardItemSchema>;
+
+export const PlanningBoardSchema = z.object({
+  schema: z.literal("ptspace.planning-board/v1"),
+  items: z.array(PlanningBoardItemSchema).default([])
+});
+export type PlanningBoard = z.infer<typeof PlanningBoardSchema>;
