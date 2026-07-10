@@ -33,6 +33,14 @@ export type ExportApproval = {
   sensitiveFindingsReviewed: boolean;
 };
 
+export type ServiceRequest = {
+  id: string;
+  status: "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
+  capability: string;
+  reason: string;
+  review?: { status: "passed" | "failed"; note: string };
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${backendUrl}/api${path}`, {
     ...init,
@@ -62,6 +70,20 @@ export const api = {
     }),
   getThinkingState: (spaceId: string) =>
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
+  getServiceRequests: (spaceId: string) =>
+    request<{ requests: ServiceRequest[] }>(`/planning-spaces/${spaceId}/service-requests`),
+  proposeStudentInstruction: (spaceId: string) =>
+    request<{ serviceRequest: ServiceRequest }>(`/planning-spaces/${spaceId}/service-requests/student-instruction`, {
+      method: "POST",
+      body: JSON.stringify({
+        reason: "Der aktuelle Denkstand soll in einem ersten, ausdrücklich noch zu prüfenden Arbeitsauftrag erprobt werden."
+      })
+    }),
+  approveServiceRequest: (spaceId: string, requestId: string) =>
+    request<{ serviceRequest: ServiceRequest; teacherFacingMessage: string }>(
+      `/planning-spaces/${spaceId}/service-requests/${requestId}/approve`,
+      { method: "POST" }
+    ),
   scanSensitiveContent: (text: string) =>
     request<{ findings: SensitiveFinding[]; message: string }>("/sensitive-content/scan", {
       method: "POST",
