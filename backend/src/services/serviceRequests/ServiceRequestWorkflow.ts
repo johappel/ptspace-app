@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
+import { PlanningSpace } from "@ptspace/shared";
+import { HarnessAdapter } from "../harness/HarnessAdapter.js";
 
 export type ServiceKind = "memory" | "knowledge" | "worker" | "renderer" | "review";
 export type ServiceRequestStatus = "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
@@ -59,7 +61,7 @@ const capabilities: Record<string, CapabilityContract> = {
 };
 
 export class ServiceRequestWorkflow {
-  constructor(private readonly workspace: WorkspaceManager) {}
+  constructor(private readonly workspace: WorkspaceManager, private readonly harness: HarnessAdapter) {}
 
   listCapabilities(): CapabilityContract[] {
     return Object.values(capabilities);
@@ -123,7 +125,7 @@ export class ServiceRequestWorkflow {
     }
   }
 
-  async approveAndRun(planningSpaceId: string, requestId: string): Promise<AppServiceRequest> {
+  async approveAndRun(planningSpaceId: string, requestId: string, space: PlanningSpace): Promise<AppServiceRequest> {
     const request = await this.read(planningSpaceId, requestId);
     if (request.status !== "proposed") throw new Error("service_request_not_proposed");
     request.status = "approved";
@@ -133,8 +135,24 @@ export class ServiceRequestWorkflow {
     request.updatedAt = new Date().toISOString();
     await this.save(request);
     try {
-      if (request.capability !== "create_student_instruction") throw new Error("capability_not_implemented");
-      await this.createStudentInstruction(planningSpaceId, request);
+      const workspaceRoot = await this.workspace.ensureWorkspace(space);
+      const session = await this.harness.createSession({ planningSpaceId, workspaceRoot });
+      const result = await this.harness.requestTask({
+        session,
+        space,
+        service: "worker",
+        capability: request.capability,
+        reason: request.reason,
+        input: request.input,
+        expectedOutput: { type: request.expectedOutput.type, relativePath: request.expectedOutput.location },
+        constraints: request.constraints
+      });
+      if (result.events.some((event) => event.type === "status" && event.status === "failed")) {
+        throw new Error("worker_execution_failed");
+      }
+      for (const update of result.workspaceUpdates) {
+        await this.workspace.writeProjectFile(planningSpaceId, update.relativePath, update.content);
+      }
       request.status = "returned";
       request.updatedAt = new Date().toISOString();
       await this.reviewReturnedResult(planningSpaceId, request);
@@ -169,34 +187,17 @@ export class ServiceRequestWorkflow {
     };
   }
 
-  private async createStudentInstruction(planningSpaceId: string, request: AppServiceRequest): Promise<void> {
-    const learningDesign = await this.workspace.readProjectFile(planningSpaceId, "learning-design.md");
-    const audience = this.extractSection(learningDesign, "Zielgruppe") || "die Lerngruppe";
-    const intention = this.extractSection(learningDesign, "Lernanliegen") || "das gemeinsam geklärte Lernanliegen";
-    const content = [
-      "# Entwurf: Arbeitsauftrag",
-      "",
-      `**Für:** ${audience}`,
-      "",
-      `**Lernanliegen:** ${intention}`,
-      "",
-      "## Auftrag",
-      "",
-      "Beschreibt zunächst, was ihr an der Situation wahrnehmt. Tauscht euch anschließend darüber aus, welche unterschiedlichen Deutungen möglich sind, und begründet, welche davon euch überzeugt.",
-      "",
-      "## Rückmeldung",
-      "",
-      "Haltet eine offene Frage fest, die ihr im gemeinsamen Gespräch weiterverfolgen möchtet.",
-      "",
-      "> Status: Entwurf – vom Critical Friend zu prüfen."
-    ].join("\n");
-    await this.workspace.writeProjectFile(planningSpaceId, request.expectedOutput.location, content);
-  }
-
   private async reviewReturnedResult(planningSpaceId: string, request: AppServiceRequest): Promise<void> {
     const result = await this.workspace.readProjectFile(planningSpaceId, request.expectedOutput.location);
     const learningDesign = await this.workspace.readProjectFile(planningSpaceId, "learning-design.md");
-    if (!result.includes("# Entwurf") || result.length < 180 || !learningDesign.trim()) throw new Error("review_failed");
+    if (
+      !result.includes("# Entwurf") ||
+      !result.includes("## Auftrag") ||
+      !result.includes("## Vorgehen") ||
+      !result.includes("Status: Entwurf") ||
+      result.length < 180 ||
+      !learningDesign.trim()
+    ) throw new Error("review_failed");
     request.status = "reviewed";
     request.updatedAt = new Date().toISOString();
     request.review = {
@@ -204,11 +205,6 @@ export class ServiceRequestWorkflow {
       note: "Der Entwurf ist vorhanden, als Entwurf gekennzeichnet und an den aktuellen Denkstand angebunden. Die Lehrkraft entscheidet über Freigabe oder Überarbeitung.",
       reviewedAt: request.updatedAt
     };
-  }
-
-  private extractSection(markdown: string, heading: string): string {
-    const match = markdown.match(new RegExp(`## ${heading}\\n([^#]+)`));
-    return match?.[1]?.trim().split("\n")[0] ?? "";
   }
 
   private requestsDirectory(planningSpaceId: string): string {
