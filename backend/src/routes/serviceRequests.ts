@@ -75,7 +75,7 @@ export async function serviceRequestRoutes(
           content,
           review: serviceRequest.review
         },
-        teacherFacingMessage: "Der Entwurf wurde vorbereitet und vom Critical Friend geprüft. Du entscheidest, ob er passt oder weiterbearbeitet werden soll.",
+        teacherFacingMessage: "Der Worker hat den Entwurf vorbereitet; die automatische Vorprüfung ist bestanden. Jetzt kann er gemeinsam mit dem Critical Friend inhaltlich geprüft werden.",
         version
       };
     } catch (error) {
