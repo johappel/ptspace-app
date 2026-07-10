@@ -22,6 +22,7 @@ import { thinkingStateRoutes } from "./routes/thinkingState.js";
 import { exportRoutes } from "./routes/exports.js";
 import { sensitiveContentRoutes } from "./routes/sensitiveContent.js";
 import { serviceRequestRoutes } from "./routes/serviceRequests.js";
+import { planningArtifactRoutes } from "./routes/planningArtifacts.js";
 
 function createHarness(config: ReturnType<typeof loadConfig>, policy: PermissionPolicy): HarnessAdapter {
   if (config.harness === "opencode-docker") {
@@ -76,6 +77,7 @@ export async function buildApp() {
   await app.register(planningSpaceRoutes, { prefix: "/api", store, workspace, git });
   await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation });
   await app.register(thinkingStateRoutes, { prefix: "/api", store, workspace });
+  await app.register(planningArtifactRoutes, { prefix: "/api", store, workspace });
   await app.register(serviceRequestRoutes, { prefix: "/api", store, workspace, git, workflow: serviceWorkflow });
   await app.register(exportRoutes, { prefix: "/api", store, approvals, workspace, exportFilter, okf, scanner });
   await app.register(sensitiveContentRoutes, { prefix: "/api", scanner });
