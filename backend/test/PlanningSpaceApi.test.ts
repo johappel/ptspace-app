@@ -149,7 +149,7 @@ describe("planning-space API", () => {
       const project = path.join(tempRoot, "planning-workspaces", space.workspaceSlug);
       await fs.writeFile(
         path.join(project, "learning-design.md"),
-        "# Denkstand\n\n## Lernanliegen\nJugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten.\n",
+        "# Denkstand\n\n## Thema\nDenkstand Test\n\n## Fach / Lernbereich\nReligion\n\n## Zielgruppe\nKlasse 9\n\n## Lernanliegen\nJugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten.\n",
         "utf8"
       );
       await fs.writeFile(
@@ -167,6 +167,7 @@ describe("planning-space API", () => {
       expect(cards.find((card) => card.id === "denkstand")?.previewItems).toContain(
         "Lernanliegen: Jugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten."
       );
+      expect(cards.find((card) => card.id === "denkstand")?.previewItems).not.toContain("Thema: Denkstand Test");
       expect(cards.find((card) => card.id === "offene-entscheidungen")?.previewItems).toContain(
         "Die Lernreise beginnt bei der Erfahrung politischer Ohnmacht."
       );
