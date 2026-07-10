@@ -19,13 +19,15 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [x] automatische strukturelle Vorprüfung von Worker-Ergebnissen.
 - [ ] modellgestützte Critical-Friend-Review von Worker-Ergebnissen.
 - [ ] echter Knowledge-Adapter mit Quellen, Abrufdatum und Unsicherheit.
-- [ ] Lernlandschaft, zeitliche Dramaturgie und Planungsboard.
+- [x] Lernlandschaft und Planungsboard: lesen, validieren, speichern und im Modal zeigen.
+- [ ] kontextbezogener Critical-Friend-Bereich im Planungsmodal.
+- [ ] Zeit & Dramaturgie, Materialzuordnung und bearbeitbare Lernlandschaft.
 
 ## L0 — Voraussetzung: Kernel-Verträge
 
 - [ ] Kernel-PR für Lernlandschaft und Planungsboard einbinden.
 - [ ] Zod-Schemas aus den Kernel-Verträgen ableiten.
-- [ ] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
+- [x] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
 - [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Nächste Schritte“ wird daraus abgeleitet.
 - [ ] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
 - [ ] Ungültige Node-IDs, Kanten und Referenzen mit lehrkräfteverständlichen Fehlern ablehnen.
@@ -34,7 +36,7 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 
 ## L1 — Domain und API
 
-- [ ] Domain-Typen implementieren:
+- [x] Domain-Typen implementieren:
   - `LearningLandscape`
   - `LearningMoment`
   - `LandscapeTransition`
@@ -42,25 +44,25 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
   - `TimePlacement`
   - `PlanningBoardItem`
   - `LandscapeChangeProposal`
-- [ ] API: Lernlandschaft lesen und speichern.
+- [x] API: Lernlandschaft lesen und speichern.
 - [ ] API: Unterrichtsfenster und Platzierungen lesen und speichern.
-- [ ] API: Planungsboard lesen, Vorschlag anlegen, bestätigen, verschieben und schließen.
+- [x] API: Planungsboard lesen und Board-Karten verschieben.
 - [ ] API: Material einem Lernmoment oder Board-Item zuordnen.
-- [ ] Jede semantische Änderung als verständliche Git-Version speichern.
+- [x] Jede semantische Änderung als verständliche Git-Version speichern.
 - [ ] Layoutdaten getrennt von semantischen Daten speichern.
 
 **Done when:** alle UI-Operationen serverseitig validiert und versioniert sind.
 
 ## L2 — Lernlandschaft-Modal
 
-- [ ] großes Modal „Unterrichtsplanung“ implementieren.
-- [ ] Tab „Lernlandschaft“ implementieren.
-- [ ] `@xyflow/svelte` integrieren.
+- [x] großes Modal „Unterrichtsplanung“ implementieren.
+- [x] Tab „Lernlandschaft“ implementieren.
+- [x] `@xyflow/svelte` integrieren.
 - [ ] Custom Nodes für die vereinbarten Lernmoment-Typen bauen.
 - [ ] Knoten-Detailkarte implementieren.
 - [ ] Verbindung nur über Auswahl einer didaktischen Bedeutung erzeugen.
 - [ ] Gruppenflächen für Phasen, Räume und Stationen implementieren.
-- [ ] Zoom, MiniMap, Tastaturbedienung und Rücksetzen des Layouts implementieren.
+- [x] Zoom und MiniMap implementieren; Tastaturbedienung und Rücksetzen des Layouts ergänzen.
 - [ ] Canvas- und lineare Lesansicht aus derselben Landschaft anbieten.
 
 **Done when:** eine Lehrkraft eine lineare, stationäre und hybride Lernlandschaft ohne technische Begriffe anlegen kann.
@@ -78,18 +80,21 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 
 ## L4 — Planungsboard und Materialien
 
-- [ ] Tab „Planungsboard“ implementieren.
-- [ ] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
-- [ ] Board-Karten mit Lernmomenten, Unterrichtsfenstern und Materialien verknüpfen.
+- [x] Tab „Planungsboard“ implementieren.
+- [x] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
+- [x] Board-Karten mit Lernmomenten verknüpfen; Unterrichtsfenster und Materialien ergänzen.
 - [ ] „Nächste Schritte“ in der Seitenleiste auf exakt ein priorisiertes Board-Arbeitsvorhaben umstellen; Klick öffnet die zugehörige Karte im Modal.
 - [ ] keine parallele „Nächste-Schritte“-Liste neben dem Board führen.
 - [ ] Materialtab mit Zuordnung zu Lernmomenten und Status implementieren.
-- [ ] Worker-Ausgabe aus einer Board-Karte heraus starten, nicht über einen pauschalen Materialbutton.
+- [ ] Worker-Ausgabe aus einer Board-Karte heraus als sichtbaren Vorschlag starten, nicht über einen pauschalen Materialbutton.
 
 **Done when:** eine Unterrichtsstunde nicht mehr als „Nächster Schritt“ erscheint, „Nächste Schritte“ immer auf eine Board-Karte verweist und jedes Material einen didaktischen Bezug hat.
 
 ## L5 — AI-Vorschläge und Review
 
+- [ ] aufklappbaren, kontextbezogenen Critical-Friend-Bereich im Modal implementieren.
+- [ ] Fokus aus Lernmoment, Übergang, Board-Karte oder Material an den bestehenden Planungsraum-Chat übergeben.
+- [ ] Aktion „Zur Gesamtplanung“ implementieren; kein zweiter Chat-Verlauf.
 - [ ] `LandscapeChangeProposal` als eigenes Artefakt implementieren.
 - [ ] Canvas-Diff für neue, geänderte und entfernte Knoten/Kanten implementieren.
 - [ ] Lehreraktionen: Vorschau, Übernehmen, Gespräch, Verwerfen.

@@ -45,6 +45,31 @@ Unterrichtsplanung
 
 Technische Begriffe wie Node, Edge, YAML, Service Request oder Workspace sind im Lehrkräfte-Modus nicht sichtbar.
 
+
+## Kontextbezogenes Gespräch mit dem Critical Friend
+
+Der Critical Friend bleibt derselbe Gesprächspartner des Planungsraums. Im Planungsmodal erscheint er jedoch als aufklappbarer, kontextbezogener Gesprächsbereich — kein zweiter, isolierter Chat.
+
+Auslöser und Kontext:
+
+| Auswahl | Gesprächskontext |
+| --- | --- |
+| Lernmoment | Funktion, Lernaktivität, erwartete Lernerfahrung, Übergänge, Zeitfenster, Materialien und offene Fragen |
+| Übergang | Ausgangs-/Zielmoment und seine didaktische Bedeutung |
+| Board-Karte | Arbeitsvorhaben, Beziehungen und bisheriger Status |
+| Material | didaktischer Bezug, Entwurfs- und Prüfstatus |
+
+Lehrkräfte sehen etwa „Zu diesem Lernmoment weiterdenken“ oder „Dieses Arbeitsvorhaben klären“, nicht technische Objektbezeichnungen.
+
+Der Critical Friend kann im Kontext:
+
+- nachfragen und Perspektiven anbieten,
+- einen Vorschlag für die kanonische Lernlandschaft oder das Board erzeugen,
+- eine neue Board-Karte vorschlagen,
+- oder einen Worker-Auftrag **vorschlagen**.
+
+Eine Unterhaltung, ein Vorschlag oder das Verschieben einer Karte startet keinen Worker. Erst eine sichtbare Freigabe erzeugt einen Service Request. „Zur Gesamtplanung“ löst den Fokus wieder und führt in das Gespräch des gesamten Planungsraums zurück.
+
 ## Lernlandschaft-Canvas
 
 Der Canvas ist ein strukturierter didaktischer Planungstisch, kein freies Whiteboard.
