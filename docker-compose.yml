@@ -7,6 +7,7 @@ services:
       BACKEND_PORT: "5174"
       PTSPACE_DATA_DIR: /app/.ptspace-data
       PTSPACE_WORKSPACES_DIR: /app/workspaces
+      PTSPACE_PLANNING_WORKSPACES_DIR: /app/workspaces
       PTSPACE_HARNESS: mock
       PTSPACE_REAL_HARNESS_ENABLED: "false"
       PTSPACE_OPENCODE_RUNNER: docker
