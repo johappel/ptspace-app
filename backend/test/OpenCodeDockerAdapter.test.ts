@@ -140,6 +140,44 @@ describe("OpenCodeDockerAdapter", () => {
     expect(result.events).toContainEqual({ type: "workspace_update", relativePath: "learning-design.md" });
   });
 
+  it("does not silently confirm persistence when no thinking-state file changed", async () => {
+    const adapter = new OpenCodeDockerAdapter({
+      enabled: true,
+      policy: new PermissionPolicy(),
+      runner: "local",
+      kernelDir,
+      command: "opencode",
+      allowNetwork: false,
+      timeoutMs: 10000,
+      runProcess: async (_command, args) => {
+        if (args.includes("--version")) return { exitCode: 0, stdout: "opencode", stderr: "" };
+        return { exitCode: 0, stdout: "Der Denkstand ist festgehalten.", stderr: "" };
+      }
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const result = await adapter.sendMessage({ session, message: "Bitte halte das fest.", space: testSpace() });
+    expect(result.reply.text).toContain("technisch noch nicht dauerhaft");
+  });
+
+  it("marks curriculum claims as unverified without a Knowledge result", async () => {
+    const adapter = new OpenCodeDockerAdapter({
+      enabled: true,
+      policy: new PermissionPolicy(),
+      runner: "local",
+      kernelDir,
+      command: "opencode",
+      allowNetwork: false,
+      timeoutMs: 10000,
+      runProcess: async (_command, args) => {
+        if (args.includes("--version")) return { exitCode: 0, stdout: "opencode", stderr: "" };
+        return { exitCode: 0, stdout: "Der NRW-Kernlehrplan ordnet das IF5 zu.", stderr: "" };
+      }
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: tempRoot });
+    const result = await adapter.sendMessage({ session, message: "Wo steht das im Lehrplan?", space: testSpace() });
+    expect(result.reply.text).toContain("nicht durch einen Knowledge-Auftrag");
+  });
+
 
   it("does not expose the full kernel to external providers without explicit admin approval", async () => {
     const adapter = new OpenCodeDockerAdapter({
