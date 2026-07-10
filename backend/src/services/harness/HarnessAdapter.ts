@@ -37,6 +37,23 @@ export type HarnessMessageResult = {
   events: HarnessEvent[];
 };
 
+export type HarnessTaskRequest = {
+  session: HarnessSession;
+  space: PlanningSpace;
+  service: "worker";
+  capability: string;
+  reason: string;
+  input: Record<string, unknown>;
+  expectedOutput: { type: string; relativePath: string };
+  constraints: Record<string, unknown>;
+};
+
+export type HarnessTaskResult = {
+  summary: string;
+  workspaceUpdates: HarnessWorkspaceUpdate[];
+  events: HarnessEvent[];
+};
+
 export type HarnessPolicySimulationResult = {
   decisions: Array<{ request: HarnessPermissionRequest; decision: PolicyDecision }>;
 };
@@ -48,6 +65,7 @@ export interface HarnessAdapter {
   checkAvailability(): Promise<HarnessAvailability>;
   createSession(input: { planningSpaceId: string; workspaceRoot: string }): Promise<HarnessSession>;
   sendMessage(input: SendHarnessMessageInput): Promise<HarnessMessageResult>;
+  requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult>;
   getEvents(session: HarnessSession): AsyncIterable<HarnessEvent>;
   simulatePolicy?(workspaceRoot: string): Promise<HarnessPolicySimulationResult>;
   stopSession(session: HarnessSession): Promise<void>;
