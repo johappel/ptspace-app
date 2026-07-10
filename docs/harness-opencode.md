@@ -18,7 +18,7 @@ Browser → ptspace-backend → HarnessAdapter → OpenCodeDockerAdapter
 
 Der Harness bekommt deshalb zwei getrennte Kontexte:
 
-- `/workspace`: der konkrete Planungsraum der Lehrkraft; hier wird normale Unterrichtsplanung gespeichert.
+- `/workspace`: der konkrete Planungsraum der Lehrkraft aus `pedagogical-thinking-space/workspace/<slug>`; hier wird normale Unterrichtsplanung gespeichert und von der App wieder gelesen.
 - `/ptspace-kernel`: der PTSPACE-Kernel; hier liest der Harness zuerst `AGENTS.md`, `CRITICAL_FRIEND.de.md`, `LEARNING_DESIGN.de.md` und `ORCHESTRATION.md`.
 
 Kernel-Evolution ist möglich, aber nicht als beliebiges Mitschreiben während jedes Chats. Wenn eine Aufgabe ausdrücklich Wissen, Fähigkeiten, Services oder Worker weiterentwickeln soll, können definierte Kernel-Arbeitsbereiche als beschreibbare Overlays freigegeben werden.
@@ -42,6 +42,7 @@ Standardmäßig bleibt Kernel-Schreiben aus. Außerdem wird voller Kernelkontext
 - OpenRouter-Auth wird als temporär erzeugtes `auth.json` außerhalb des Repos gemountet und danach gelöscht.
 - Der Kernel wird als `/ptspace-kernel` eingebunden; beschreibbare Kernel-Zonen sind gesondert konfigurierbar.
 - Die App-Schicht reicht Provider-, Modell-, Secret- und Kernel-Status nur an den Backend-Adapter weiter, nicht an die Lehrkräfte-UI.
+- Kernel und App verwenden für Unterrichtsplanung denselben Planungsraum. Es gibt keine zweite inhaltliche Kopie unter `ptspace-app/workspaces`.
 
 ## Aktivierung für einen produktionsnahen Docker-Test
 
