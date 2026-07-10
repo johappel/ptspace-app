@@ -271,7 +271,7 @@ async function sendMessage() {
 
     {#if planningModal}
       <div class="planning-overlay" role="presentation" on:click={() => (planningModal = false)}>
-        <section class="planning-modal" role="dialog" aria-modal="true" aria-label="Unterrichtsplanung" on:click|stopPropagation>
+        <dialog class="planning-modal" open aria-label="Unterrichtsplanung" on:click|stopPropagation>
           <header class="planning-modal-header">
             <div><span>Didaktische Arbeitsfläche</span><h2>{activeSpace?.title ?? "Unterrichtsplanung"}</h2></div>
             <button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schließen"><X size={20} /></button>
@@ -300,11 +300,11 @@ async function sendMessage() {
           {:else if planningTab === "board" && planningBoard}
             <div class="board-view">
               {#each boardColumns as column}
-                <section class="board-column" on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}>
+                <section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}>
                   <header><strong>{column.label}</strong><span>{column.hint}</span></header>
                   <div class="board-cards">
                     {#each planningBoard.items.filter((item) => item.column === column.id) as item}
-                      <article class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)}>
+                      <article class="board-card" role="listitem" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)}>
                         <span class="board-kind">{item.kind}</span>
                         <strong>{item.title}</strong>
                         {#if item.relatedNodes.length}<small>Bezug: {item.relatedNodes.join(", ")}</small>{/if}
@@ -317,7 +317,7 @@ async function sendMessage() {
               {/each}
             </div>
           {/if}
-        </section>
+        </dialog>
       </div>
     {/if}
 
