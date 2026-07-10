@@ -128,7 +128,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
   }
 
   async sendMessage(input: SendHarnessMessageInput): Promise<HarnessMessageResult> {
-    const projectDir = path.join(input.session.workspaceRoot, "project");
+    const projectDir = input.session.workspaceRoot;
     await assertProjectDirectory(projectDir, input.session.workspaceRoot);
     const before = await snapshotProject(projectDir);
     const secretMount = await this.prepareDockerSecretMount();
@@ -349,7 +349,7 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
     return [
       {
         type: "file",
-        file: { workspaceRoot, targetPath: path.join(workspaceRoot, "project", "learning-design.md"), operation: "write" }
+        file: { workspaceRoot, targetPath: path.join(workspaceRoot, "learning-design.md"), operation: "write" }
       },
       {
         type: "file",
@@ -374,8 +374,7 @@ async function commandAvailable(command: string, runner: ProcessRunner): Promise
 async function assertProjectDirectory(projectDir: string, workspaceRoot: string): Promise<void> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolvedProject = path.resolve(projectDir);
-  const relative = path.relative(resolvedRoot, resolvedProject);
-  if (relative !== "project") throw new Error("opencode_project_dir_must_be_workspace_project");
+  if (resolvedProject !== resolvedRoot) throw new Error("opencode_project_dir_must_be_workspace_root");
   await fs.access(resolvedProject);
 }
 
