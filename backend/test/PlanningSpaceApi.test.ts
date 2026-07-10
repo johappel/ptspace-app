@@ -10,6 +10,7 @@ let oldEnv: Record<string, string | undefined>;
 const envKeys = [
   "PTSPACE_DATA_DIR",
   "PTSPACE_WORKSPACES_DIR",
+  "PTSPACE_PLANNING_WORKSPACES_DIR",
   "PTSPACE_HARNESS",
   "PTSPACE_REAL_HARNESS_ENABLED",
   "PTSPACE_OPENCODE_RUNNER",
@@ -24,6 +25,7 @@ beforeEach(async () => {
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ptspace-app-test-"));
   process.env.PTSPACE_DATA_DIR = path.join(tempRoot, "data");
   process.env.PTSPACE_WORKSPACES_DIR = path.join(tempRoot, "workspaces");
+  process.env.PTSPACE_PLANNING_WORKSPACES_DIR = path.join(tempRoot, "planning-workspaces");
   process.env.PTSPACE_HARNESS = "mock";
   process.env.PTSPACE_REAL_HARNESS_ENABLED = "false";
   delete process.env.OPENROUTER_API_KEY;
@@ -53,8 +55,8 @@ describe("planning-space API", () => {
         }
       });
       expect(createResponse.statusCode).toBe(201);
-      const space = createResponse.json<{ id: string }>();
-      await expect(fs.stat(path.join(tempRoot, "workspaces", space.id, "project", "learning-design.md"))).resolves.toBeTruthy();
+      const space = createResponse.json<{ id: string; workspaceSlug: string }>();
+      await expect(fs.stat(path.join(tempRoot, "planning-workspaces", space.workspaceSlug, "learning-design.md"))).resolves.toBeTruthy();
 
       const conversationResponse = await app.inject({
         method: "POST",
@@ -120,8 +122,8 @@ describe("planning-space API", () => {
     const app = await buildApp();
     try {
       const createResponse = await app.inject({ method: "POST", url: "/api/planning-spaces", payload: { title: "Sensible Prüfung" } });
-      const space = createResponse.json<{ id: string }>();
-      await fs.writeFile(path.join(tempRoot, "workspaces", space.id, "project", "decisions.md"), "# Entscheidungen\n\nADHS ist bekannt.\n", "utf8");
+      const space = createResponse.json<{ id: string; workspaceSlug: string }>();
+      await fs.writeFile(path.join(tempRoot, "planning-workspaces", space.workspaceSlug, "decisions.md"), "# Entscheidungen\n\nADHS ist bekannt.\n", "utf8");
       await app.inject({
         method: "POST",
         url: `/api/planning-spaces/${space.id}/export-approvals`,
@@ -143,8 +145,8 @@ describe("planning-space API", () => {
         url: "/api/planning-spaces",
         payload: { title: "Denkstand Test", subject: "Religion", targetGroup: "Klasse 9" }
       });
-      const space = createResponse.json<{ id: string }>();
-      const project = path.join(tempRoot, "workspaces", space.id, "project");
+      const space = createResponse.json<{ id: string; workspaceSlug: string }>();
+      const project = path.join(tempRoot, "planning-workspaces", space.workspaceSlug);
       await fs.writeFile(
         path.join(project, "learning-design.md"),
         "# Denkstand\n\n## Lernanliegen\nJugendliche entwickeln trotz Ohnmacht neue Handlungsmöglichkeiten.\n",
