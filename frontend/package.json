@@ -14,10 +14,10 @@
     "@ptspace/shared": "workspace:*",
     "@sveltejs/kit": "2.5.27",
     "@sveltejs/vite-plugin-svelte": "3.1.2",
-    "@xyflow/svelte": "0.1.30",
-    "vite": "5.4.2",
-    "svelte": "4.2.20",
-    "lucide-svelte": "^0.468.0"
+    "@xyflow/svelte": "1.6.2",
+    "lucide-svelte": "^0.468.0",
+    "svelte": "5.56.4",
+    "vite": "5.4.2"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "3.2.5",
