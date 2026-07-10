@@ -19,6 +19,11 @@ function markdownItems(markdown: string): string[] {
   return [...new Set(items)];
 }
 
+function learningDesignPreview(markdown: string): string[] {
+  const metadata = /^(Thema|Fach \/ Lernbereich|Zielgruppe):/i;
+  return markdownItems(markdown).filter((item) => !metadata.test(item)).slice(0, 8);
+}
+
 export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager }) {
   app.get("/planning-spaces/:id/thinking-state", async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -40,7 +45,7 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
           id: "denkstand",
           title: "Denkstand",
           summary: space.initialIdea || "Der Denkstand wird im Gespräch aufgebaut.",
-          previewItems: markdownItems(learningDesign).slice(0, 3)
+          previewItems: learningDesignPreview(learningDesign)
         },
         {
           id: "offene-entscheidungen",
@@ -49,13 +54,13 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
           previewItems: [
             ...markdownItems(decisionsMd),
             ...markdownItems(openQuestionsMd).map((item) => `Offen: ${item}`)
-          ].slice(0, 3)
+          ].slice(0, 8)
         },
         {
           id: "nächste-schritte",
           title: "Nächste Schritte",
           summary: "Ein sinnvoller nächster Schritt reicht für den Moment.",
-          previewItems: markdownItems(nextStepsMd).slice(0, 3)
+          previewItems: markdownItems(nextStepsMd).slice(0, 8)
         }
       ],
       summary
