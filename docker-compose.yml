@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      BACKEND_PORT: "5174"
+      PTSPACE_DATA_DIR: /app/.ptspace-data
+      PTSPACE_WORKSPACES_DIR: /app/workspaces
+      PTSPACE_PLANNING_WORKSPACES_DIR: /app/workspaces
+      PTSPACE_HARNESS: mock
+      PTSPACE_REAL_HARNESS_ENABLED: "false"
+      PTSPACE_OPENCODE_RUNNER: docker
+      PTSPACE_OPENCODE_DOCKER_IMAGE: ptspace/opencode-test:1.17.13
+      PTSPACE_OPENCODE_ALLOW_NETWORK: "false"
+      PTSPACE_OPENCODE_TIMEOUT_MS: "120000"
+    ports:
+      - "5174:5174"
+    volumes:
+      - ptspace-data:/app/.ptspace-data
+      - ptspace-workspaces:/app/workspaces
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        PUBLIC_BACKEND_URL: http://localhost:5174
+    environment:
+      PUBLIC_BACKEND_URL: http://localhost:5174
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  ptspace-data:
+  ptspace-workspaces:

@@ -1,0 +1,13 @@
+﻿node_modules/
+.pnpm-store/
+.env
+.env.local
+.DS_Store
+frontend/.svelte-kit/
+frontend/build/
+backend/dist/
+packages/*/dist/
+coverage/
+workspaces/
+.ptspace-data/
+_tmp*

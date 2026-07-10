@@ -1,0 +1,8 @@
+packages:
+  - "frontend"
+  - "backend"
+  - "packages/*"
+allowBuilds:
+  '@sveltejs/kit': true
+  esbuild: true
+  svelte-preprocess: true

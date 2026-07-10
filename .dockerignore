@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+.svelte-kit
+frontend/build
+backend/dist
+packages/*/dist
+.ptspace-data
+workspaces
+.env
+.env.local
+_tmp_*

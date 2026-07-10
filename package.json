@@ -1,0 +1,17 @@
+{
+  "name": "ptspace-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @ptspace/shared build && pnpm --parallel --filter @ptspace/shared --filter @ptspace/backend --filter @ptspace/frontend dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "check": "pnpm -r check"
+  },
+  "packageManager": "pnpm@11.5.1",
+  "devDependencies": {
+    "playwright": "^1.61.1",
+    "typescript": "^5.5.4"
+  }
+}

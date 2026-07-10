@@ -1,4 +1,39 @@
 # ptspace-app
+## Aktueller Entwicklungsstand
+
+Der aktuelle MVP ist ein lokaler Mock-Harness-Prototyp. Er enthält eine SvelteKit-Oberfläche, ein Fastify-Backend, gemeinsame Domain-Schemas, isolierte Planungsraum-Workspaces, interne Git-Versionierung und einen gefilterten Markdown-Export.
+
+Echte `opencode`-Ausführung ist noch nicht aktiviert. Sie bleibt an die Gates in `TASKS.md` Abschnitt 1.5 gekoppelt.
+
+### Lokal starten
+
+```powershell
+pnpm install
+pnpm --filter @ptspace/backend dev
+pnpm --filter @ptspace/frontend dev
+```
+
+- Frontend: http://localhost:5173
+- Backend: http://localhost:5174
+- Healthcheck: http://localhost:5174/health
+
+### Prüfen
+
+```powershell
+pnpm --filter @ptspace/shared check
+pnpm --filter @ptspace/shared test
+pnpm --filter @ptspace/backend test
+pnpm --filter @ptspace/frontend check
+pnpm build
+```
+
+### Docker-Entwicklung
+
+```powershell
+docker compose up --build
+```
+
+Der Docker-Stack enthält nur Frontend und Backend mit Mock-Harness. Nextcloud, echte Harness-Runtimes, Provider-Secrets und Host-Bridge sind absichtlich nicht Teil dieses ersten Stacks.
 
 > **A pedagogical planning environment for teachers — powered by the Pedagogical Thinking Space kernel.**
 >

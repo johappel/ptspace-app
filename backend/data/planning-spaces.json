@@ -1,0 +1,464 @@
+[
+  {
+    "id": "space-6f76ff54-426f-45cd-b87a-aaeb6a8a40bb",
+    "title": "KI und Gottesbild",
+    "subject": "Religion",
+    "targetGroup": "Klasse 10",
+    "initialIdea": "Unterrichtseinheit",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T15:08:58.841Z",
+    "updatedAt": "2026-07-08T15:08:58.841Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Religion",
+        "grade": "Klasse 10",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Unterrichtseinheit",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-c1171dab-c3eb-4932-bbff-f45aae150011",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T15:08:58.841Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-6db097d1-c7fa-4b10-972f-93490d67d27b",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-01bf9b02-95e3-4622-b065-94a8c0a111dc",
+    "title": "Testraum",
+    "subject": "Test",
+    "targetGroup": "Klasse 9",
+    "initialIdea": "Hallo",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T15:43:12.792Z",
+    "updatedAt": "2026-07-08T15:43:12.792Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Test",
+        "grade": "Klasse 9",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Hallo",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-f02688c0-2a1d-4d2d-995c-a71497351635",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T15:43:12.792Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-82ed4d9c-dea8-4add-99c2-fe029d8c447e",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-6f8ce34d-3099-4d30-9b79-d8397cae6de8",
+    "title": "Testraum2",
+    "subject": "Test",
+    "targetGroup": "Klasse 9",
+    "initialIdea": "Hallo",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T15:44:14.684Z",
+    "updatedAt": "2026-07-08T15:44:14.684Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Test",
+        "grade": "Klasse 9",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Hallo",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-b7c2c29b-c871-4216-8d17-bd63aed1c63d",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T15:44:14.684Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-d886c119-621c-407b-ae32-450853799e7b",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-03e00f49-7d3e-4710-a079-6dbb7daffd79",
+    "title": "Bruchrechnung Klasse 6",
+    "subject": "Mathematik",
+    "targetGroup": "Klasse 6, Gymnasium",
+    "initialIdea": "Wie kann ich Bruchrechnung so einführen, dass Schüler die Bedeutung verstehen?",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T15:55:58.135Z",
+    "updatedAt": "2026-07-08T15:55:58.135Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Mathematik",
+        "grade": "Klasse 6, Gymnasium",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Wie kann ich Bruchrechnung so einführen, dass Schüler die Bedeutung verstehen?",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-7d647d95-5669-4134-b88f-8150aae36fa4",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T15:55:58.135Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-736b3407-febe-4616-9cca-fdf93536ad3d",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-b334ba4a-26e0-4289-94da-64c6424f17fc",
+    "title": "Test Workspace",
+    "subject": "Mathematik",
+    "targetGroup": "Klasse 5",
+    "initialIdea": "Test für Workspace-Erstellung",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T16:06:28.993Z",
+    "updatedAt": "2026-07-08T16:06:28.993Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Mathematik",
+        "grade": "Klasse 5",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Test für Workspace-Erstellung",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-d4f0e2e6-8799-4034-89f5-8ee65c3619c2",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T16:06:28.993Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-b78689db-4b8e-4388-b386-6b49c785f0a8",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-722a5dc1-b180-47c7-bac9-2cd5e93fcdc7",
+    "title": "Debug Test",
+    "subject": "Informatik",
+    "targetGroup": "",
+    "initialIdea": "Workspace-Fehler debuggen",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T16:08:47.243Z",
+    "updatedAt": "2026-07-08T16:08:47.243Z",
+    "learningDesign": {
+      "context": {
+        "subject": "Informatik",
+        "grade": "",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Workspace-Fehler debuggen",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-97a23c89-4f77-419b-bb00-17a3ae274a5b",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T16:08:47.243Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-fb0cc812-7fb3-4805-8b02-adb56ce1a064",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  },
+  {
+    "id": "space-a2ef1fb5-49a7-4948-b41d-957437460929",
+    "title": "Weitere Tests",
+    "subject": "",
+    "targetGroup": "",
+    "initialIdea": "Ein weiterer Test",
+    "status": "active",
+    "participants": [
+      {
+        "id": "local-teacher",
+        "displayName": "Lehrkraft",
+        "role": "owner"
+      }
+    ],
+    "createdAt": "2026-07-08T16:09:40.355Z",
+    "updatedAt": "2026-07-08T16:09:40.355Z",
+    "learningDesign": {
+      "context": {
+        "subject": "",
+        "grade": "",
+        "setting": "",
+        "constraints": []
+      },
+      "intention": {
+        "summary": "Ein weiterer Test",
+        "learnersShould": {
+          "know": [],
+          "understand": [],
+          "experience": [],
+          "becomeAbleTo": []
+        }
+      },
+      "learningJourney": {
+        "startingPoint": "",
+        "phases": [],
+        "turningPoints": []
+      },
+      "activities": [],
+      "materials": [],
+      "reflection": {
+        "learnerReflection": [],
+        "teacherReflection": [],
+        "openQuestions": []
+      }
+    },
+    "openQuestions": [
+      {
+        "id": "question-6bdf3c72-6e5a-489b-9634-bb294152348d",
+        "question": "Welche Lernerfahrung soll im Mittelpunkt stehen?",
+        "context": "Startfrage zum gemeinsamen Nachdenken",
+        "createdAt": "2026-07-08T16:09:40.355Z"
+      }
+    ],
+    "decisions": [],
+    "nextSteps": [
+      {
+        "id": "step-cf61e50a-f69b-4e95-905a-e38102feff25",
+        "label": "Lernanliegen klären",
+        "description": "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
+        "kind": "reflect",
+        "status": "suggested",
+        "relatedServiceRequest": null
+      }
+    ],
+    "materials": []
+  }
+]
