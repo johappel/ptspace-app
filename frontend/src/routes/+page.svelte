@@ -73,9 +73,14 @@ let messagesElement: HTMLDivElement | null = null;
     markdownApproval = exportStatus.markdown;
     okfApproval = exportStatus.okfMarkdown;
     serviceRequests = (await api.getServiceRequests(space.id)).requests;
-    try {
-      workerMaterial = await api.getStudentInstruction(space.id);
-    } catch {
+    const hasReviewedStudentInstruction = serviceRequests.some((item) => item.status === "reviewed");
+    if (hasReviewedStudentInstruction) {
+      try {
+        workerMaterial = await api.getStudentInstruction(space.id);
+      } catch {
+        workerMaterial = null;
+      }
+    } else {
       workerMaterial = null;
     }
     showWorkerMaterial = false;
