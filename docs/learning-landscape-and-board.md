@@ -33,7 +33,7 @@ Die kompakte Seitenleiste zeigt nur Orientierung:
 
 - Denkstand
 - offene Entscheidungen
-- nächstes sinnvolles Arbeitsvorhaben
+- „Nächste Schritte“: genau ein nächstes sinnvolles Arbeitsvorhaben aus dem Planungsboard
 - Anzahl von Entwürfen und freigegebenen Materialien
 
 Die ausführliche Arbeit findet in einem großen Modal statt:
@@ -114,6 +114,8 @@ Sie darf die Lernlandschaft nicht heimlich linear machen.
 
 ## Planungsboard
 
+„Nächste Schritte“ ist der kompakte Einstieg in dieses Board, nicht ein eigenes Datenmodell. Die Seitenleiste zeigt eine priorisierte Karte und öffnet beim Anklicken genau diese Karte im Modal. Bestehende Service Requests werden bis zur Migration als Karten im Board dargestellt.
+
 Das Board enthält Arbeitsvorhaben, keine Lernaktivitäten:
 
 - Lernanliegen noch klären,
@@ -130,7 +132,7 @@ Die Spalten sind lehrkräftefreundlich, intern stabil:
 Noch klären → Vorbereiten → Zur Prüfung → Bereit
 ```
 
-Jede Karte kann auf Lernmomente, Unterrichtsfenster, Entscheidungen und Materialien verweisen.
+Jede Karte kann auf Lernmomente, Unterrichtsfenster, Entscheidungen und Materialien verweisen. Nach Freigabe darf sie einen Service Request auslösen; dessen technische Details bleiben verborgen. Worker-Ergebnisse kehren auf der Karte als „Entwurf zur Prüfung“ zurück.
 
 ## AI-Proposals
 
