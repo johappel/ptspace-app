@@ -254,6 +254,18 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 }
 .service-actions button:hover { background: #eaf2eb; }
 .service-message { padding-top: 8px; border-top: 1px solid #e2e8e1; }
+.worker-material {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid #dfe8dc;
+  border-radius: 7px;
+  background: #fafcf9;
+  color: #243235;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
 .thinking-dots {
   width: 8px;
   height: 8px;
