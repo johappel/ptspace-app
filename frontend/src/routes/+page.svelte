@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, Lightbulb, MessageSquareText, Plus, ShieldCheck, TriangleAlert } from "lucide-svelte";
-  import { api, type ExportApproval, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
+  import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, Lightbulb, Map, MessageSquareText, Plus, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
+  import { api, type ExportApproval, type LearningLandscape, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
+  import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
+  import "@xyflow/svelte/dist/style.css";
   import { uuid } from "$lib/uuid";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
@@ -24,6 +26,21 @@
   let draftMessage = "";
 let messagesElement: HTMLDivElement | null = null;
   let newRoom = { title: "", subject: "", targetGroup: "", initialIdea: "" };
+  let planningModal = false;
+  let planningTab: "landscape" | "board" = "landscape";
+  let learningLandscape: LearningLandscape | null = null;
+  let planningBoard: PlanningBoard | null = null;
+  let planningError = "";
+  let planningLoading = false;
+  let canvasNodes: any[] = [];
+  let canvasEdges: any[] = [];
+  let draggedBoardItem: string | null = null;
+  const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
+    { id: "clarify", label: "Noch klären", hint: "Entscheidungen und Recherche" },
+    { id: "prepare", label: "Vorbereiten", hint: "Dramaturgie und Materialien" },
+    { id: "review", label: "Zur Prüfung", hint: "Ergebnisse gemeinsam ansehen" },
+    { id: "ready", label: "Bereit", hint: "fachlich freigegeben" }
+  ];
 
   onMount(async () => {
     await refreshSpaces();
@@ -153,6 +170,59 @@ async function sendMessage() {
     }
   }
 
+  function makeCanvas() {
+    if (!learningLandscape) return;
+    canvasNodes = learningLandscape.moments.map((moment, index) => ({
+      id: moment.id,
+      position: { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 },
+      data: { label: `${moment.title}\n${moment.didacticPurpose || moment.learningActivity || "Lernmoment"}` }
+    }));
+    canvasEdges = learningLandscape.transitions.map((transition) => ({
+      id: transition.id,
+      source: transition.from,
+      target: transition.to,
+      type: "smoothstep",
+      label: transition.kind === "required" ? "gemeinsamer Weg" : transition.kind,
+      animated: transition.kind === "choice"
+    }));
+  }
+
+  async function openPlanning() {
+    if (!activeSpace) return;
+    planningLoading = true;
+    planningError = "";
+    try {
+      const artifacts = await api.getPlanningArtifacts(activeSpace.id);
+      learningLandscape = artifacts.learningLandscape;
+      planningBoard = artifacts.planningBoard;
+      makeCanvas();
+      planningModal = true;
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Die Lernlandschaft konnte noch nicht geöffnet werden.";
+      planningModal = true;
+    } finally {
+      planningLoading = false;
+    }
+  }
+
+  async function moveBoardItem(column: PlanningBoardItem["column"]) {
+    if (!activeSpace || !planningBoard || !draggedBoardItem) return;
+    planningBoard = {
+      ...planningBoard,
+      items: planningBoard.items.map((item) => item.id === draggedBoardItem
+        ? { ...item, column, status: column === "ready" ? "ready" : item.status }
+        : item)
+    };
+    const moving = draggedBoardItem;
+    draggedBoardItem = null;
+    try {
+      await api.savePlanningArtifacts(activeSpace.id, { planningBoard });
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Die Karte konnte nicht verschoben werden.";
+      draggedBoardItem = moving;
+    }
+  }
+
   function handleComposerKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
@@ -196,8 +266,60 @@ async function sendMessage() {
   <main class="planning-room">
     <header class="topbar">
       <div><span>Gemeinsam nachdenken</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
-      <div class="status-pill"><ShieldCheck size={16} /> Geschützter Planungsraum</div>
+      <div class="topbar-actions">{#if activeSpace}<button class="planning-open" on:click={openPlanning}><Map size={16} /> Unterrichtsplanung</button>{/if}<div class="status-pill"><ShieldCheck size={16} /> Geschützter Planungsraum</div></div>
     </header>
+
+    {#if planningModal}
+      <div class="planning-overlay" role="presentation" on:click={() => (planningModal = false)}>
+        <dialog class="planning-modal" open aria-label="Unterrichtsplanung" on:click|stopPropagation>
+          <header class="planning-modal-header">
+            <div><span>Didaktische Arbeitsfläche</span><h2>{activeSpace?.title ?? "Unterrichtsplanung"}</h2></div>
+            <button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schließen"><X size={20} /></button>
+          </header>
+          <nav class="planning-tabs" aria-label="Planungsansichten">
+            <button class:active={planningTab === "landscape"} on:click={() => (planningTab = "landscape")}>Lernlandschaft</button>
+            <button class:active={planningTab === "board"} on:click={() => (planningTab = "board")}>Planungsboard</button>
+          </nav>
+          {#if planningLoading}<p class="planning-empty">Lernlandschaft wird geöffnet …</p>
+          {:else if planningError}<p class="planning-error">{planningError}</p>
+          {:else if planningTab === "landscape" && learningLandscape}
+            <div class="landscape-view">
+              <aside class="landscape-summary">
+                <span>Struktur</span><strong>{learningLandscape.structure}</strong>
+                <p>{learningLandscape.moments.length} Lernmomente · {learningLandscape.transitions.length} Verbindungen</p>
+                <p>Verschieben ordnet nur die Ansicht. Didaktische Verbindungen bleiben bewusst separat.</p>
+              </aside>
+              <div class="flow-canvas">
+                <SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true}>
+                  <Background />
+                  <Controls />
+                  <MiniMap />
+                </SvelteFlow>
+              </div>
+            </div>
+          {:else if planningTab === "board" && planningBoard}
+            <div class="board-view">
+              {#each boardColumns as column}
+                <section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}>
+                  <header><strong>{column.label}</strong><span>{column.hint}</span></header>
+                  <div class="board-cards">
+                    {#each planningBoard.items.filter((item) => item.column === column.id) as item}
+                      <article class="board-card" role="listitem" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)}>
+                        <span class="board-kind">{item.kind}</span>
+                        <strong>{item.title}</strong>
+                        {#if item.relatedNodes.length}<small>Bezug: {item.relatedNodes.join(", ")}</small>{/if}
+                        {#if item.materialIds.length}<small>Material: {item.materialIds.join(", ")}</small>{/if}
+                      </article>
+                    {/each}
+                    {#if planningBoard.items.filter((item) => item.column === column.id).length === 0}<p class="board-empty">Noch kein Arbeitsvorhaben.</p>{/if}
+                  </div>
+                </section>
+              {/each}
+            </div>
+          {/if}
+        </dialog>
+      </div>
+    {/if}
 
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 

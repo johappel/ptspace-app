@@ -1,5 +1,41 @@
 const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:5174";
 
+
+export type LearningMoment = {
+  id: string;
+  title: string;
+  kind: string;
+  didacticPurpose: string;
+  learningActivity: string;
+  expectedExperience: string;
+  materialIds: string[];
+  openQuestions: string[];
+};
+
+export type LearningLandscape = {
+  schema: "ptspace.learning-landscape/v1";
+  title: string;
+  structure: "linear" | "stations" | "buffet" | "project" | "spatial" | "hybrid";
+  moments: LearningMoment[];
+  transitions: Array<{ id: string; from: string; to: string; kind: "required" | "choice" | "parallel" | "return" | "meeting_point" | "prerequisite"; note: string }>;
+  teachingWindows: Array<{ id: string; title: string; kind: "lesson" | "double_lesson" | "project_block" | "open_learning_time"; note: string }>;
+  placements: Array<{ nodeId: string; windowId: string; note: string }>;
+};
+
+export type PlanningBoardItem = {
+  id: string;
+  title: string;
+  kind: "clarify" | "research" | "design" | "produce" | "review" | "render" | "export";
+  column: "clarify" | "prepare" | "review" | "ready";
+  status: "proposed" | "approved" | "in_progress" | "review" | "ready" | "blocked" | "discarded";
+  relatedNodes: string[];
+  relatedWindows: string[];
+  materialIds: string[];
+  requiresTeacherApproval: boolean;
+};
+
+export type PlanningBoard = { schema: "ptspace.planning-board/v1"; items: PlanningBoardItem[] };
+
 export type PlanningSpace = {
   id: string;
   title: string;
@@ -77,6 +113,12 @@ export const api = {
     }),
   getThinkingState: (spaceId: string) =>
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
+  getPlanningArtifacts: (spaceId: string) =>
+    request<{ learningLandscape: LearningLandscape; planningBoard: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`),
+  savePlanningArtifacts: (spaceId: string, input: { learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }) =>
+    request<{ learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`, {
+      method: "PUT", body: JSON.stringify(input)
+    }),
   getServiceRequests: (spaceId: string) =>
     request<{ requests: ServiceRequest[] }>(`/planning-spaces/${spaceId}/service-requests`),
   getStudentInstruction: (spaceId: string) =>

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter @ptspace/backend --filter @ptspace/frontend dev",
+    "dev": "pnpm --filter @ptspace/shared build && pnpm --parallel --filter @ptspace/shared --filter @ptspace/backend --filter @ptspace/frontend dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "check": "pnpm -r check"
