@@ -54,7 +54,10 @@ export async function conversationRoutes(
         session, 
         space, 
         message: parsed.data.message,
-        conversationContext: await deps.conversation.getConversationSummary(id)
+        conversationContext: `${await deps.conversation.getConversationSummary(id)}
+
+Gemeinsamer Denkstand:
+${await deps.workspace.readProjectFile(id, "learning-design.md")}`
       });
       const failed = result.events.some((event) => event.type === "status" && event.status === "failed");
       if (failed) {

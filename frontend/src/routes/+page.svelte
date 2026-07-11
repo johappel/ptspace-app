@@ -5,6 +5,8 @@
   import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { uuid } from "$lib/uuid";
+  import { Editor } from "@tiptap/core";
+  import StarterKit from "@tiptap/starter-kit";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
 
@@ -34,7 +36,7 @@ let messagesElement: HTMLDivElement | null = null;
   let newRoom = { title: "", subject: "", targetGroup: "", initialIdea: "" };
   let planningModal = false;
   let createRoomModal = false;
-  let roomView: "conversation" | "landscape" | "board" = "conversation";
+  let roomView: "conversation" | "landscape" | "timeline" | "board" | "materials" = "conversation";
   let planningTab: "landscape" | "board" = "landscape";
   let learningLandscape: LearningLandscape | null = null;
   let planningBoard: PlanningBoard | null = null;
@@ -233,6 +235,17 @@ async function sendMessage() {
     }
   }
 
+  function markdownToHtml(markdown: string): string {
+    return markdown.split("\n").map((line) => line.startsWith("## ") ? `<h2>${line.slice(3)}</h2>` : line.startsWith("# ") ? `<h1>${line.slice(2)}</h1>` : line.startsWith("- ") ? `<li>${line.slice(2)}</li>` : line ? `<p>${line}</p>` : "").join("").replace(/(<li>.*?<\/li>)+/g, (items) => `<ul>${items}</ul>`);
+  }
+  function htmlToMarkdown(html: string): string {
+    const document = new DOMParser().parseFromString(html, "text/html");
+    return Array.from(document.body.children).map((node) => node.tagName === "H1" ? `# ${node.textContent}` : node.tagName === "H2" ? `## ${node.textContent}` : node.tagName === "UL" ? Array.from(node.querySelectorAll("li")).map((item) => `- ${item.textContent}`).join("\n") : node.textContent?.trim() || "").filter(Boolean).join("\n\n");
+  }
+  function tiptap(node: HTMLElement) {
+    const editor = new Editor({ element: node, extensions: [StarterKit], content: markdownToHtml(designNotes), onUpdate: ({ editor: nextEditor }) => { designNotes = htmlToMarkdown(nextEditor.getHTML()); } });
+    return { destroy: () => editor.destroy() };
+  }
   function startResize(event: PointerEvent) {
     const bounds = workspaceElement?.getBoundingClientRect();
     if (!bounds) return;
@@ -248,7 +261,7 @@ async function sendMessage() {
     finally { savingDesign = false; }
   }
 
-  async function selectPerspective(view: "conversation" | "landscape" | "board") {
+  async function selectPerspective(view: "conversation" | "landscape" | "timeline" | "board" | "materials") {
     roomView = view;
     if (view === "conversation" || !activeSpace) return;
     planningLoading = true; planningError = "";
@@ -307,13 +320,13 @@ async function sendMessage() {
   <main class="planning-room">
     <header class="topbar">
       <div><span>Gemeinsam nachdenken</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
-      <div class="topbar-actions">{#if activeSpace}<nav class="room-nav" aria-label="Perspektiven"><button class:active={roomView === "conversation"} on:click={() => selectPerspective("conversation")}>Gespräch & Denkstand</button><button class:active={roomView === "landscape"} on:click={() => selectPerspective("landscape")}>Lernlandschaft</button><button class:active={roomView === "board"} on:click={() => selectPerspective("board")}>Planungsboard</button></nav>{/if}<div class="status-pill"><ShieldCheck size={16} /> Geschützter Planungsraum</div></div>
+      <div class="topbar-actions">{#if activeSpace}<nav class="room-nav" aria-label="Perspektiven"><button class:active={roomView === "conversation"} on:click={() => selectPerspective("conversation")}>Gespräch & Denkstand</button><button class:active={roomView === "landscape"} on:click={() => selectPerspective("landscape")}>Lernlandschaft</button><button class:active={roomView === "timeline"} on:click={() => selectPerspective("timeline")}>Zeit & Dramaturgie</button><button class:active={roomView === "board"} on:click={() => selectPerspective("board")}>Planungsboard</button><button class:active={roomView === "materials"} on:click={() => selectPerspective("materials")}>Materialien</button></nav>{/if}<div class="status-pill"><ShieldCheck size={16} /> Geschützter Planungsraum</div></div>
     </header>
 
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 
     {#if activeSpace}
-      <section class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
+      <section class:perspective-active={roomView !== "conversation"} class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
         <section class="conversation-panel" aria-label="Gemeinsam nachdenken">
           {#if roomView !== "conversation"}
             <div class="perspective-workspace">
@@ -321,7 +334,10 @@ async function sendMessage() {
               {:else if planningError}<p class="planning-error">{planningError}</p>
               {:else if roomView === "landscape" && learningLandscape}
                 <div class="landscape-view inline"><aside class="landscape-summary"><span>Struktur</span><strong>{learningLandscape.structure}</strong><p>{learningLandscape.moments.length} Lernmomente · {learningLandscape.transitions.length} Verbindungen</p><p>Ein Lernmoment ist nicht automatisch eine Stunde.</p></aside><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
-              {:else if roomView === "board" && planningBoard}
+              {:else if roomView === "timeline" && learningLandscape}
+                <div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Lernmomente können in mehreren Fenstern vorkommen; Wahl- und Stationsphasen bleiben offen.</p></header><div class="timeline-track">{#each learningLandscape.teachingWindows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"}</span>{#if window.note}<p>{window.note}</p>{/if}<div class="window-moments">{#each learningLandscape.placements.filter((placement) => placement.windowId === window.id) as placement}{#each learningLandscape.moments.filter((moment) => moment.id === placement.nodeId) as moment}<button on:click={() => { draftMessage = `Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `; }}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}{#if learningLandscape.placements.filter((placement) => placement.windowId === window.id).length === 0}<p class="timeline-empty">Noch kein Lernmoment zeitlich zugeordnet.</p>{/if}</div></section>{/each}{#if learningLandscape.teachingWindows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Die Lernlandschaft kann zunächst auch ohne linearen Stundenplan weiterentwickelt werden.</p>{/if}</div></div>
+              {:else if roomView === "materials"}
+                <div class="materials-view"><header><span>Materialien</span><h2>Entwürfe und Freigaben</h2><p>Materialien werden erst nach gemeinsamer Prüfung für den Unterricht bereitgestellt.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre></article>{:else}<p class="planning-empty">Noch kein Materialentwurf. Ein Arbeitsvorhaben im Board kann einen Entwurf vorbereiten.</p>{/if}</div>              {:else if roomView === "board" && planningBoard}
                 <div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<article class="board-card" role="listitem" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong>{#if item.relatedNodes.length}<small>Bezug: {item.relatedNodes.join(", ")}</small>{/if}</article>{/each}{#if planningBoard.items.filter((item) => item.column === column.id).length === 0}<p class="board-empty">Noch kein Arbeitsvorhaben.</p>{/if}</div></section>{/each}</div>
               {/if}
             </div>
@@ -354,7 +370,7 @@ async function sendMessage() {
 
           <section class="thinking-card design-pad">
             <div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Deine Ergänzungen bleiben für das weitere Gespräch sichtbar.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>
-            {#if editingDesign}<textarea bind:value={designNotes} rows="13" aria-label="Gemeinsamer Denkstand"></textarea><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview">{designNotes}</div>{/if}
+            {#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview">{designNotes}</div>{/if}
           </section>
           {#if findings.length > 0}
             <section class="sensitive-card" class:blocking={hasBlockingFinding}>
@@ -365,7 +381,7 @@ async function sendMessage() {
             </section>
           {/if}
 
-          {#each cards as card}
+          {#each cards.filter((card) => card.id !== "denkstand") as card}
             <section class="thinking-card">
               <button class="card-toggle" on:click={() => (expandedCard = expandedCard === card.id ? "" : card.id)}>
                 <span>{card.title}</span><span class:open={expandedCard === card.id} class="chevron"><ChevronDown size={16} /></span>
