@@ -36,6 +36,9 @@ export type PlanningBoardItem = {
 
 export type PlanningBoard = { schema: "ptspace.planning-board/v1"; items: PlanningBoardItem[] };
 
+
+export type PedagogicalFocus = { kind: "learning_moment" | "teaching_window" | "planning_item" | "material"; id: string; label: string };
+export type RoomOverview = { progress: Array<{ id: string; label: string; complete: boolean }>; activity: Array<{ id: string; label: string; createdAt: string }>; versions: Array<{ label: string; hash: string; createdAt: string }> };
 export type PlanningSpace = {
   id: string;
   title: string;
@@ -106,10 +109,16 @@ export const api = {
     request<PlanningSpace>("/planning-spaces", { method: "POST", body: JSON.stringify(input) }),
   getMessages: (spaceId: string) =>
     request<{ messages: Array<{ id: string; author: "teacher" | "critical_friend"; text: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/messages`),
-  sendMessage: (spaceId: string, message: string) =>
+  getDesignNotes: (spaceId: string) =>
+    request<{ content: string; versions: Array<{ label: string; hash: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/design-notes`),
+  saveDesignNotes: (spaceId: string, content: string) =>
+    request<{ content: string }>(`/planning-spaces/${spaceId}/design-notes`, { method: "PUT", body: JSON.stringify({ content }) }),
+  getRoomOverview: (spaceId: string) => request<RoomOverview>(`/planning-spaces/${spaceId}/room-overview`),
+  searchRoom: (spaceId: string, query: string) => request<{ hits: Array<{ id: string; label: string; excerpt: string }> }>(`/planning-spaces/${spaceId}/search?q=${encodeURIComponent(query)}`),
+  sendMessage: (spaceId: string, message: string, focus?: PedagogicalFocus) =>
     request<{ reply: { id: string; author: "critical_friend"; text: string; createdAt: string } }>(`/planning-spaces/${spaceId}/conversation`, {
       method: "POST",
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message, focus })
     }),
   getThinkingState: (spaceId: string) =>
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
@@ -148,3 +157,5 @@ export const api = {
       body: JSON.stringify({ exportType, approvedBy: "Lehrkraft", sensitiveFindingsReviewed })
     })
 };
+
+

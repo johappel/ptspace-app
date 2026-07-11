@@ -135,7 +135,12 @@ export const ConversationMessageSchema = z.object({
   id: z.string().min(1),
   author: z.enum(["teacher", "critical_friend", "system"]),
   text: z.string().min(1),
-  createdAt: ISODateString
+  createdAt: ISODateString,
+  focus: z.object({
+    kind: z.enum(["learning_moment", "teaching_window", "planning_item", "material"]),
+    id: z.string().min(1),
+    label: z.string().min(1)
+  }).optional()
 });
 export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
 
@@ -322,3 +327,4 @@ export const PlanningBoardSchema = z.object({
   items: z.array(PlanningBoardItemSchema).default([])
 });
 export type PlanningBoard = z.infer<typeof PlanningBoardSchema>;
+

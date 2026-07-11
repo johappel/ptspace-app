@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+﻿import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -9,6 +9,8 @@ export type VersionSnapshot = {
   committed: boolean;
   hash?: string;
 };
+
+export type VersionHistoryEntry = { label: string; hash: string; createdAt: string };
 
 export class GitManager {
   async ensureRepository(workspaceRoot: string): Promise<void> {
@@ -38,6 +40,14 @@ export class GitManager {
     } catch {
       return null;
     }
+  }
+
+  async listVersions(workspaceRoot: string, limit = 12): Promise<VersionHistoryEntry[]> {
+    if (!(await this.isOwnRepository(workspaceRoot))) return [];
+    try {
+      const output = await this.git(workspaceRoot, ["log", `-${limit}`, "--pretty=format:%h%x1f%aI%x1f%s"]);
+      return output.split("\n").filter(Boolean).map((line) => { const [hash, createdAt, label] = line.split("\u001f"); return { hash, createdAt, label }; });
+    } catch { return []; }
   }
 
   private async isOwnRepository(workspaceRoot: string): Promise<boolean> {
