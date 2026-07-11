@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowUp, BookOpen, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, Map, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
+  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, ListChecks, Map, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
   import { api, type ExportApproval, type LearningLandscape, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
@@ -30,6 +30,15 @@
   let editingDesign = false;
   let savingDesign = false;
 let messagesElement: HTMLDivElement | null = null;
+  let composerElement: HTMLTextAreaElement | null = null;
+  let roomOverview: import("$lib/api").RoomOverview | null = null;
+  let statusDetailsOpen = false;
+  let exportMenuOpen = false;
+  let decisionToRecord = "";
+  let decisionReason = "";
+  let decisionModalOpen = false;
+  let settingsOpen = false;
+  let runtimeStatus = "Runtime-Status wird geprüft …";
   let workspaceElement: HTMLElement | null = null;
   let railCollapsed = false;
   let primaryWidth = 58;
@@ -115,12 +124,15 @@ let messagesElement: HTMLDivElement | null = null;
     showWorkerMaterial = false;
     serviceMessage = "";
     findings = [];
+    roomOverview = await api.getRoomOverview(space.id);
+    await scrollConversationToEnd("auto");
   }
 
-  async function scrollConversationToEnd() {
-  await tick();
-  messagesElement?.scrollTo({ top: messagesElement.scrollHeight, behavior: "smooth" });
-}
+  async function scrollConversationToEnd(behavior: ScrollBehavior = "smooth") {
+    await tick();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    messagesElement?.scrollTo({ top: messagesElement.scrollHeight, behavior });
+  }
 
 async function sendMessage() {
     if (!activeSpace || !draftMessage.trim() || sending) return;
@@ -137,6 +149,7 @@ async function sendMessage() {
     await scrollConversationToEnd();
       const state = await api.getThinkingState(activeSpace.id);
       cards = state.cards;
+      roomOverview = await api.getRoomOverview(activeSpace.id);
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
     } finally {
@@ -222,7 +235,7 @@ async function sendMessage() {
     planningBoard = {
       ...planningBoard,
       items: planningBoard.items.map((item) => item.id === draggedBoardItem
-        ? { ...item, column, status: column === "ready" ? "ready" : item.status }
+        ? column === "ready" ? { ...item, column: "review", status: "review" } : { ...item, column, status: item.status }
         : item)
     };
     const moving = draggedBoardItem;
@@ -268,6 +281,32 @@ async function sendMessage() {
     try { const artifacts = await api.getPlanningArtifacts(activeSpace.id); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; makeCanvas(); }
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
     finally { planningLoading = false; }
+  }
+  async function focusConversation(prompt: string) {
+    draftMessage = prompt;
+    await tick();
+    composerElement?.focus();
+  }
+  async function saveDecision() {
+    if (!activeSpace || decisionToRecord.trim().length < 3 || decisionReason.trim().length < 3) return;
+    try {
+      await api.recordDecision(activeSpace.id, decisionToRecord, decisionReason);
+      decisionModalOpen = false;
+      await focusConversation(`Wir haben festgehalten: ${decisionToRecord.trim()} (Begründung: ${decisionReason.trim()}). Lass uns prüfen, was daraus als Nächstes folgt.`);
+      cards = (await api.getThinkingState(activeSpace.id)).cards;
+      roomOverview = await api.getRoomOverview(activeSpace.id);
+    } catch (err) { error = err instanceof Error ? err.message : "Die Entscheidung konnte nicht festgehalten werden."; }
+  }
+  function decisionParts(item: string) {
+    const cleaned = item.replace(/\*\*/g, "").replace(/^Offen:\s*/i, "").trim();
+    const divider = cleaned.indexOf(":");
+    if (divider > 0 && divider < 24) return { category: cleaned.slice(0, divider), question: cleaned.slice(divider + 1).trim() };
+    return { category: "Offen", question: cleaned };
+  }
+  function openDecisionDialog(item: string) {
+    decisionToRecord = item.replace(/^Offen:\s*/i, "");
+    decisionReason = "";
+    decisionModalOpen = true;
   }
   function handleComposerKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -320,118 +359,73 @@ async function sendMessage() {
   <main class="planning-room">
     <header class="topbar">
       <div><span>Gemeinsam nachdenken</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
-      <div class="topbar-actions">{#if activeSpace}<nav class="room-nav" aria-label="Perspektiven"><button class:active={roomView === "conversation"} on:click={() => selectPerspective("conversation")}>Gespräch & Denkstand</button><button class:active={roomView === "landscape"} on:click={() => selectPerspective("landscape")}>Lernlandschaft</button><button class:active={roomView === "timeline"} on:click={() => selectPerspective("timeline")}>Zeit & Dramaturgie</button><button class:active={roomView === "board"} on:click={() => selectPerspective("board")}>Planungsboard</button><button class:active={roomView === "materials"} on:click={() => selectPerspective("materials")}>Materialien</button></nav>{/if}<div class="status-pill"><ShieldCheck size={16} /> Geschützter Planungsraum</div></div>
+      <div class="topbar-actions"><button class="settings-button" on:click={async () => { settingsOpen = true; try { runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage; } catch { runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden."; } }}><Settings size={16} /> Einstellungen</button>
+        {#if activeSpace}<nav class="room-nav" aria-label="Perspektiven"><button class:active={roomView === "conversation"} on:click={() => selectPerspective("conversation")}>Gespräch & Denkstand</button><button class:active={roomView === "landscape"} on:click={() => selectPerspective("landscape")}>Lernlandschaft</button><button class:active={roomView === "timeline"} on:click={() => selectPerspective("timeline")}>Zeit & Dramaturgie</button><button class:active={roomView === "board"} on:click={() => selectPerspective("board")}>Planungsboard</button><button class:active={roomView === "materials"} on:click={() => selectPerspective("materials")}>Materialien</button></nav>{/if}
+        <button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-expanded={statusDetailsOpen}>
+          <span>{roomOverview?.progress.filter((phase) => phase.complete).length ?? 0}/{roomOverview?.progress.length ?? 0} Etappen</span><span>{sending ? "Ich denke kurz mit" : "Gespräch bereit"}</span><span>{cards.find((card) => card.id === "offene-entscheidungen")?.previewItems.length ?? 0} offen</span><span>{markdownApproval ? "freigegeben" : "noch nicht freigegeben"}</span>
+        </button>
+      </div>
     </header>
+    {#if statusDetailsOpen && roomOverview}<section class="status-details" aria-label="Verlauf des Planungsraums"><div><strong>Reifegrad</strong>{#each roomOverview.progress as phase}<span class:complete={phase.complete}>{phase.complete ? "✓" : "○"} {phase.label}</span>{/each}</div><div><strong>Zuletzt festgehalten</strong>{#each roomOverview.activity.slice(0, 3) as activity}<span>{activity.label}</span>{/each}</div></section>{/if}
 
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 
     {#if activeSpace}
-      <section class:perspective-active={roomView !== "conversation"} class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
-        <section class="conversation-panel" aria-label="Gemeinsam nachdenken">
-          {#if roomView !== "conversation"}
-            <div class="perspective-workspace">
-              {#if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
-              {:else if planningError}<p class="planning-error">{planningError}</p>
-              {:else if roomView === "landscape" && learningLandscape}
-                <div class="landscape-view inline"><aside class="landscape-summary"><span>Struktur</span><strong>{learningLandscape.structure}</strong><p>{learningLandscape.moments.length} Lernmomente · {learningLandscape.transitions.length} Verbindungen</p><p>Ein Lernmoment ist nicht automatisch eine Stunde.</p></aside><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
-              {:else if roomView === "timeline" && learningLandscape}
-                <div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Lernmomente können in mehreren Fenstern vorkommen; Wahl- und Stationsphasen bleiben offen.</p></header><div class="timeline-track">{#each learningLandscape.teachingWindows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"}</span>{#if window.note}<p>{window.note}</p>{/if}<div class="window-moments">{#each learningLandscape.placements.filter((placement) => placement.windowId === window.id) as placement}{#each learningLandscape.moments.filter((moment) => moment.id === placement.nodeId) as moment}<button on:click={() => { draftMessage = `Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `; }}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}{#if learningLandscape.placements.filter((placement) => placement.windowId === window.id).length === 0}<p class="timeline-empty">Noch kein Lernmoment zeitlich zugeordnet.</p>{/if}</div></section>{/each}{#if learningLandscape.teachingWindows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Die Lernlandschaft kann zunächst auch ohne linearen Stundenplan weiterentwickelt werden.</p>{/if}</div></div>
-              {:else if roomView === "materials"}
-                <div class="materials-view"><header><span>Materialien</span><h2>Entwürfe und Freigaben</h2><p>Materialien werden erst nach gemeinsamer Prüfung für den Unterricht bereitgestellt.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre></article>{:else}<p class="planning-empty">Noch kein Materialentwurf. Ein Arbeitsvorhaben im Board kann einen Entwurf vorbereiten.</p>{/if}</div>              {:else if roomView === "board" && planningBoard}
-                <div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<article class="board-card" role="listitem" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong>{#if item.relatedNodes.length}<small>Bezug: {item.relatedNodes.join(", ")}</small>{/if}</article>{/each}{#if planningBoard.items.filter((item) => item.column === column.id).length === 0}<p class="board-empty">Noch kein Arbeitsvorhaben.</p>{/if}</div></section>{/each}</div>
-              {/if}
-            </div>
-          {:else}          <div class="messages" bind:this={messagesElement}>
-            {#each messages as message}
-              <article class:teacher={message.author === "teacher"} class="message">
-                <div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><p>{message.text}</p>
-              </article>
-            {/each}
+      <section class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
+        <section class="conversation-panel" aria-label="Gespräch mit Critical Friend">
+          <div class="conversation-heading"><MessageSquareText size={18} /><div><strong>Gespräch mit Critical Friend</strong><span>{roomView === "conversation" ? "Gemeinsam weiterdenken" : "Die gewählte Perspektive bleibt rechts sichtbar"}</span></div></div>
+          <div class="messages" bind:this={messagesElement}>
+            {#each messages as message}<article class:teacher={message.author === "teacher"} class="message"><div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div></article>{/each}
             {#if sending}<article class="message thinking"><div class="avatar">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest.</p></article>{/if}
           </div>
-          <div class="composer-wrap">
-            <div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div>
-            <form class="composer" on:submit|preventDefault={sendMessage}>
-              <textarea bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea>
-              <button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button>
-            </form>
-          </div>
-        {/if}
+          <div class="composer-wrap"><div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
         </section>
-
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
-
-        <aside class="thinking-panel" aria-label="Denkstand">
-          {#if roomView !== "conversation"}
-            <div class="context-chat-heading"><MessageSquareText size={18} /><div><strong>Im Gespräch weiterdenken</strong><span>{roomView === "board" ? "Zum Planungsboard" : "Zur Lernlandschaft"}</span></div></div>
-            <div class="context-messages">{#each messages.slice(-6) as message}<article class:teacher={message.author === "teacher"} class="message"><div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><p>{message.text}</p></article>{/each}</div>
-            <form class="composer compact" on:submit|preventDefault={sendMessage}><textarea bind:value={draftMessage} rows="3" placeholder="Zu dieser Ansicht weiterdenken …" on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form>
-          {:else}          <div class="panel-heading"><Lightbulb size={18} /><div><strong>Denkstand</strong><span>Orientierung, keine Aufgabenflut</span></div></div>
-
-          <section class="thinking-card design-pad">
-            <div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Deine Ergänzungen bleiben für das weitere Gespräch sichtbar.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>
-            {#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview">{designNotes}</div>{/if}
-          </section>
-          {#if findings.length > 0}
-            <section class="sensitive-card" class:blocking={hasBlockingFinding}>
-              <div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div>
-              <ul>
-                {#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}
-              </ul>
-            </section>
-          {/if}
-
-          {#each cards.filter((card) => card.id !== "denkstand") as card}
-            <section class="thinking-card">
-              <button class="card-toggle" on:click={() => (expandedCard = expandedCard === card.id ? "" : card.id)}>
-                <span>{card.title}</span><span class:open={expandedCard === card.id} class="chevron"><ChevronDown size={16} /></span>
-              </button>
-              <p>{card.summary}</p>
-              {#if expandedCard === card.id}<ul>{#each card.previewItems.length ? card.previewItems : ["Noch nichts festgehalten."] as item}<li>{item}</li>{/each}</ul>{/if}
-            </section>
-          {/each}
-
-          <section class="thinking-card service-card">
-            <strong>Materialentwurf</strong>
-            {#if serviceRequests.length === 0}
-              <p>Wenn der Denkstand trägt, kannst du einen ersten Arbeitsauftrag als prüfbaren Entwurf vormerken.</p>
-              <div class="service-actions"><button on:click={proposeStudentInstruction}>Als nächsten Schritt vorschlagen</button></div>
-            {:else}
-              {#each serviceRequests as serviceRequest}
-                {#if serviceRequest.status === "proposed"}
-                  <p>„Arbeitsauftrag vorbereiten“ ist vorgemerkt und wartet auf deine Zustimmung.</p>
-                  <div class="service-actions"><button on:click={() => approveServiceRequest(serviceRequest)}>Entwurf vorbereiten lassen</button></div>
-                {:else if serviceRequest.status === "reviewed"}
-                  <p>{serviceRequest.review?.note ?? "Der Entwurf wurde geprüft und liegt zur Entscheidung bereit."}</p>
-                  {#if workerMaterial}
-                    <div class="service-actions"><button on:click={() => (showWorkerMaterial = !showWorkerMaterial)}>{showWorkerMaterial ? "Entwurf schließen" : "Entwurf ansehen"}</button></div>
-                    {#if showWorkerMaterial}<pre class="worker-material">{workerMaterial.content}</pre>{/if}
-                  {/if}
-                {:else if serviceRequest.status === "failed"}
-                  <p>Der Entwurf konnte noch nicht sicher vorbereitet werden.</p>
-                {:else}
-                  <p>Der Entwurf wird vorbereitet und kehrt zunächst zum Critical Friend zurück.</p>
-                {/if}
+        <aside class="perspective-panel" aria-label="Gewählte Perspektive">
+          {#if roomView === "conversation"}
+            <div class="panel-heading"><Lightbulb size={18} /><div><strong>Denkstand</strong><span>Gemeinsam festhalten, was das weitere Gespräch trägt.</span></div><div class="panel-menu"><button on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/markdown`} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div></div>
+            <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
+            <div class="conversation-perspective">
+              {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
+              {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
+                <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
+                  <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
+                  {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
+                  {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}<button class="board-overview" on:click={() => selectPerspective("board")}>Alle Arbeitsvorhaben im Planungsboard <ArrowRight size={14} /></button>{/if}
+                </section>
               {/each}
-            {/if}
-            {#if serviceMessage}<p class="service-message">{serviceMessage}</p>{/if}
-          </section>
-
-          <section class="ready-card"><CheckCircle2 size={18} /><div><strong>Für den Unterricht bereit</strong><span>{markdownApproval ? "Markdown freigegeben." : "Noch nichts freigegeben."}</span></div></section>
-
-          <section class="export-actions">
-            <button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button>
-            {#if markdownApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/markdown`} target="_blank" rel="noreferrer"><FileText size={16} /> Markdown ansehen</a>{/if}
-            <button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>OKF freigeben</button>
-            {#if okfApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/okf`} target="_blank" rel="noreferrer"><FileText size={16} /> OKF-Markdown ansehen</a>{/if}
-          </section>
-        {/if}
+            </div>
+          {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
+          {:else if planningError}<p class="planning-error">{planningError}</p>
+          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment, um dazu im Gespräch weiterzudenken.</p></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodeclick={(event) => { const moment = learningLandscape?.moments.find((item) => item.id === event.node.id); if (moment) focusConversation(`Zu „${moment.title}“ in der Lernlandschaft weiterdenken: `); }}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
+          {:else if roomView === "timeline" && learningLandscape}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header><div class="timeline-track">{#each learningLandscape.teachingWindows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"}</span><div class="window-moments">{#each learningLandscape.placements.filter((placement) => placement.windowId === window.id) as placement}{#each learningLandscape.moments.filter((moment) => moment.id === placement.nodeId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div></div>
+          {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong><small>Im Gespräch aufgreifen</small></button>{/each}</div></section>{/each}</div>
+          {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}
         </aside>
       </section>
     {:else}
       <section class="empty-state"><MessageSquareText size={34} /><h2>Lege einen Planungsraum an.</h2><p>Der erste Umsetzungsschnitt arbeitet mit einer geschützten Backend-Grenze und einem simulierten Gegenüber.</p></section>
     {/if}
-  </main>
+
+  {#if decisionModalOpen}
+    <div class="planning-overlay" role="presentation" on:click={() => (decisionModalOpen = false)}>
+      <dialog class="start-modal decision-modal" open aria-label="Entscheidung festhalten" on:click|stopPropagation>
+        <header><div><span>Entscheidung festhalten</span><h2>Was entscheidet ihr – und warum?</h2></div><button class="icon-button" on:click={() => (decisionModalOpen = false)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={saveDecision}>
+          <label>Entscheidung<textarea bind:value={decisionToRecord} rows="3" placeholder="Was soll künftig gelten?"></textarea></label>
+          <label>Begründung<textarea bind:value={decisionReason} rows="4" placeholder="Welche pädagogische Überlegung trägt diese Entscheidung?"></textarea></label>
+          <button type="submit" disabled={decisionToRecord.trim().length < 3 || decisionReason.trim().length < 3}>Mit Begründung festhalten</button>
+        </form>
+      </dialog>
+    </div>
+  {/if}  {#if settingsOpen}
+    <div class="planning-overlay" role="presentation" on:click={() => (settingsOpen = false)}>
+      <dialog class="start-modal" open aria-label="Einstellungen" on:click|stopPropagation>
+        <header><div><span>Administration</span><h2>Test-Runtime</h2></div><button class="icon-button" on:click={() => (settingsOpen = false)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="start-form"><p>{runtimeStatus}</p><p>Die lokale Konfiguration wird aus <code>.env</code> gelesen. Schlüssel werden hier nie angezeigt oder im Gespräch verarbeitet.</p><p>Wenn der Status eine nicht gestartete Runtime nennt, starte Docker Desktop. Nach Änderungen an <code>.env</code> das Backend neu starten und den Status erneut prüfen.</p></div>
+      </dialog>
+    </div>
+  {/if}  </main>
 </div>
 
 

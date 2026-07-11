@@ -208,3 +208,16 @@ Ein Worker-Ergebnis erscheint als „Entwurf zur Prüfung“. Erst eine explizit
 - KI-Vorschlag ändert vor Zustimmung keine kanonischen Dateien.
 - Unbekannte Node- oder Übergangstypen werden abgelehnt.
 - Worker-Material ist genau einem Lernmoment oder Board-Item zuordenbar.
+
+## Ergonomie des gemeinsamen Denkraums
+
+Das Gespräch mit dem Critical Friend bleibt auf Desktop immer als linke Arbeitszone sichtbar. Rechts erscheint ausschließlich die gewählte Perspektive – Denkstand, Lernlandschaft, Zeit & Dramaturgie, Planungsboard oder Materialien. Ein sichtbarer Griff erlaubt, die Breite beider Zonen anzupassen; die Lernlandschaft kann dabei deutlich mehr Platz erhalten.
+
+Der Gesprächsverlauf allein scrollt. Der Composer bleibt am unteren Rand des Gesprächs sichtbar. Lernmomente, Zeitfenster und Arbeitsvorhaben setzen beim Auswählen einen konkreten Gesprächseinstieg, ohne eine Ausführung im Hintergrund zu starten.
+
+Im Denkstand gibt es höchstens einen nächsten sinnvollen Schritt. Offene Entscheidungen werden entweder im Gespräch geklärt oder mit Entscheidung und Begründung festgehalten. Das bewusste Speichern des TipTap-Denkstands erstellt eine Git-Version; der gespeicherte Stand wird jeder folgenden Critical-Friend-Nachricht als Gesprächskontext übergeben.
+
+Die Kopfzeile verdichtet Reifegrad-Etappen, laufende Arbeit, offene Entscheidungen und Freigabestatus. Ein Klick zeigt Verlaufdetails kurzfristig, aber kein dauerhaftes Dashboard. Exportaktionen liegen im Mehr-Menü; Materialien folgen dem Ablauf Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.
+## Routing offener Punkte
+
+Die App übernimmt die Kernel-Regel: Nicht jede offene Frage ist eine Entscheidung. Pädagogische Wahlfragen werden im Gespräch geklärt; fehlendes überprüfbares Wissen wird als vorgeschlagene Recherche im Planungsboard geführt; Ausarbeitungs- und Materialschritte bleiben Vorschläge bis zur ausdrücklichen Lehrkraft-Freigabe. Geklärte Entscheidungen mit Begründung gehören in den gemeinsamen Denkstand; die interne Entscheidungshistorie ergänzt ihn nur.

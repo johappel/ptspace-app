@@ -1,0 +1,1 @@
+// Intentionally empty: the app does not register a service worker.

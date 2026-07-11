@@ -1,4 +1,4 @@
-﻿import fs from "node:fs/promises";
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -137,7 +137,7 @@ describe("planning-space API", () => {
     }
   });
 
-  it("shows paragraph-based learning design and reads decisions from the correct file", async () => {
+  it("shows paragraph-based learning design and keeps resolved decisions out of open questions", async () => {
     const app = await buildApp();
     try {
       const createResponse = await app.inject({
@@ -169,6 +169,9 @@ describe("planning-space API", () => {
       );
       expect(cards.find((card) => card.id === "denkstand")?.previewItems).not.toContain("Thema: Denkstand Test");
       expect(cards.find((card) => card.id === "offene-entscheidungen")?.previewItems).toContain(
+        "Offen: Welche religiösen Hoffnungstraditionen tragen?"
+      );
+      expect(cards.find((card) => card.id === "offene-entscheidungen")?.previewItems).not.toContain(
         "Die Lernreise beginnt bei der Erfahrung politischer Ohnmacht."
       );
     } finally {

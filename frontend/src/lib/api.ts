@@ -104,6 +104,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   backendUrl,
+  getRuntimeStatus: () => fetch(`${backendUrl}/health`).then((response) => response.json() as Promise<{ harnessAvailability: { status: string; teacherFacingMessage: string } }>),
   listPlanningSpaces: () => request<PlanningSpace[]>("/planning-spaces"),
   createPlanningSpace: (input: { title: string; subject?: string; targetGroup?: string; initialIdea?: string }) =>
     request<PlanningSpace>("/planning-spaces", { method: "POST", body: JSON.stringify(input) }),
@@ -113,6 +114,8 @@ export const api = {
     request<{ content: string; versions: Array<{ label: string; hash: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/design-notes`),
   saveDesignNotes: (spaceId: string, content: string) =>
     request<{ content: string }>(`/planning-spaces/${spaceId}/design-notes`, { method: "PUT", body: JSON.stringify({ content }) }),
+  recordDecision: (spaceId: string, decision: string, reason: string) =>
+    request<{ content: string }>(`/planning-spaces/${spaceId}/decisions`, { method: "POST", body: JSON.stringify({ decision, reason }) }),
   getRoomOverview: (spaceId: string) => request<RoomOverview>(`/planning-spaces/${spaceId}/room-overview`),
   searchRoom: (spaceId: string, query: string) => request<{ hits: Array<{ id: string; label: string; excerpt: string }> }>(`/planning-spaces/${spaceId}/search?q=${encodeURIComponent(query)}`),
   sendMessage: (spaceId: string, message: string, focus?: PedagogicalFocus) =>
