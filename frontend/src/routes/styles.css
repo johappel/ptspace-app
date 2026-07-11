@@ -114,7 +114,7 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .notice { border-radius: 8px; padding: 11px 13px; display: flex; align-items: center; gap: 9px; }
 .notice.error { color: #7b2d25; background: #fff1ec; border: 1px solid #f1c7bb; }
 
-.workspace-grid { display: grid; grid-template-columns: minmax(440px, var(--primary-width)) 12px minmax(380px, 1fr); gap: 0; flex: 1; min-height: 0; align-items: stretch; }
+.workspace-grid { display: grid; grid-template-columns: minmax(300px, var(--primary-width)) 12px minmax(420px, 1fr); gap: 0; flex: 1; min-height: 0; align-items: stretch; }
 .resize-handle { display: grid; place-items: center; border: 0; cursor: col-resize; color: #78908c; background: linear-gradient(90deg, transparent 35%, #d7e3de 35%, #d7e3de 65%, transparent 65%); }
 .resize-handle:hover { color: #174940; background: linear-gradient(90deg, transparent 30%, #a8c8bf 30%, #a8c8bf 70%, transparent 70%); }
 .conversation-panel, .thinking-panel {

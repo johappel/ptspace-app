@@ -249,7 +249,7 @@ async function sendMessage() {
   function startResize(event: PointerEvent) {
     const bounds = workspaceElement?.getBoundingClientRect();
     if (!bounds) return;
-    const move = (moveEvent: PointerEvent) => { primaryWidth = Math.min(72, Math.max(42, ((moveEvent.clientX - bounds.left) / bounds.width) * 100)); };
+    const move = (moveEvent: PointerEvent) => { primaryWidth = Math.min(78, Math.max(22, ((moveEvent.clientX - bounds.left) / bounds.width) * 100)); };
     const stop = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop);
   }
