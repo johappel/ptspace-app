@@ -15,7 +15,7 @@ export type LearningMoment = {
 export type LearningLandscape = {
   schema: "ptspace.learning-landscape/v1";
   title: string;
-  structure: "linear" | "stations" | "buffet" | "project" | "spatial" | "hybrid";
+  structure: "linear" | "branching" | "stations" | "buffet" | "project" | "spatial" | "hybrid";
   moments: LearningMoment[];
   transitions: Array<{ id: string; from: string; to: string; kind: "required" | "choice" | "parallel" | "return" | "meeting_point" | "prerequisite"; note: string }>;
   teachingWindows: Array<{ id: string; title: string; kind: "lesson" | "double_lesson" | "project_block" | "open_learning_time"; note: string }>;
@@ -127,6 +127,8 @@ export const api = {
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
   getPlanningArtifacts: (spaceId: string) =>
     request<{ learningLandscape: LearningLandscape; planningBoard: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`),
+  getLearningLandscapeLayout: (spaceId: string) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`),
+  saveLearningLandscapeLayout: (spaceId: string, layout: { nodes: Array<{ id: string; x: number; y: number }> }) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`, { method: "PUT", body: JSON.stringify(layout) }),
   savePlanningArtifacts: (spaceId: string, input: { learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }) =>
     request<{ learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`, {
       method: "PUT", body: JSON.stringify(input)

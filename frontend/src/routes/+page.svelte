@@ -53,6 +53,7 @@ let messagesElement: HTMLDivElement | null = null;
   let planningLoading = false;
   let canvasNodes: any[] = [];
   let canvasEdges: any[] = [];
+  let landscapeLayout: Record<string, { x: number; y: number }> = {};
   let draggedBoardItem: string | null = null;
   const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
@@ -204,7 +205,7 @@ async function sendMessage() {
     if (!learningLandscape) return;
     canvasNodes = learningLandscape.moments.map((moment, index) => ({
       id: moment.id,
-      position: { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 },
+      position: landscapeLayout[moment.id] ?? { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 },
       data: { label: `${moment.title}\n${moment.didacticPurpose || moment.learningActivity || "Lernmoment"}` }
     }));
     canvasEdges = learningLandscape.transitions.map((transition) => ({
@@ -215,6 +216,13 @@ async function sendMessage() {
       label: transition.kind === "required" ? "gemeinsamer Weg" : transition.kind,
       animated: transition.kind === "choice"
     }));
+  }
+
+  async function saveLandscapeLayout() {
+    if (!activeSpace) return;
+    const nodes = canvasNodes.map((node) => ({ id: node.id, x: node.position.x, y: node.position.y }));
+    landscapeLayout = Object.fromEntries(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+    try { await api.saveLearningLandscapeLayout(activeSpace.id, { nodes }); } catch (err) { error = err instanceof Error ? err.message : "Die Ansicht konnte nicht gespeichert werden."; }
   }
 
   async function openPlanning() {
@@ -283,7 +291,7 @@ async function sendMessage() {
     roomView = view;
     if (view === "conversation" || !activeSpace) return;
     planningLoading = true; planningError = "";
-    try { const artifacts = await api.getPlanningArtifacts(activeSpace.id); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; makeCanvas(); }
+    try { const [artifacts, layout] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id)]); landscapeLayout = Object.fromEntries(layout.nodes.map((node) => [node.id, { x: node.x, y: node.y }])); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; makeCanvas(); }
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
     finally { planningLoading = false; }
   }
@@ -402,7 +410,7 @@ async function sendMessage() {
             </div>
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
-          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment, um dazu im Gespräch weiterzudenken.</p></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodeclick={(event) => { const moment = learningLandscape?.moments.find((item) => item.id === event.node.id); if (moment) focusConversation(`Zu „${moment.title}“ in der Lernlandschaft weiterdenken: `); }}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
+          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment, um dazu im Gespräch weiterzudenken.</p></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => { const moment = learningLandscape?.moments.find((item) => item.id === event.node.id); if (moment) focusConversation(`Zu „${moment.title}“ in der Lernlandschaft weiterdenken: `); }}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
           {:else if roomView === "timeline" && learningLandscape}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header><div class="timeline-track">{#each learningLandscape.teachingWindows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"}</span><div class="window-moments">{#each learningLandscape.placements.filter((placement) => placement.windowId === window.id) as placement}{#each learningLandscape.moments.filter((moment) => moment.id === placement.nodeId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div></div>
           {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong><small>Im Gespräch aufgreifen</small></button>{/each}</div></section>{/each}</div>
           {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}

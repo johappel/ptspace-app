@@ -69,4 +69,26 @@ export async function planningArtifactRoutes(
       version
     };
   });
+  app.get("/planning-spaces/:id/learning-landscape-layout", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const space = await deps.store.get(id);
+    if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
+    await deps.workspace.ensureWorkspace(space);
+    try {
+      return JSON.parse(await deps.workspace.readProjectFile(id, "learning-landscape.layout.json"));
+    } catch {
+      return { nodes: [] };
+    }
+  });
+
+  app.put("/planning-spaces/:id/learning-landscape-layout", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const space = await deps.store.get(id);
+    if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
+    const layout = z.object({ nodes: z.array(z.object({ id: z.string().min(1), x: z.number(), y: z.number() })) }).safeParse(request.body);
+    if (!layout.success) return reply.code(400).send({ message: "Die Ansicht konnte nicht gespeichert werden." });
+    await deps.workspace.ensureWorkspace(space);
+    await deps.workspace.writeProjectFile(id, "learning-landscape.layout.json", `${JSON.stringify(layout.data, null, 2)}\n`);
+    return layout.data;
+  });
 }
