@@ -11,3 +11,4 @@ coverage/
 workspaces/
 .ptspace-data/
 _tmp*
+*.patch

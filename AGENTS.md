@@ -1,4 +1,13 @@
-# AGENTS.md
+# AGENTS.md 
+
+---
+
+!!! folge den Anweisungen in [REFACTOR-AGENTS.md](REFACTOR-AGENTS.md)
+
+Passe die folgenden Inhalte im Sinne der REFACTOR-GOALS.md an.
+
+---
+
 
 > Arbeitsanweisung für KI-/Coding-Agenten im Repository `ptspace-app`.
 >

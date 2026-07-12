@@ -76,7 +76,7 @@ structure: linear
   }
 
   private planningBoardTemplate(): string {
-    return `schema: ptspace.planning-board/v1\\nitems: []\\n`;
+    return `schema: ptspace.planning-board/v1` + "`nitems: []`n";
   }
 
   private learningDesignTemplate(space: PlanningSpace): string {

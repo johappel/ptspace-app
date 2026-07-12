@@ -6,9 +6,17 @@ export type OpenCodeRunnerKind = "docker" | "local";
 
 export type AppConfig = {
   port: number;
+  runtimeRoot: string;
   dataDir: string;
   workspacesDir: string;
   planningWorkspacesDir: string;
+  memoryDir: string;
+  outputDir: string;
+  renderDir: string;
+  knowledgeIncomingDir: string;
+  knowledgeCacheDir: string;
+  knowledgeRawDir: string;
+  knowledgeProposalsDir: string;
   kernelDir: string;
   kernelWriteEnabled: boolean;
   kernelWritableDirs: string[];
@@ -79,15 +87,23 @@ export function loadConfig(): AppConfig {
     : process.env.PTSPACE_OPENCODE_PROVIDER ?? "openrouter";
 
   const kernelDir = path.resolve(root, process.env.PTSPACE_KERNEL_DIR ?? "../pedagogical-thinking-space");
+  const runtimeRoot = path.resolve(root, process.env.PTSPACE_RUNTIME_ROOT ?? "../ptspace-data");
   return {
     port: Number(process.env.PORT ?? 5174),
-    dataDir: path.resolve(root, process.env.PTSPACE_DATA_DIR ?? "backend/data"),
-    workspacesDir: path.resolve(root, process.env.PTSPACE_WORKSPACES_DIR ?? "backend/workspaces"),
+    runtimeRoot,
+    dataDir: path.resolve(root, process.env.PTSPACE_DATA_DIR ?? runtimeRoot),
+    workspacesDir: path.resolve(root, process.env.PTSPACE_WORKSPACES_DIR ?? path.join(runtimeRoot, "workspace")),
     planningWorkspacesDir: path.resolve(
       root,
-      process.env.PTSPACE_PLANNING_WORKSPACES_DIR ?? path.join(kernelDir, "workspace")
+      process.env.PTSPACE_PLANNING_WORKSPACES_DIR ?? path.join(runtimeRoot, "workspace")
     ),
-    kernelDir,
+    memoryDir: path.resolve(root, process.env.PTSPACE_MEMORY_DIR ?? path.join(runtimeRoot, "memory.local")),
+    outputDir: path.resolve(root, process.env.PTSPACE_OUTPUT_DIR ?? path.join(runtimeRoot, "outputs")),
+    renderDir: path.resolve(root, process.env.PTSPACE_RENDER_DIR ?? path.join(runtimeRoot, "renders")),
+    knowledgeIncomingDir: path.resolve(root, process.env.PTSPACE_KNOWLEDGE_INCOMING_DIR ?? path.join(runtimeRoot, "knowledge", "incoming")),
+    knowledgeCacheDir: path.resolve(root, process.env.PTSPACE_KNOWLEDGE_CACHE_DIR ?? path.join(runtimeRoot, "knowledge", "cache")),
+    knowledgeRawDir: path.resolve(root, process.env.PTSPACE_KNOWLEDGE_RAW_DIR ?? path.join(runtimeRoot, "knowledge", "raw")),
+    knowledgeProposalsDir: path.resolve(root, process.env.PTSPACE_KNOWLEDGE_PROPOSALS_DIR ?? path.join(runtimeRoot, "knowledge", "proposals")),    kernelDir,
     kernelWriteEnabled: booleanEnv("PTSPACE_KERNEL_WRITE_ENABLED", false),
     kernelWritableDirs: (process.env.PTSPACE_KERNEL_WRITABLE_DIRS ?? "capabilities,knowledge,queue,services,workspace").split(",").map((entry) => entry.trim()).filter(Boolean),
     harness: (process.env.PTSPACE_HARNESS as HarnessKind | undefined) ?? "mock",

@@ -6,7 +6,7 @@ describe("PlanningArtifactCodec", () => {
     const source = `---
 schema: ptspace.learning-landscape/v1
 title: KI und Gottesbild
-structure: hybrid
+structure: branching
 ---
 
 # Lernlandschaft

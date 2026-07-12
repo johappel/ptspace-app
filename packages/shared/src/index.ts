@@ -232,7 +232,7 @@ export const OkfPackageSchema = z.object({
 export type OkfPackage = z.infer<typeof OkfPackageSchema>;
 
 
-export const LearningLandscapeStructureSchema = z.enum(["linear", "stations", "buffet", "project", "spatial", "hybrid"]);
+export const LearningLandscapeStructureSchema = z.enum(["linear", "branching", "stations", "buffet", "project", "spatial", "hybrid"]);
 export type LearningLandscapeStructure = z.infer<typeof LearningLandscapeStructureSchema>;
 
 export const LearningMomentKindSchema = z.enum([

@@ -50,8 +50,10 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
 
 export async function buildApp() {
   const config = loadConfig();
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.mkdir(config.workspacesDir, { recursive: true });
+  await Promise.all([
+    config.dataDir, config.workspacesDir, config.planningWorkspacesDir, config.memoryDir, config.outputDir,
+    config.renderDir, config.knowledgeIncomingDir, config.knowledgeCacheDir, config.knowledgeRawDir, config.knowledgeProposalsDir
+  ].map((directory) => fs.mkdir(directory, { recursive: true })));
 
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });

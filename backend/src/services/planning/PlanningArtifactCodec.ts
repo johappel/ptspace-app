@@ -137,7 +137,9 @@ function inlineList(value: string): string[] {
 }
 
 export function parsePlanningBoard(yaml: string): PlanningBoard {
-  const lines = yaml.split("\n");
+  // Older templates accidentally persisted escaped newlines. Normalize only at this file boundary.
+  const normalizedYaml = yaml.replace(/\\n/g, "\n");
+  const lines = normalizedYaml.split("\n");
   const schema = lines.find((line) => /^schema:\s*/.test(line))?.replace(/^schema:\s*/, "").trim();
   const items: Array<Record<string, unknown>> = [];
   let current: Record<string, unknown> | undefined;
