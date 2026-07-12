@@ -12,6 +12,20 @@ export const ParticipantSchema = z.object({
 });
 export type Participant = z.infer<typeof ParticipantSchema>;
 
+/**
+ * Read model of `learning-design.md` (das übergeordnete pädagogische Verständnis).
+ *
+ * T-302: Dies ist ein klar bezeichnetes Read Model, kein kanonisches Schreibziel.
+ * Die App darf hier keine konkurrierenden kanonischen Listen mehr führen. Die
+ * kanonischen Quellen sind:
+ *   - Lernmomente und Lernaktivitäten -> `learning-landscape.md` (LearningLandscapeSchema)
+ *   - Materialien -> `materials/` (MaterialSchema)
+ *   - Arbeitsvorhaben / nächste Schritte -> `planning-board.yml` (PlanningBoardSchema)
+ *   - Entscheidungen -> `decisions.yml`
+ * Nur die narrative Rahmung (Kontext, Intention, Lernreise-Erzählung, Reflexion)
+ * wird hier zur Übersicht gespiegelt. Insbesondere gibt es hier keine
+ * `phases`-, `activities`- oder `materials`-Listen mehr.
+ */
 export const LearningDesignSchema = z.object({
   context: z.object({
     subject: z.string().optional().default(""),
@@ -30,19 +44,8 @@ export const LearningDesignSchema = z.object({
   }),
   learningJourney: z.object({
     startingPoint: z.string().default(""),
-    phases: z.array(z.object({
-      id: z.string().min(1),
-      title: z.string().min(1),
-      description: z.string().default("")
-    })).default([]),
     turningPoints: z.array(z.string()).default([])
   }),
-  activities: z.array(z.object({
-    id: z.string().min(1),
-    title: z.string().min(1),
-    description: z.string().default("")
-  })).default([]),
-  materials: z.array(z.object({ id: z.string(), title: z.string(), kind: z.string() })).default([]),
   reflection: z.object({
     learnerReflection: z.array(z.string()).default([]),
     teacherReflection: z.array(z.string()).default([]),
@@ -116,6 +119,9 @@ export const PlanningSpaceSchema = z.object({
   createdAt: ISODateString,
   updatedAt: ISODateString,
   learningDesign: LearningDesignSchema,
+  // T-302: Read-Model-Projektionen. Kanonisch sind die Kernel-Dateien:
+  // open-questions.md, decisions.yml, planning-board.yml und materials/.
+  // Kein Schreibpfad pflegt hier doppelte pädagogische Semantik.
   openQuestions: z.array(OpenQuestionSchema).default([]),
   decisions: z.array(DecisionSchema).default([]),
   nextSteps: z.array(NextStepSchema).default([]),
@@ -173,9 +179,7 @@ export function createEmptyLearningDesign(input?: { subject?: string; targetGrou
       summary: input?.initialIdea ?? "",
       learnersShould: { know: [], understand: [], experience: [], becomeAbleTo: [] }
     },
-    learningJourney: { startingPoint: "", phases: [], turningPoints: [] },
-    activities: [],
-    materials: [],
+    learningJourney: { startingPoint: "", turningPoints: [] },
     reflection: { learnerReflection: [], teacherReflection: [], openQuestions: [] }
   };
 }
@@ -271,36 +275,41 @@ export const TeachingWindowSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   kind: z.enum(["lesson", "double_lesson", "project_block", "open_learning_time"]),
+  durationMinutes: z.number().nonnegative(),
   note: z.string().default("")
 });
 export type TeachingWindow = z.infer<typeof TeachingWindowSchema>;
 
 export const TimePlacementSchema = z.object({
-  nodeId: z.string().min(1),
+  id: z.string().min(1),
+  momentId: z.string().min(1),
   windowId: z.string().min(1),
+  startMinute: z.number().nonnegative(),
+  durationMinutes: z.number().nonnegative(),
+  dramaturgicalRole: z.enum(["opening", "irritation", "exploration", "deepening", "practice", "decision", "consolidation", "reflection", "closing", "transition", "buffer", "other"]),
+  mode: z.enum(["common", "choice", "parallel", "individual", "group", "open"]),
   note: z.string().default("")
 });
 export type TimePlacement = z.infer<typeof TimePlacementSchema>;
 
-export const LearningLandscapeSchema = z.object({
+export const TemporalPlanSchema = z.object({
+  schema: z.literal("ptspace.temporal-plan/v1"),
+  title: z.string().min(1),
+  landscape: z.literal("learning-landscape.md"),
+  windows: z.array(TeachingWindowSchema).default([]),
+  placements: z.array(TimePlacementSchema).default([])
+});
+export type TemporalPlan = z.infer<typeof TemporalPlanSchema>;export const LearningLandscapeSchema = z.object({
   schema: z.literal("ptspace.learning-landscape/v1"),
   structure: LearningLandscapeStructureSchema.default("linear"),
   title: z.string().min(1),
   moments: z.array(LearningMomentSchema).default([]),
-  transitions: z.array(LandscapeTransitionSchema).default([]),
-  teachingWindows: z.array(TeachingWindowSchema).default([]),
-  placements: z.array(TimePlacementSchema).default([])
+  transitions: z.array(LandscapeTransitionSchema).default([])
 }).superRefine((landscape, ctx) => {
   const momentIds = new Set(landscape.moments.map((moment) => moment.id));
-  const windowIds = new Set(landscape.teachingWindows.map((window) => window.id));
   for (const transition of landscape.transitions) {
     if (!momentIds.has(transition.from) || !momentIds.has(transition.to)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "transition_references_unknown_moment" });
-    }
-  }
-  for (const placement of landscape.placements) {
-    if (!momentIds.has(placement.nodeId) || !windowIds.has(placement.windowId)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "placement_references_unknown_object" });
     }
   }
 });

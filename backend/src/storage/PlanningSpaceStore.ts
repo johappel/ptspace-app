@@ -49,16 +49,9 @@ export class PlanningSpaceStore {
         }
       ],
       decisions: [],
-      nextSteps: [
-        {
-          id: newId("step"),
-          label: "Lernanliegen klären",
-          description: "Im Gespräch herausarbeiten, woran die Lerngruppe fachlich und persoenlich wachsen soll.",
-          kind: "reflect",
-          status: "suggested",
-          relatedServiceRequest: null
-        }
-      ],
+      // T-302: nächste Schritte sind eine Projektion von planning-board.yml und
+      // werden nicht mehr parallel im Planungsraum-JSON kanonisch gepflegt.
+      nextSteps: [],
       materials: []
     };
 

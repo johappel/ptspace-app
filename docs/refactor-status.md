@@ -44,3 +44,55 @@ Sichten sein dürfen.
 
 T-100: Kernel-Quellen der Wahrheit vereinheitlichen. Dafür sind Änderungen im
 Repository `pedagogical-thinking-space` erforderlich.
+
+## Phase 3 – App-Domain aus Kernel ableiten
+
+### T-302 Legacy-LearningDesign entschärfen
+
+Gewählte Strategie: **klar bezeichnetes Read Model** (Variante 2). Das App-seitige
+`LearningDesignSchema` führt keine konkurrierenden kanonischen Listen mehr.
+
+- **Entfernt aus `LearningDesignSchema`** (`packages/shared/src/index.ts`):
+  `learningJourney.phases`, `activities` und `materials`. Diese Listen waren
+  parallele Kanoniken zu `learning-landscape.md` (Lernmomente/Lernaktivitäten)
+  und `materials/` (Materialien). Übrig bleibt die narrative Rahmung: `context`,
+  `intention`, `learningJourney` (nur `startingPoint` + `turningPoints`) und
+  `reflection`. Ein Doc-Kommentar markiert das Schema explizit als abgeleitetes
+  Read Model der Datei `learning-design.md`.
+- **`createEmptyLearningDesign`** entsprechend angepasst (keine `phases`,
+  `activities`, `materials` mehr).
+- **`PlanningSpaceSchema`**: `openQuestions`, `decisions`, `nextSteps` und
+  `materials` sind mit einem Doc-Kommentar als Read-Model-Projektionen der
+  Kernel-Dateien (`open-questions.md`, `decisions.yml`, `planning-board.yml`,
+  `materials/`) gekennzeichnet.
+- **`PlanningSpaceStore.create`**: Das parallele kanonische Seeding von
+  `nextSteps` ("Lernanliegen klären") wurde entfernt. Neue Räume starten mit
+  `nextSteps: []`; der nächste Schritt ist ausschließlich eine Projektion von
+  `planning-board.yml` (siehe `thinking-state`-Route).
+
+Kein Schreibpfad speichert damit doppelte pädagogische Semantik. `store.save`
+wird ohnehin nirgends aufgerufen, und `PlanningSpaceStore.readAll` liest ohne
+Zod-Parse (reiner Cast) – bestehende `planning-spaces.json`-Daten mit alten
+Feldern bleiben verlustfrei erhalten und werden nicht überschrieben.
+
+**Nebenbefund (T-301-Überbleibsel behoben):** `backend/src/routes/roomOverview.ts`
+verwies noch auf das in T-301 aus `LearningLandscapeSchema` entfernte
+`landscape.teachingWindows` und brach Typecheck/Build (`pnpm dev` Exit 1). Der
+Fortschrittsschritt „Unterricht planen“ stützt sich bis zur Temporal-Plan-
+Anbindung (T-700) nun auf `planning-board.yml`.
+
+**Geänderte Dateien:**
+
+- `packages/shared/src/index.ts`
+- `backend/src/storage/PlanningSpaceStore.ts`
+- `backend/src/routes/roomOverview.ts`
+- `backend/test/ServiceRequestWorkflow.test.ts`
+
+**Tests:** `pnpm --filter @ptspace/shared build`, Typecheck (Shared + Backend),
+`pnpm --filter @ptspace/frontend check` (0 Fehler) und `pnpm -r test`
+(Shared 4, Backend 33 Tests) erfolgreich.
+
+### Nächste Aufgabe
+
+T-400: Learning-Landscape-Codec erweitern (Phase 4 – Codec und Persistenz).
+

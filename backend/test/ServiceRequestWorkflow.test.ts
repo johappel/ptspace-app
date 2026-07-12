@@ -24,9 +24,7 @@ const space = {
   learningDesign: {
     context: { subject: "Religion", grade: "Klasse 9", setting: "", constraints: [] },
     intention: { summary: "", learnersShould: { know: [], understand: [], experience: [], becomeAbleTo: [] } },
-    learningJourney: { startingPoint: "", phases: [], turningPoints: [] },
-    activities: [],
-    materials: [],
+    learningJourney: { startingPoint: "", turningPoints: [] },
     reflection: { learnerReflection: [], teacherReflection: [], openQuestions: [] }
   },
   openQuestions: [],
