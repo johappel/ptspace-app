@@ -54,6 +54,7 @@ let messagesElement: HTMLDivElement | null = null;
   let canvasNodes: any[] = [];
   let canvasEdges: any[] = [];
   let draggedBoardItem: string | null = null;
+  const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
     { id: "clarify", label: "Noch klären", hint: "Entscheidungen und Recherche" },
     { id: "prepare", label: "Vorbereiten", hint: "Dramaturgie und Materialien" },
@@ -69,7 +70,10 @@ let messagesElement: HTMLDivElement | null = null;
   async function refreshSpaces() {
     try {
       spaces = await api.listPlanningSpaces();
-      if (!activeSpace && spaces.length > 0) await openSpace(spaces[0]);
+      if (!activeSpace && spaces.length > 0) {
+        const lastOpenedId = localStorage.getItem(lastOpenedSpaceKey);
+        await openSpace(spaces.find((space) => space.id === lastOpenedId) ?? spaces[0]);
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Planungsräume konnten noch nicht geladen werden.";
     }
@@ -91,6 +95,7 @@ let messagesElement: HTMLDivElement | null = null;
 
   async function openSpace(space: PlanningSpace) {
     activeSpace = space;
+    localStorage.setItem(lastOpenedSpaceKey, space.id);
     messages = [{ id: "welcome", author: "critical_friend", text: `Hallo, ich habe Zeit für dich. Woran möchtest du in "${space.title}" heute weiterdenken?` }];
     
     // Load messages from backend
