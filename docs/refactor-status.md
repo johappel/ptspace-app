@@ -96,3 +96,78 @@ Anbindung (T-700) nun auf `planning-board.yml`.
 
 T-400: Learning-Landscape-Codec erweitern (Phase 4 – Codec und Persistenz).
 
+## Phase 4 – Codec und Persistenz
+
+Zur Vervollständigung der Kernel-Verträge (T-301/T-102) wurden im Shared-Schema
+zwei fehlende Lernmomentfelder ergänzt (`materialNeeds`, `status`) und der
+Übergang von `note` auf `rationale` umgestellt.
+
+### T-400 Learning-Landscape-Codec erweitern
+
+- `parseLearningLandscape`/`serializeLearningLandscape`
+  (`backend/src/services/planning/PlanningArtifactCodec.ts`) lesen und schreiben
+  nun vollständig: Materialbedarf (`- Materialbedarf:`), Materialreferenzen,
+  offene Fragen (`- Offene Fragen:` als `;`-Liste), Status (`- Status:`) und die
+  Übergangsbegründung (drittes Pipe-Segment).
+- Frontend-Typen (`frontend/src/lib/api.ts`) an `materialNeeds`, `status` und
+  `rationale` angepasst.
+- Tests: `backend/test/LearningLandscapeCodec.test.ts` (Parse, Serialize,
+  Read-Write-Read-Roundtrip, unbekannter Typ → `other`, ungültige
+  Übergangsreferenz abgelehnt, unbekannte Schemaversion abgelehnt).
+
+### T-401 Temporal-Plan-Codec implementieren
+
+- Neuer Codec `backend/src/services/planning/TemporalPlanCodec.ts`
+  (`parseTemporalPlan`, `serializeTemporalPlan`, `assertInternalConsistency`,
+  `assertTemporalPlanReferences`, `emptyTemporalPlan`). Handgeschriebener
+  YAML-Subset-Parser (keine Laufzeitabhängigkeit).
+- Validierung: eindeutige Fenster-/Platzierungs-IDs, bekannte Fensterreferenz,
+  keine negativen Minuten (Schema), `start + duration <= window.duration`
+  (Überbelegung), Lernmomentreferenz gegen die Landschaft.
+- Tests: `backend/test/TemporalPlanCodec.test.ts` (leerer Plan, mehrere Fenster,
+  mehrfach platzierter Lernmoment, parallele/Wahl-Platzierung, ungültige
+  Fenster-/Lernmomentreferenz, Überbelegung, Roundtrip).
+
+### T-402 Datenverlust-Regressionstest
+
+- In `TemporalPlanCodec.test.ts`: Platzierung ändern → serialisieren → neu laden
+  → Tiefengleichheit (`toEqual`). Kein Feld geht verloren.
+
+### T-403 WorkspaceManager erweitern
+
+- `WorkspaceManager.ensureWorkspace` legt `temporal-plan.yml` mit gültigem leerem
+  Default an (`writeIfMissing`, überschreibt nie).
+- Behobener Altbug: `planningBoardTemplate` schrieb literales `` `nitems `` statt
+  Zeilenumbrüche; jetzt gültiges `schema: …\nitems: []`.
+
+### T-404 API-Routen erweitern
+
+- Neue Funktion `planningArtifactResourceRoutes`
+  (`backend/src/routes/planningArtifacts.ts`) mit getrennten, serverseitig
+  validierten Routen: `GET/PUT /planning-spaces/:id/learning-landscape`,
+  `.../temporal-plan`, `.../planning-board`. Jede semantische Änderung erzeugt
+  eine Git-Version; die Layout-Route bleibt versionsfrei getrennt.
+- Temporal-Plan-PUT validiert Referenzen gegen die aktuelle Landschaft und die
+  interne Konsistenz (Serialize+Reparse), Fehler → 422.
+- In `app.ts` registriert. Frontend nutzt `temporal-plan` in der Zeitansicht
+  (`frontend/src/routes/+page.svelte`), entkoppelt von der Lernlandschaft.
+- Tests: `backend/test/PlanningArtifactResourceApi.test.ts` (Landschaft
+  speichern/laden inkl. Git-Version, Temporal Plan speichern/laden, ungültige
+  Referenz → 422, Layoutänderung erzeugt keine Git-Version).
+
+**Geänderte/neue Dateien (Phase 4):** `packages/shared/src/index.ts`,
+`backend/src/services/planning/PlanningArtifactCodec.ts`,
+`backend/src/services/planning/TemporalPlanCodec.ts` (neu),
+`backend/src/services/workspace/WorkspaceManager.ts`,
+`backend/src/routes/planningArtifacts.ts`, `backend/src/app.ts`,
+`frontend/src/lib/api.ts`, `frontend/src/routes/+page.svelte`,
+`backend/test/LearningLandscapeCodec.test.ts` (neu),
+`backend/test/TemporalPlanCodec.test.ts` (neu),
+`backend/test/PlanningArtifactResourceApi.test.ts` (neu).
+
+**Tests:** `pnpm -r test` (Shared 4, Backend 53), `pnpm --filter
+@ptspace/frontend check` (0 Fehler), `pnpm -r build` erfolgreich.
+
+### Nächste Aufgabe
+
+T-500: Lernmoment-Detailansicht (Phase 5 – Lernlandschaft in der App).

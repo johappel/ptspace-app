@@ -250,6 +250,11 @@ export const LandscapeTransitionKindSchema = z.enum([
 ]);
 export type LandscapeTransitionKind = z.infer<typeof LandscapeTransitionKindSchema>;
 
+export const LearningMomentStatusSchema = z.enum([
+  "draft", "in_progress", "ready", "needs_revision"
+]);
+export type LearningMomentStatus = z.infer<typeof LearningMomentStatusSchema>;
+
 export const LearningMomentSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -257,8 +262,10 @@ export const LearningMomentSchema = z.object({
   didacticPurpose: z.string().default(""),
   learningActivity: z.string().default(""),
   expectedExperience: z.string().default(""),
+  materialNeeds: z.array(z.string().min(1)).default([]),
   materialIds: z.array(z.string().min(1)).default([]),
-  openQuestions: z.array(z.string()).default([])
+  openQuestions: z.array(z.string()).default([]),
+  status: LearningMomentStatusSchema.default("draft")
 });
 export type LearningMoment = z.infer<typeof LearningMomentSchema>;
 
@@ -267,7 +274,7 @@ export const LandscapeTransitionSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   kind: LandscapeTransitionKindSchema,
-  note: z.string().default("")
+  rationale: z.string().default("")
 });
 export type LandscapeTransition = z.infer<typeof LandscapeTransitionSchema>;
 

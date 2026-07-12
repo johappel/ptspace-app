@@ -1,6 +1,6 @@
 import {
-  LearningLandscape, LearningLandscapeSchema, LearningMomentKind, LandscapeTransitionKind,
-  PlanningBoard, PlanningBoardSchema, TeachingWindow
+  LearningLandscape, LearningLandscapeSchema, LearningMomentKind, LearningMomentStatus, LandscapeTransitionKind,
+  PlanningBoard, PlanningBoardSchema
 } from "@ptspace/shared";
 
 const momentKinds: Record<string, LearningMomentKind> = {
@@ -28,6 +28,17 @@ const germanTransitions: Record<LandscapeTransitionKind, string> = {
   required: "Pflichtweg", choice: "Wahl", parallel: "Parallel", return: "Rückkehr",
   meeting_point: "Treffpunkt", prerequisite: "Voraussetzung"
 };
+
+const momentStatuses = new Set<LearningMomentStatus>(["draft", "in_progress", "ready", "needs_revision"]);
+
+function parseStatus(value: string): LearningMomentStatus {
+  const normalizedValue = normalized(value) as LearningMomentStatus;
+  return momentStatuses.has(normalizedValue) ? normalizedValue : "draft";
+}
+
+function semicolonList(value: string | undefined): string[] {
+  return (value ?? "").split(";").map((entry) => entry.trim()).filter(Boolean);
+}
 
 function normalized(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
@@ -62,19 +73,19 @@ export function parseLearningLandscape(markdown: string): LearningLandscape {
     const bodyEnd = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
     const lines = markdown.slice(bodyStart, bodyEnd).split("\n").map((line) => line.trim()).filter(Boolean);
     const type = momentKinds[normalized(field(lines, "Typ"))] ?? "other";
-    const transitions: Array<{ id: string; from: string; to: string; kind: LandscapeTransitionKind; note: string }> = [];
+    const transitions: Array<{ id: string; from: string; to: string; kind: LandscapeTransitionKind; rationale: string }> = [];
     const transitionIndex = lines.findIndex((line) => /^- Übergänge:/i.test(line));
     if (transitionIndex >= 0) {
       for (const line of lines.slice(transitionIndex + 1)) {
         if (!line.startsWith("- ")) break;
-        const [target, kindLabel, note = ""] = line.slice(2).split("|").map((entry) => entry.trim());
+        const [target, kindLabel, rationale = ""] = line.slice(2).split("|").map((entry) => entry.trim());
         if (!target) continue;
         transitions.push({
           id: `${match[1]}--${target}`,
           from: match[1],
           to: target,
           kind: transitionKinds[normalized(kindLabel)] ?? "required",
-          note
+          rationale
         });
       }
     }
@@ -86,8 +97,10 @@ export function parseLearningLandscape(markdown: string): LearningLandscape {
         didacticPurpose: field(lines, "Funktion"),
         learningActivity: field(lines, "Lernaktivität"),
         expectedExperience: field(lines, "Erwartete Lernerfahrung"),
+        materialNeeds: csv(field(lines, "Materialbedarf")),
         materialIds: csv(field(lines, "Materialien")),
-        openQuestions: []
+        openQuestions: semicolonList(field(lines, "Offene Fragen")),
+        status: parseStatus(field(lines, "Status"))
       },
       transitions
     };
@@ -98,9 +111,7 @@ export function parseLearningLandscape(markdown: string): LearningLandscape {
     title: meta.title,
     structure: meta.structure || "linear",
     moments: moments.map((entry) => entry.moment),
-    transitions: moments.flatMap((entry) => entry.transitions),
-    teachingWindows: [],
-    placements: []
+    transitions: moments.flatMap((entry) => entry.transitions)
   });
 }
 
@@ -119,12 +130,15 @@ export function serializeLearningLandscape(landscape: LearningLandscape): string
     lines.push(`- Funktion: ${moment.didacticPurpose}`);
     lines.push(`- Erwartete Lernerfahrung: ${moment.expectedExperience}`);
     lines.push(`- Lernaktivität: ${moment.learningActivity}`);
+    if (moment.materialNeeds.length) lines.push(`- Materialbedarf: ${moment.materialNeeds.join(", ")}`);
     if (moment.materialIds.length) lines.push(`- Materialien: ${moment.materialIds.join(", ")}`);
+    if (moment.openQuestions.length) lines.push(`- Offene Fragen: ${moment.openQuestions.join("; ")}`);
+    lines.push(`- Status: ${moment.status}`);
     const transitions = landscape.transitions.filter((transition) => transition.from === moment.id);
     if (transitions.length) {
       lines.push("- Übergänge:");
       for (const transition of transitions) {
-        lines.push(`  - ${transition.to} | ${germanTransitions[transition.kind]}${transition.note ? ` | ${transition.note}` : ""}`);
+        lines.push(`  - ${transition.to} | ${germanTransitions[transition.kind]}${transition.rationale ? ` | ${transition.rationale}` : ""}`);
       }
     }
   }

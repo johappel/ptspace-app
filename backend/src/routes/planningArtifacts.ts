@@ -1,8 +1,9 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { LearningLandscapeSchema, PlanningBoardSchema } from "@ptspace/shared";
+import { LearningLandscapeSchema, PlanningBoardSchema, TemporalPlanSchema } from "@ptspace/shared";
 import { GitManager } from "../services/git/GitManager.js";
 import { parseLearningLandscape, parsePlanningBoard, serializeLearningLandscape, serializePlanningBoard } from "../services/planning/PlanningArtifactCodec.js";
+import { parseTemporalPlan, serializeTemporalPlan, assertTemporalPlanReferences, emptyTemporalPlan } from "../services/planning/TemporalPlanCodec.js";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 
@@ -90,5 +91,89 @@ export async function planningArtifactRoutes(
     await deps.workspace.ensureWorkspace(space);
     await deps.workspace.writeProjectFile(id, "learning-landscape.layout.json", `${JSON.stringify(layout.data, null, 2)}\n`);
     return layout.data;
+  });
+}
+
+// T-404: dedizierte, serverseitig validierte Routen je Kernel-Artefakt. Jede
+// semantische Änderung erzeugt eine Git-Version; Layoutdaten bleiben getrennt.
+export async function planningArtifactResourceRoutes(
+  app: FastifyInstance,
+  deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager }
+) {
+  async function loadSpace(id: string, reply: import("fastify").FastifyReply) {
+    const space = await deps.store.get(id);
+    if (!space) { reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." }); return undefined; }
+    await deps.workspace.ensureWorkspace(space);
+    return space;
+  }
+
+  app.get("/planning-spaces/:id/learning-landscape", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!(await loadSpace(id, reply))) return;
+    try {
+      return parseLearningLandscape(await deps.workspace.readProjectFile(id, "learning-landscape.md"));
+    } catch (error) {
+      return reply.code(422).send({ message: validationMessage(error) });
+    }
+  });
+
+  app.put("/planning-spaces/:id/learning-landscape", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!(await loadSpace(id, reply))) return;
+    const parsed = LearningLandscapeSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: "Die Lernlandschaft enthält noch ungültige Verweise oder Felder." });
+    await deps.workspace.writeProjectFile(id, "learning-landscape.md", serializeLearningLandscape(parsed.data));
+    const version = await deps.git.saveVersion(deps.workspace.getWorkspaceRoot(id), "Lernlandschaft aktualisiert");
+    return { learningLandscape: parsed.data, version };
+  });
+
+  app.get("/planning-spaces/:id/temporal-plan", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const space = await loadSpace(id, reply);
+    if (!space) return;
+    try {
+      return parseTemporalPlan(await deps.workspace.readProjectFile(id, "temporal-plan.yml"));
+    } catch {
+      return emptyTemporalPlan(space.title);
+    }
+  });
+
+  app.put("/planning-spaces/:id/temporal-plan", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!(await loadSpace(id, reply))) return;
+    const parsed = TemporalPlanSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: "Die Zeitplanung enthält noch ungültige Werte." });
+    try {
+      const landscape = parseLearningLandscape(await deps.workspace.readProjectFile(id, "learning-landscape.md"));
+      assertTemporalPlanReferences(parsed.data, new Set(landscape.moments.map((moment) => moment.id)));
+      // Serialize + reparse enforces the internal consistency rules (window refs, overbooking).
+      const serialized = serializeTemporalPlan(parsed.data);
+      parseTemporalPlan(serialized);
+      await deps.workspace.writeProjectFile(id, "temporal-plan.yml", serialized);
+    } catch (error) {
+      return reply.code(422).send({ message: validationMessage(error) });
+    }
+    const version = await deps.git.saveVersion(deps.workspace.getWorkspaceRoot(id), "Zeitplanung aktualisiert");
+    return { temporalPlan: parsed.data, version };
+  });
+
+  app.get("/planning-spaces/:id/planning-board", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!(await loadSpace(id, reply))) return;
+    try {
+      return parsePlanningBoard(await deps.workspace.readProjectFile(id, "planning-board.yml"));
+    } catch (error) {
+      return reply.code(422).send({ message: validationMessage(error) });
+    }
+  });
+
+  app.put("/planning-spaces/:id/planning-board", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!(await loadSpace(id, reply))) return;
+    const parsed = PlanningBoardSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: "Das Planungsboard enthält noch ungültige Verweise oder Felder." });
+    await deps.workspace.writeProjectFile(id, "planning-board.yml", serializePlanningBoard(parsed.data));
+    const version = await deps.git.saveVersion(deps.workspace.getWorkspaceRoot(id), "Planungsboard aktualisiert");
+    return { planningBoard: parsed.data, version };
   });
 }

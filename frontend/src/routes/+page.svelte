@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, ListChecks, Map, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ExportApproval, type LearningLandscape, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type ThinkingCard, type WorkerMaterial } from "$lib/api";
+  import { api, type ExportApproval, type LearningLandscape, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TemporalPlan, type ThinkingCard, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { uuid } from "$lib/uuid";
@@ -49,6 +49,7 @@ let messagesElement: HTMLDivElement | null = null;
   let planningTab: "landscape" | "board" = "landscape";
   let learningLandscape: LearningLandscape | null = null;
   let planningBoard: PlanningBoard | null = null;
+  let temporalPlan: TemporalPlan | null = null;
   let planningError = "";
   let planningLoading = false;
   let canvasNodes: any[] = [];
@@ -233,6 +234,7 @@ async function sendMessage() {
       const artifacts = await api.getPlanningArtifacts(activeSpace.id);
       learningLandscape = artifacts.learningLandscape;
       planningBoard = artifacts.planningBoard;
+      temporalPlan = await api.getTemporalPlan(activeSpace.id);
       makeCanvas();
       planningModal = true;
     } catch (err) {
@@ -291,7 +293,7 @@ async function sendMessage() {
     roomView = view;
     if (view === "conversation" || !activeSpace) return;
     planningLoading = true; planningError = "";
-    try { const [artifacts, layout] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id)]); landscapeLayout = Object.fromEntries(layout.nodes.map((node) => [node.id, { x: node.x, y: node.y }])); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; makeCanvas(); }
+    try { const [artifacts, layout, plan] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id), api.getTemporalPlan(activeSpace.id)]); landscapeLayout = Object.fromEntries(layout.nodes.map((node) => [node.id, { x: node.x, y: node.y }])); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; temporalPlan = plan; makeCanvas(); }
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
     finally { planningLoading = false; }
   }
@@ -411,7 +413,7 @@ async function sendMessage() {
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
           {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment, um dazu im Gespräch weiterzudenken.</p></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => { const moment = learningLandscape?.moments.find((item) => item.id === event.node.id); if (moment) focusConversation(`Zu „${moment.title}“ in der Lernlandschaft weiterdenken: `); }}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
-          {:else if roomView === "timeline" && learningLandscape}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header><div class="timeline-track">{#each learningLandscape.teachingWindows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"}</span><div class="window-moments">{#each learningLandscape.placements.filter((placement) => placement.windowId === window.id) as placement}{#each learningLandscape.moments.filter((moment) => moment.id === placement.nodeId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div></div>
+          {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header>{#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lernmomente können später zeitlich eingeplant werden.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"} · {window.durationMinutes} min</span><div class="window-moments">{#each temporalPlan.placements.filter((placement) => placement.windowId === window.id) as placement}{#each (learningLandscape?.moments ?? []).filter((moment) => moment.id === placement.momentId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div>{/if}</div>
           {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong><small>Im Gespräch aufgreifen</small></button>{/each}</div></section>{/each}</div>
           {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}
         </aside>

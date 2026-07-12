@@ -8,8 +8,10 @@ export type LearningMoment = {
   didacticPurpose: string;
   learningActivity: string;
   expectedExperience: string;
+  materialNeeds: string[];
   materialIds: string[];
   openQuestions: string[];
+  status: "draft" | "in_progress" | "ready" | "needs_revision";
 };
 
 export type LearningLandscape = {
@@ -17,9 +19,26 @@ export type LearningLandscape = {
   title: string;
   structure: "linear" | "branching" | "stations" | "buffet" | "project" | "spatial" | "hybrid";
   moments: LearningMoment[];
-  transitions: Array<{ id: string; from: string; to: string; kind: "required" | "choice" | "parallel" | "return" | "meeting_point" | "prerequisite"; note: string }>;
-  teachingWindows: Array<{ id: string; title: string; kind: "lesson" | "double_lesson" | "project_block" | "open_learning_time"; note: string }>;
-  placements: Array<{ nodeId: string; windowId: string; note: string }>;
+  transitions: Array<{ id: string; from: string; to: string; kind: "required" | "choice" | "parallel" | "return" | "meeting_point" | "prerequisite"; rationale: string }>;
+};
+
+export type TeachingWindow = { id: string; title: string; kind: "lesson" | "double_lesson" | "project_block" | "open_learning_time"; durationMinutes: number; note: string };
+export type TimePlacement = {
+  id: string;
+  momentId: string;
+  windowId: string;
+  startMinute: number;
+  durationMinutes: number;
+  dramaturgicalRole: "opening" | "irritation" | "exploration" | "deepening" | "practice" | "decision" | "consolidation" | "reflection" | "closing" | "transition" | "buffer" | "other";
+  mode: "common" | "choice" | "parallel" | "individual" | "group" | "open";
+  note: string;
+};
+export type TemporalPlan = {
+  schema: "ptspace.temporal-plan/v1";
+  title: string;
+  landscape: "learning-landscape.md";
+  windows: TeachingWindow[];
+  placements: TimePlacement[];
 };
 
 export type PlanningBoardItem = {
@@ -127,6 +146,10 @@ export const api = {
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
   getPlanningArtifacts: (spaceId: string) =>
     request<{ learningLandscape: LearningLandscape; planningBoard: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`),
+  getTemporalPlan: (spaceId: string) =>
+    request<TemporalPlan>(`/planning-spaces/${spaceId}/temporal-plan`),
+  saveTemporalPlan: (spaceId: string, temporalPlan: TemporalPlan) =>
+    request<{ temporalPlan: TemporalPlan; version: unknown }>(`/planning-spaces/${spaceId}/temporal-plan`, { method: "PUT", body: JSON.stringify(temporalPlan) }),
   getLearningLandscapeLayout: (spaceId: string) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`),
   saveLearningLandscapeLayout: (spaceId: string, layout: { nodes: Array<{ id: string; x: number; y: number }> }) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`, { method: "PUT", body: JSON.stringify(layout) }),
   savePlanningArtifacts: (spaceId: string, input: { learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }) =>

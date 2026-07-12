@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { PlanningSpace } from "@ptspace/shared";
 import { planningSpaceSlug } from "../../workspaceSlug.js";
+import { serializeTemporalPlan, emptyTemporalPlan } from "../planning/TemporalPlanCodec.js";
 
 export class WorkspaceManager {
   private readonly aliases = new Map<string, string>();
@@ -26,6 +27,7 @@ export class WorkspaceManager {
     await this.writeIfMissing(path.join(workspaceRoot, "open-questions.md"), "# Offene Fragen\n\n- Welche Lernerfahrung soll im Mittelpunkt stehen?\n");
     await this.writeIfMissing(path.join(workspaceRoot, "next-steps.md"), "# Nächste Schritte\n\n- Lernanliegen klären\n");
     await this.writeIfMissing(path.join(workspaceRoot, "learning-landscape.md"), this.learningLandscapeTemplate(space));
+    await this.writeIfMissing(path.join(workspaceRoot, "temporal-plan.yml"), serializeTemporalPlan(emptyTemporalPlan(space.title)));
     await this.writeIfMissing(path.join(workspaceRoot, "planning-board.yml"), this.planningBoardTemplate());
     await this.writeIfMissing(path.join(workspaceRoot, "conversation-summary.md"), "# Gesprächszusammenfassung\n\nDer Planungsraum wurde angelegt.\n");
     return workspaceRoot;
@@ -76,7 +78,7 @@ structure: linear
   }
 
   private planningBoardTemplate(): string {
-    return `schema: ptspace.planning-board/v1` + "`nitems: []`n";
+    return "schema: ptspace.planning-board/v1\nitems: []\n";
   }
 
   private learningDesignTemplate(space: PlanningSpace): string {
