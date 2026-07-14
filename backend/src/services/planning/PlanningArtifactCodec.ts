@@ -162,7 +162,7 @@ export function parsePlanningBoard(yaml: string): PlanningBoard {
     const line = raw.trim();
     const item = raw.match(/^\s{2}-\s+id:\s*(.+)$/);
     if (item) {
-      current = { id: item[1].trim(), relatedNodes: [], relatedWindows: [], materialIds: [], materialNeed: "", expectedResult: "", requiresTeacherApproval: true };
+      current = { id: item[1].trim(), relatedNodes: [], relatedWindows: [], materialIds: [], materialNeed: "", expectedResult: "", requiresTeacherApproval: true, serviceRequestId: "", reviewedAt: "", reviewedBy: "" };
       items.push(current);
       continue;
     }
@@ -179,6 +179,9 @@ export function parsePlanningBoard(yaml: string): PlanningBoard {
     if (key === "material_ids") current.materialIds = inlineList(value);
     if (key === "material_need") current.materialNeed = value;
     if (key === "expected_result") current.expectedResult = value;
+    if (key === "service_request_id") current.serviceRequestId = value;
+    if (key === "reviewed_at") current.reviewedAt = value;
+    if (key === "reviewed_by") current.reviewedBy = value;
     if (key === "requires_teacher_approval") current.requiresTeacherApproval = value !== "false";
   }
 
@@ -198,6 +201,9 @@ export function serializePlanningBoard(board: PlanningBoard): string {
     if (item.materialIds.length) lines.push(`    material_ids: ${yamlList(item.materialIds)}`);
     if (item.materialNeed) lines.push(`    material_need: ${item.materialNeed}`);
     if (item.expectedResult) lines.push(`    expected_result: ${item.expectedResult}`);
+    if (item.serviceRequestId) lines.push(`    service_request_id: ${item.serviceRequestId}`);
+    if (item.reviewedAt) lines.push(`    reviewed_at: ${item.reviewedAt}`);
+    if (item.reviewedBy) lines.push(`    reviewed_by: ${item.reviewedBy}`);
     lines.push(`    status: ${item.status}`, `    requires_teacher_approval: ${item.requiresTeacherApproval}`);
   }
   return lines.join("\n") + "\n";

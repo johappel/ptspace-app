@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, ListChecks, Map, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ExportApproval, type LearningLandscape, type LearningMoment, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
+  import { api, type ExportApproval, type LearningLandscape, type LearningMoment, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { uuid } from "$lib/uuid";
@@ -26,6 +26,7 @@
   let sending = false;
   let error = "";
   let draftMessage = "";
+  let activeFocus: PedagogicalFocus | null = null;
   let designNotes = "";
   let editingDesign = false;
   let savingDesign = false;
@@ -151,7 +152,7 @@ async function sendMessage() {
     await scrollConversationToEnd();
     try {
       await scanText(text);
-      const result = await api.sendMessage(activeSpace.id, text);
+      const result = await api.sendMessage(activeSpace.id, text, activeFocus ?? undefined);
       messages = [...messages, { id: result.reply.id, author: "critical_friend", text: result.reply.text }];
     await scrollConversationToEnd();
       const state = await api.getThinkingState(activeSpace.id);
@@ -297,7 +298,8 @@ async function sendMessage() {
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
     finally { planningLoading = false; }
   }
-  async function focusConversation(prompt: string) {
+  async function focusConversation(prompt: string, focus?: PedagogicalFocus) {
+    if (focus) activeFocus = focus;
     draftMessage = prompt;
     await tick();
     composerElement?.focus();
@@ -485,9 +487,10 @@ async function sendMessage() {
   }
   function checkTransitionWithCriticalFriend() {
     if (!transitionDetail) return;
-    const from = momentTitle(transitionDetail.from), to = momentTitle(transitionDetail.to);
+    const transition = transitionDetail;
+    const from = momentTitle(transition.from), to = momentTitle(transition.to);
     transitionDetail = null;
-    focusConversation(`Lass uns den Übergang von „${from}“ zu „${to}“ gemeinsam prüfen: `);
+    focusConversation(`Lass uns den Übergang von „${from}“ zu „${to}“ gemeinsam prüfen: `, { kind: "transition", id: transition.id, label: `${from} → ${to}` });
   }
   function proposeMissingMoment() {
     if (!transitionDetail) return;
@@ -516,7 +519,10 @@ async function sendMessage() {
       materialIds: [],
       materialNeed: proposal.materialNeed,
       expectedResult: proposal.expectedResult.trim(),
-      requiresTeacherApproval: true
+      requiresTeacherApproval: true,
+      serviceRequestId: "",
+      reviewedAt: "",
+      reviewedBy: ""
     };
     planningBoard = { ...planningBoard, items: [...planningBoard.items, item] };
     boardProposal = null;
@@ -532,22 +538,284 @@ async function sendMessage() {
   }
   function clarifyBoardItem(item: PlanningBoardItem) {
     boardDetail = null;
-    focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `);
+    focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `, { kind: "planning_item", id: item.id, label: item.title });
   }
+  // T-900/T-901: „Entwurf beauftragen" bindet einen Worker-Auftrag ausdrücklich an
+  // die Karte und mindestens einen Lernmoment. Das Ergebnis wird zurückgeführt.
   async function commissionBoardDraft(item: PlanningBoardItem) {
-    await updateBoardItem(item.id, { column: "prepare", status: "in_progress" });
+    if (!activeSpace || !planningBoard) return;
+    if (item.relatedNodes.length === 0) {
+      planningError = "Bitte verknüpfe zuerst einen Lernmoment mit diesem Arbeitsvorhaben, bevor ein Entwurf beauftragt wird.";
+      boardDetail = null;
+      return;
+    }
     boardDetail = null;
-    focusConversation(`Ich beauftrage bewusst einen ersten Entwurf für „${item.title}“. Bitte hilf mir, den Auftrag klar zu fassen: `);
+    planningError = "";
+    try {
+      const proposed = await api.proposeBoardMaterial(activeSpace.id, { boardItemId: item.id, title: item.title, relatedMoments: item.relatedNodes, expectedResult: item.expectedResult });
+      const run = await api.approveServiceRequest(activeSpace.id, proposed.serviceRequest.id);
+      workerMaterial = run.material;
+      serviceMessage = run.teacherFacingMessage;
+      serviceRequests = [...serviceRequests, proposed.serviceRequest];
+      const materialId = run.material.location ?? proposed.serviceRequest.id;
+      planningBoard = { ...planningBoard, items: planningBoard.items.map((entry) => entry.id === item.id ? { ...entry, column: "review", status: "review", serviceRequestId: proposed.serviceRequest.id, materialIds: Array.from(new Set([...entry.materialIds, materialId])) } : entry) };
+      await persistBoard();
+      if (learningLandscape) {
+        learningLandscape = { ...learningLandscape, moments: learningLandscape.moments.map((moment) => item.relatedNodes.includes(moment.id) ? { ...moment, materialIds: Array.from(new Set([...moment.materialIds, materialId])) } : moment) };
+        await persistLandscape();
+      }
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Der Entwurf konnte nicht beauftragt werden.";
+    }
   }
   async function reviewBoardDraft(item: PlanningBoardItem) {
     await updateBoardItem(item.id, { column: "review", status: "review" });
   }
-  async function approveBoardItem(item: PlanningBoardItem) {
-    await updateBoardItem(item.id, { column: "ready", status: "ready" });
+  // T-902: fachliche Freigabe erfordert sichtbare Prüfung, eine bestätigende Aktion,
+  // einen dokumentierten Zeitpunkt und die prüfende Rolle. Kein Drag-and-drop ersetzt das.
+  let approvalConfirm: PlanningBoardItem | null = null;
+  let approvalReviewed = false;
+  function requestBoardApproval(item: PlanningBoardItem) {
+    approvalConfirm = item;
+    approvalReviewed = false;
+    boardDetail = null;
+  }
+  async function confirmBoardApproval() {
+    if (!approvalConfirm || !approvalReviewed) return;
+    const item = approvalConfirm;
+    approvalConfirm = null;
+    approvalReviewed = false;
+    await updateBoardItem(item.id, { column: "ready", status: "ready", reviewedAt: new Date().toISOString(), reviewedBy: "Lehrkraft" });
   }
   async function discardBoardItem(item: PlanningBoardItem) {
     await updateBoardItem(item.id, { status: "discarded" });
     boardDetail = null;
+  }
+
+  // --- Phase 7: Zeit & Dramaturgie. Ausschließlich temporal-plan.yml ist Quelle. ---
+  const windowKindLabels: Record<string, string> = {
+    lesson: "Unterrichtsstunde", double_lesson: "Doppelstunde", project_block: "Projektblock", open_learning_time: "Offene Lernzeit"
+  };
+  const windowKindDurations: Record<TeachingWindow["kind"], number> = {
+    lesson: 45, double_lesson: 90, project_block: 180, open_learning_time: 120
+  };
+  const dramaturgicalRoleLabels: Record<string, string> = {
+    opening: "Einstieg", irritation: "Irritation", exploration: "Erkundung", deepening: "Vertiefung",
+    practice: "Übung", decision: "Entscheidung", consolidation: "Sicherung", reflection: "Reflexion",
+    closing: "Abschluss", transition: "Übergang", buffer: "Puffer", other: "Anderes"
+  };
+  const placementModeLabels: Record<string, string> = {
+    common: "Gemeinsam", choice: "Wahl", parallel: "Parallel", individual: "Einzeln", group: "Gruppe", open: "Offen"
+  };
+  // T-800: ein einziger Gesprächsverlauf, aber mit wählbarem Kontextfokus.
+  const focusKindLabels: Record<PedagogicalFocus["kind"], string> = {
+    learning_moment: "Lernmoment", transition: "Übergang", teaching_window: "Unterrichtsfenster",
+    placement: "Platzierung", planning_item: "Arbeitsvorhaben", material: "Material"
+  };
+
+  let windowForm: { id: string | null; title: string; kind: TeachingWindow["kind"]; durationMinutes: number; note: string } | null = null;
+  let windowDeleteConfirm: TeachingWindow | null = null;
+  let placementDraft: TimePlacement | null = null;
+  let placementConfirm: { moment: LearningMoment; window: TeachingWindow; startMinute: number; durationMinutes: number; dramaturgicalRole: TimePlacement["dramaturgicalRole"]; mode: TimePlacement["mode"] } | null = null;
+  let windowDetail: TeachingWindow | null = null;
+  let draggedMomentId: string | null = null;
+
+  async function persistTemporalPlan() {
+    if (!activeSpace || !temporalPlan) return;
+    planningError = "";
+    try {
+      const result = await api.saveTemporalPlan(activeSpace.id, temporalPlan);
+      temporalPlan = result.temporalPlan;
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Die Zeitplanung konnte nicht gespeichert werden.";
+    }
+  }
+  function placedMomentIds(): Set<string> {
+    return new Set((temporalPlan?.placements ?? []).map((placement) => placement.momentId));
+  }
+  function unplacedMoments(): LearningMoment[] {
+    const placed = placedMomentIds();
+    return (learningLandscape?.moments ?? []).filter((moment) => !placed.has(moment.id));
+  }
+  function placementsInWindow(windowId: string): TimePlacement[] {
+    return (temporalPlan?.placements ?? []).filter((placement) => placement.windowId === windowId).sort((a, b) => a.startMinute - b.startMinute);
+  }
+  function nextFreeMinute(windowId: string): number {
+    const placements = placementsInWindow(windowId).filter((placement) => placement.mode === "common");
+    return placements.reduce((max, placement) => Math.max(max, placement.startMinute + placement.durationMinutes), 0);
+  }
+  // T-706: lehrkräfteverständliche Konfliktbeschreibungen je Fenster.
+  function windowConflicts(window: TeachingWindow): string[] {
+    const conflicts: string[] = [];
+    const placements = placementsInWindow(window.id);
+    for (const placement of placements) {
+      if (placement.durationMinutes <= 0) conflicts.push(`„${momentTitle(placement.momentId)}“ hat noch keine Dauer.`);
+      if (placement.startMinute + placement.durationMinutes > window.durationMinutes) conflicts.push(`„${momentTitle(placement.momentId)}“ reicht über das Ende des Fensters hinaus.`);
+      if (!learningLandscape?.moments.some((moment) => moment.id === placement.momentId)) conflicts.push("Eine Platzierung verweist auf einen nicht mehr vorhandenen Lernmoment.");
+    }
+    const common = placements.filter((placement) => placement.mode === "common");
+    for (let i = 0; i < common.length; i += 1) {
+      for (let j = i + 1; j < common.length; j += 1) {
+        const a = common[i], b = common[j];
+        if (a.startMinute < b.startMinute + b.durationMinutes && b.startMinute < a.startMinute + a.durationMinutes) {
+          conflicts.push(`„${momentTitle(a.momentId)}“ und „${momentTitle(b.momentId)}“ überschneiden sich zeitlich.`);
+        }
+      }
+    }
+    return Array.from(new Set(conflicts));
+  }
+  // T-702: zentrale Lernmomente ohne Platzierung sind ein Hinweis, kein Fehler.
+  function timelineNotices(): string[] {
+    const notices: string[] = [];
+    const unplaced = unplacedMoments();
+    if (unplaced.length > 0) notices.push(`${unplaced.length} Lernmoment${unplaced.length === 1 ? " ist" : "e sind"} noch nicht zeitlich eingeplant.`);
+    return notices;
+  }
+
+  // T-701: Unterrichtsfenster verwalten.
+  function openWindowForm(existing?: TeachingWindow) {
+    windowForm = existing
+      ? { id: existing.id, title: existing.title, kind: existing.kind, durationMinutes: existing.durationMinutes, note: existing.note }
+      : { id: null, title: "", kind: "lesson", durationMinutes: windowKindDurations.lesson, note: "" };
+  }
+  function onWindowKindChange() {
+    if (windowForm && !windowForm.id) windowForm.durationMinutes = windowKindDurations[windowForm.kind];
+  }
+  async function saveWindow() {
+    if (!temporalPlan || !windowForm || windowForm.title.trim().length < 2 || windowForm.durationMinutes <= 0) return;
+    const form = windowForm;
+    if (form.id) {
+      temporalPlan = { ...temporalPlan, windows: temporalPlan.windows.map((window) => window.id === form.id ? { ...window, title: form.title.trim(), kind: form.kind, durationMinutes: form.durationMinutes, note: form.note.trim() } : window) };
+    } else {
+      const window: TeachingWindow = { id: `tw-${uuid().slice(0, 8)}`, title: form.title.trim(), kind: form.kind, durationMinutes: form.durationMinutes, note: form.note.trim() };
+      temporalPlan = { ...temporalPlan, windows: [...temporalPlan.windows, window] };
+    }
+    windowForm = null;
+    await persistTemporalPlan();
+  }
+  function requestDeleteWindow(window: TeachingWindow) {
+    if (placementsInWindow(window.id).length > 0) { windowDeleteConfirm = window; return; }
+    void deleteWindow(window);
+  }
+  async function deleteWindow(window: TeachingWindow) {
+    if (!temporalPlan) return;
+    temporalPlan = {
+      ...temporalPlan,
+      windows: temporalPlan.windows.filter((entry) => entry.id !== window.id),
+      placements: temporalPlan.placements.filter((placement) => placement.windowId !== window.id)
+    };
+    windowDeleteConfirm = null;
+    windowDetail = null;
+    await persistTemporalPlan();
+  }
+
+  // T-703: Drag-and-drop erzeugt eine Platzierung – erst nach Bestätigung kanonisch.
+  function onWindowDrop(window: TeachingWindow) {
+    if (!draggedMomentId) return;
+    const moment = learningLandscape?.moments.find((entry) => entry.id === draggedMomentId);
+    draggedMomentId = null;
+    if (!moment) return;
+    const startMinute = Math.min(nextFreeMinute(window.id), window.durationMinutes);
+    const durationMinutes = Math.max(5, Math.min(window.durationMinutes - startMinute, 15));
+    placementConfirm = { moment, window, startMinute, durationMinutes, dramaturgicalRole: "other", mode: "common" };
+  }
+  async function confirmPlacement() {
+    if (!temporalPlan || !placementConfirm) return;
+    const confirmData = placementConfirm;
+    const placement: TimePlacement = {
+      id: `tp-${uuid().slice(0, 8)}`,
+      momentId: confirmData.moment.id,
+      windowId: confirmData.window.id,
+      startMinute: confirmData.startMinute,
+      durationMinutes: confirmData.durationMinutes,
+      dramaturgicalRole: confirmData.dramaturgicalRole,
+      mode: confirmData.mode,
+      note: ""
+    };
+    temporalPlan = { ...temporalPlan, placements: [...temporalPlan.placements, placement] };
+    placementConfirm = null;
+    await persistTemporalPlan();
+  }
+
+  // T-704: Reihenfolge, Dauer, Rolle und Modus bearbeiten.
+  function openPlacementEditor(placement: TimePlacement) {
+    placementDraft = { ...placement };
+  }
+  async function savePlacement() {
+    if (!temporalPlan || !placementDraft) return;
+    const draft = placementDraft;
+    temporalPlan = { ...temporalPlan, placements: temporalPlan.placements.map((placement) => placement.id === draft.id ? draft : placement) };
+    placementDraft = null;
+    await persistTemporalPlan();
+  }
+  async function removePlacement(placement: TimePlacement) {
+    if (!temporalPlan) return;
+    temporalPlan = { ...temporalPlan, placements: temporalPlan.placements.filter((entry) => entry.id !== placement.id) };
+    placementDraft = null;
+    await persistTemporalPlan();
+  }
+  function formatMinute(minute: number): string {
+    const hours = Math.floor(minute / 60), rest = minute % 60;
+    return hours > 0 ? `${hours}:${String(rest).padStart(2, "0")} h` : `${rest} min`;
+  }
+
+  // --- Phase 8: Strukturierte Vorschläge des Critical Friend (T-801..T-804). ---
+  // Ein Vorschlag ist nur eine Vorschau. Ohne „Übernehmen" bleibt alles unverändert.
+  let proposal: import("$lib/api").Proposal | null = null;
+  let proposalLoading = false;
+  const proposalKindTitles: Record<string, string> = {
+    learning_moment: "Vorschlag: neuer Lernmoment",
+    transition: "Vorschlag: Übergang",
+    temporal_placement: "Vorschlag: zeitliche Platzierung",
+    board_item: "Vorschlag: Arbeitsvorhaben"
+  };
+  async function requestProposal(kind: import("$lib/api").ProposalKind, note?: string) {
+    if (!activeSpace) return;
+    proposalLoading = true;
+    planningError = "";
+    try {
+      const result = await api.generateProposal(activeSpace.id, { kind, note, focus: activeFocus ?? undefined });
+      proposal = result.proposal;
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Der Vorschlag konnte noch nicht vorbereitet werden.";
+    } finally {
+      proposalLoading = false;
+    }
+  }
+  async function acceptProposal() {
+    if (!proposal) return;
+    const current = proposal;
+    proposal = null;
+    if (current.kind === "learning_moment" && current.moment && learningLandscape) {
+      const transitions = (current.possibleTransitions ?? [])
+        .filter((edge) => learningLandscape!.moments.some((moment) => moment.id === edge.fromId))
+        .map((edge) => ({ id: `tr-${uuid().slice(0, 8)}`, from: edge.fromId, to: edge.toId, kind: edge.kind, rationale: "" }));
+      learningLandscape = {
+        ...learningLandscape,
+        moments: [...learningLandscape.moments, current.moment],
+        transitions: [...learningLandscape.transitions, ...transitions]
+      };
+      await persistLandscape();
+      openMomentDetail(current.moment.id);
+    } else if (current.kind === "transition" && current.transition && learningLandscape) {
+      learningLandscape = { ...learningLandscape, transitions: [...learningLandscape.transitions, current.transition] };
+      await persistLandscape();
+    } else if (current.kind === "temporal_placement" && current.placement && temporalPlan) {
+      temporalPlan = { ...temporalPlan, placements: [...temporalPlan.placements, current.placement] };
+      await persistTemporalPlan();
+    } else if (current.kind === "board_item" && current.boardItem) {
+      await ensurePlanningBoard();
+      if (planningBoard) {
+        planningBoard = { ...planningBoard, items: [...planningBoard.items, current.boardItem] };
+        await persistBoard();
+      }
+    }
+  }
+  function refineProposalInConversation() {
+    if (!proposal) return;
+    const current = proposal;
+    proposal = null;
+    focusConversation(`Ich möchte diesen Vorschlag gemeinsam anpassen: ${current.rationale} `);
   }
 
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
@@ -613,7 +881,7 @@ async function sendMessage() {
             {#each messages as message}<article class:teacher={message.author === "teacher"} class="message"><div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div></article>{/each}
             {#if sending}<article class="message thinking"><div class="avatar">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest.</p></article>{/if}
           </div>
-          <div class="composer-wrap"><div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
+          <div class="composer-wrap">{#if activeFocus}<div class="focus-chip"><span>Fokus: {focusKindLabels[activeFocus.kind]} · {activeFocus.label}</span><button on:click={() => (activeFocus = null)} aria-label="Fokus aufheben"><X size={13} /></button></div>{/if}<div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
         </section>
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
         <aside class="perspective-panel" aria-label="Gewählte Perspektive">
@@ -626,16 +894,22 @@ async function sendMessage() {
                 <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
                   <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
                   {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
-                  {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}<button class="board-overview" on:click={() => selectPerspective("board")}>Alle Arbeitsvorhaben im Planungsboard <ArrowRight size={14} /></button>{/if}
+                  {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}<button class="board-overview" on:click={() => requestProposal("board_item")} disabled={proposalLoading}><Lightbulb size={14} /> Arbeitsvorhaben vorschlagen lassen</button><button class="board-overview" on:click={() => selectPerspective("board")}>Alle Arbeitsvorhaben im Planungsboard <ArrowRight size={14} /></button>{/if}
                 </section>
               {/each}
             </div>
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
-          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment oder einen Übergang, um ihn zu öffnen.</p><button class="add-moment-button" on:click={openAddMoment}><Plus size={15} /> Lernmoment hinzufügen</button></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => openMomentDetail(event.node.id)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
-          {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header>{#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lernmomente können später zeitlich eingeplant werden.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"} · {window.durationMinutes} min</span><div class="window-moments">{#each temporalPlan.placements.filter((placement) => placement.windowId === window.id) as placement}{#each (learningLandscape?.moments ?? []).filter((moment) => moment.id === placement.momentId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div>{/if}</div>
+          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment oder einen Übergang, um ihn zu öffnen.</p><div class="title-actions"><button class="add-moment-button" on:click={openAddMoment}><Plus size={15} /> Lernmoment hinzufügen</button><button class="add-moment-button ghost-action" on:click={() => requestProposal("learning_moment")} disabled={proposalLoading}><Lightbulb size={15} /> Lernmoment vorschlagen lassen</button>{#if learningLandscape.moments.length >= 2}<button class="add-moment-button ghost-action" on:click={() => requestProposal("transition")} disabled={proposalLoading}><Lightbulb size={15} /> Übergang vorschlagen lassen</button>{/if}</div></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => openMomentDetail(event.node.id)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
+          {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Ziehe Lernmomente aus der Ablage in ein Unterrichtsfenster. Erst deine Bestätigung legt eine zeitliche Platzierung an.</p><div class="title-actions"><button class="add-moment-button" on:click={() => openWindowForm()}><Plus size={15} /> Unterrichtsfenster hinzufügen</button>{#if temporalPlan.windows.length > 0 && unplacedMoments().length > 0}<button class="add-moment-button ghost-action" on:click={() => requestProposal("temporal_placement")} disabled={proposalLoading}><Lightbulb size={15} /> Platzierung vorschlagen lassen</button>{/if}</div></header>
+            {#each timelineNotices() as notice}<p class="timeline-notice"><TriangleAlert size={14} /> {notice}</p>{/each}
+            <section class="unplaced-tray" aria-label="Noch nicht eingeplante Lernmomente"><h3>Ablage · noch nicht eingeplant</h3>{#if unplacedMoments().length === 0}<p class="muted">Alle Lernmomente sind mindestens einmal eingeplant.</p>{:else}<div class="tray-moments">{#each unplacedMoments() as moment}<button class="tray-moment" draggable="true" on:dragstart={() => (draggedMomentId = moment.id)} on:click={() => openMomentDetail(moment.id)}><strong>{moment.title}</strong><small>{momentKindLabels[moment.kind] ?? moment.kind}</small></button>{/each}</div>{/if}</section>
+            {#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lege oben ein erstes Fenster an, um Lernmomente zeitlich zu platzieren.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}{@const conflicts = windowConflicts(window)}<section class="teaching-window" class:has-conflict={conflicts.length > 0} role="group" aria-label={window.title} on:dragover|preventDefault on:drop={() => onWindowDrop(window)}><div class="window-head"><div><button class="window-title-link" on:click={() => (windowDetail = window)}>{window.title}</button><span>{windowKindLabels[window.kind]} · {window.durationMinutes} min</span></div><div class="window-tools"><button on:click={() => openWindowForm(window)} aria-label="Fenster bearbeiten"><Settings size={14} /></button><button on:click={() => requestDeleteWindow(window)} aria-label="Fenster löschen"><X size={14} /></button></div></div>
+                    {#if conflicts.length > 0}<ul class="window-conflicts">{#each conflicts as conflict}<li><TriangleAlert size={12} /> {conflict}</li>{/each}</ul>{/if}
+                    <div class="window-moments">{#if placementsInWindow(window.id).length === 0}<p class="drop-hint">Lernmoment hierher ziehen</p>{:else}{#each placementsInWindow(window.id) as placement}<button class="placement-block" class:mode-parallel={placement.mode === "parallel"} class:mode-choice={placement.mode === "choice"} class:mode-individual={placement.mode === "individual"} class:mode-group={placement.mode === "group"} on:click={() => openPlacementEditor(placement)}><span class="placement-time">{formatMinute(placement.startMinute)}–{formatMinute(placement.startMinute + placement.durationMinutes)}</span><strong>{momentTitle(placement.momentId)}</strong><span class="placement-tags"><em class="tag-role">{dramaturgicalRoleLabels[placement.dramaturgicalRole]}</em><em class="tag-mode tag-mode-{placement.mode}">{placementModeLabels[placement.mode]}</em></span></button>{/each}{/if}</div></section>{/each}</div>{/if}</div>
+          {:else if roomView === "timeline"}<p class="planning-empty">Die Zeitplanung wird vorbereitet …</p>
           {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => (boardDetail = item)}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>
-          {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}
+          {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `, workerMaterial ? { kind: "material", id: workerMaterial.title, label: workerMaterial.title } : undefined)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}
         </aside>
       </section>
     {:else}
@@ -684,7 +958,7 @@ async function sendMessage() {
             <section class="detail-block"><strong>Materialbedarf</strong>{#if moment.materialNeeds.length === 0}<p class="muted">Noch kein Materialbedarf festgehalten.</p>{:else}<ul class="need-list">{#each moment.materialNeeds as need}<li><span>{need}</span><button class="link-action" on:click={() => openBoardProposal(moment.id, need)}>Als Arbeitsvorhaben vorschlagen</button></li>{/each}</ul>{/if}</section>
             {#if moment.openQuestions.length}<section class="detail-block"><strong>Offene Fragen</strong><ul>{#each moment.openQuestions as question}<li>{question}</li>{/each}</ul></section>{/if}
             <section class="detail-block"><strong>Zeitliche Platzierungen</strong>{#if placementsFor(moment.id).length === 0}<p class="muted">Noch nicht zeitlich eingeplant.</p>{:else}<ul>{#each placementsFor(moment.id) as placement}<li>{windowTitle(placement.windowId)} · {placement.durationMinutes} min</li>{/each}</ul>{/if}</section>
-            <div class="detail-actions"><button on:click={() => { closeMomentDetail(); focusConversation(`Zu „${moment.title}“ weiterdenken: `); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
+            <div class="detail-actions"><button on:click={() => { const target = moment; closeMomentDetail(); focusConversation(`Zu „${target.title}“ weiterdenken: `, { kind: "learning_moment", id: target.id, label: target.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
           </div>
         {/if}
       </dialog>
@@ -756,10 +1030,123 @@ async function sendMessage() {
             {#if item.materialNeed}<dt>Materialbedarf</dt><dd>{item.materialNeed}</dd>{/if}
             {#if item.relatedNodes.length}<dt>Bezug zum Lernmoment</dt><dd>{item.relatedNodes.map(momentTitle).join(", ")}</dd>{/if}
             {#if item.relatedWindows.length}<dt>Bezug zum Unterrichtsfenster</dt><dd>{item.relatedWindows.map(windowTitle).join(", ")}</dd>{/if}
-            <dt>Freigabe</dt><dd>{item.requiresTeacherApproval ? "erfordert fachliche Freigabe" : "keine Freigabe nötig"}</dd>
+            <dt>Freigabe</dt><dd>{item.reviewedAt ? `fachlich freigegeben von ${item.reviewedBy || "Lehrkraft"} am ${new Date(item.reviewedAt).toLocaleString("de-DE")}` : item.requiresTeacherApproval ? "erfordert fachliche Freigabe" : "keine Freigabe nötig"}</dd>
           </dl>
-          <div class="detail-actions"><button on:click={() => clarifyBoardItem(item)}><MessageSquareText size={15} /> Im Gespräch klären</button><button on:click={() => commissionBoardDraft(item)}>Entwurf beauftragen</button><button on:click={() => reviewBoardDraft(item)}>Ergebnis prüfen</button><button on:click={() => approveBoardItem(item)}><Check size={15} /> Freigeben</button><button class="danger" on:click={() => discardBoardItem(item)}>Verwerfen</button></div>
-          <p class="muted">Ein Entwurf entsteht nur durch die ausdrückliche Aktion „Entwurf beauftragen“ – nicht durch das Verschieben der Karte.</p>
+          <div class="detail-actions"><button on:click={() => clarifyBoardItem(item)}><MessageSquareText size={15} /> Im Gespräch klären</button><button on:click={() => commissionBoardDraft(item)}>Entwurf beauftragen</button><button on:click={() => reviewBoardDraft(item)}>Ergebnis prüfen</button><button on:click={() => requestBoardApproval(item)}><Check size={15} /> Freigeben</button><button class="danger" on:click={() => discardBoardItem(item)}>Verwerfen</button></div>
+          <p class="muted">Ein Entwurf entsteht nur durch die ausdrückliche Aktion „Entwurf beauftragen“ – nicht durch das Verschieben der Karte. Die fachliche Freigabe erfordert eine bestätigte Prüfung.</p>
+        </div>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if approvalConfirm}
+    {@const item = approvalConfirm}
+    <div class="planning-overlay" role="presentation" on:click={() => (approvalConfirm = null)}>
+      <dialog class="start-modal" open aria-label="Fachliche Freigabe" on:click|stopPropagation>
+        <header><div><span>Fachliche Freigabe</span><h2>„{item.title}“ freigeben?</h2></div><button class="icon-button" on:click={() => (approvalConfirm = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body">
+          <p>Die Freigabe kennzeichnet das Material als „für den Unterricht bereit“. Sie wird mit Zeitpunkt und prüfender Rolle festgehalten und lässt sich nicht durch Verschieben der Karte ersetzen.</p>
+          {#if workerMaterial}<button class="link-action" on:click={() => { approvalConfirm = null; roomView = "materials"; }}>Entwurf zuerst ansehen</button>{/if}
+          <label class="review-check"><input type="checkbox" bind:checked={approvalReviewed} /> Ich habe den Entwurf fachlich geprüft und gebe ihn für den Unterricht frei.</label>
+          <div class="detail-actions"><button on:click={() => (approvalConfirm = null)}>Abbrechen</button><button disabled={!approvalReviewed} on:click={confirmBoardApproval}><Check size={15} /> Fachlich freigeben</button></div>
+        </div>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if windowForm}
+    <div class="planning-overlay" role="presentation" on:click={() => (windowForm = null)}>
+      <dialog class="start-modal" open aria-label="Unterrichtsfenster" on:click|stopPropagation>
+        <header><div><span>{windowForm.id ? "Fenster bearbeiten" : "Neues Unterrichtsfenster"}</span><h2>Wann findet Unterricht statt?</h2></div><button class="icon-button" on:click={() => (windowForm = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={saveWindow}>
+          <label>Titel<input bind:value={windowForm.title} placeholder="z. B. Stunde 1 – Einstieg" /></label>
+          <label>Art<select bind:value={windowForm.kind} on:change={onWindowKindChange}>{#each Object.entries(windowKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Dauer in Minuten<input type="number" min="5" step="5" bind:value={windowForm.durationMinutes} /></label>
+          <label>Notiz <small>optional</small><textarea bind:value={windowForm.note} rows="2" placeholder="z. B. Raum, besondere Rahmenbedingungen"></textarea></label>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={() => (windowForm = null)}>Abbrechen</button><button type="submit" disabled={windowForm.title.trim().length < 2 || windowForm.durationMinutes <= 0}>{windowForm.id ? "Änderung festhalten" : "Fenster anlegen"}</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if windowDeleteConfirm}
+    {@const target = windowDeleteConfirm}
+    <div class="planning-overlay" role="presentation" on:click={() => (windowDeleteConfirm = null)}>
+      <dialog class="start-modal" open aria-label="Fenster löschen" on:click|stopPropagation>
+        <header><div><span>Sicherheitsprüfung</span><h2>Fenster wirklich löschen?</h2></div><button class="icon-button" on:click={() => (windowDeleteConfirm = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body"><p>„{target.title}“ enthält {placementsInWindow(target.id).length} zeitliche Platzierung{placementsInWindow(target.id).length === 1 ? "" : "en"}. Beim Löschen werden diese Platzierungen entfernt. Die Lernmomente selbst bleiben in der Lernlandschaft erhalten.</p><div class="detail-actions"><button on:click={() => (windowDeleteConfirm = null)}>Behalten</button><button class="danger" on:click={() => deleteWindow(target)}>Fenster und Platzierungen löschen</button></div></div>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if placementConfirm}
+    {@const confirmData = placementConfirm}
+    <div class="planning-overlay" role="presentation" on:click={() => (placementConfirm = null)}>
+      <dialog class="start-modal" open aria-label="Zeitliche Platzierung bestätigen" on:click|stopPropagation>
+        <header><div><span>Zeitlich einplanen</span><h2>„{confirmData.moment.title}“ platzieren</h2></div><button class="icon-button" on:click={() => (placementConfirm = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={confirmPlacement}>
+          <p class="muted">In „{confirmData.window.title}“ ({windowKindLabels[confirmData.window.kind]}, {confirmData.window.durationMinutes} min). Der Lernmoment bleibt in der Lernlandschaft unverändert.</p>
+          <label>Beginn ab Minute<input type="number" min="0" step="5" bind:value={confirmData.startMinute} /></label>
+          <label>Dauer in Minuten<input type="number" min="5" step="5" bind:value={confirmData.durationMinutes} /></label>
+          <label>Dramaturgische Rolle<select bind:value={confirmData.dramaturgicalRole}>{#each Object.entries(dramaturgicalRoleLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Modus<select bind:value={confirmData.mode}>{#each Object.entries(placementModeLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={() => (placementConfirm = null)}>Abbrechen</button><button type="submit">Platzierung speichern</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if placementDraft}
+    {@const draft = placementDraft}
+    <div class="planning-overlay" role="presentation" on:click={() => (placementDraft = null)}>
+      <dialog class="start-modal" open aria-label="Platzierung bearbeiten" on:click|stopPropagation>
+        <header><div><span>Platzierung bearbeiten</span><h2>{momentTitle(draft.momentId)}</h2></div><button class="icon-button" on:click={() => (placementDraft = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={savePlacement}>
+          <label>Unterrichtsfenster<select bind:value={draft.windowId}>{#each temporalPlan?.windows ?? [] as window}<option value={window.id}>{window.title}</option>{/each}</select></label>
+          <label>Beginn ab Minute<input type="number" min="0" step="5" bind:value={draft.startMinute} /></label>
+          <label>Dauer in Minuten<input type="number" min="5" step="5" bind:value={draft.durationMinutes} /></label>
+          <label>Dramaturgische Rolle<select bind:value={draft.dramaturgicalRole}>{#each Object.entries(dramaturgicalRoleLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Modus<select bind:value={draft.mode}>{#each Object.entries(placementModeLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Notiz <small>optional</small><textarea bind:value={draft.note} rows="2"></textarea></label>
+          <div class="pad-actions"><button type="button" class="danger" on:click={() => removePlacement(draft)}>Platzierung entfernen</button><button type="submit">Änderung festhalten</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if windowDetail}
+    {@const detail = windowDetail}
+    <div class="planning-overlay" role="presentation" on:click={() => (windowDetail = null)}>
+      <dialog class="start-modal detail-modal window-detail" open aria-label="Stunden-Detailansicht" on:click|stopPropagation>
+        <header><div><span>{windowKindLabels[detail.kind]} · {detail.durationMinutes} min</span><h2>{detail.title}</h2></div><button class="icon-button" on:click={() => (windowDetail = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body">
+          {#if windowConflicts(detail).length > 0}<ul class="window-conflicts">{#each windowConflicts(detail) as conflict}<li><TriangleAlert size={12} /> {conflict}</li>{/each}</ul>{/if}
+          <section class="detail-block"><strong>Dramaturgie im Verlauf</strong>{#if placementsInWindow(detail.id).length === 0}<p class="muted">Noch keine Lernmomente in diesem Fenster.</p>{:else}<div class="dramaturgy-track">{#each placementsInWindow(detail.id) as placement}<div class="dramaturgy-slot mode-{placement.mode}" style={`flex: ${Math.max(1, placement.durationMinutes)}`}><span>{formatMinute(placement.startMinute)}</span><strong>{momentTitle(placement.momentId)}</strong><em>{dramaturgicalRoleLabels[placement.dramaturgicalRole]} · {placementModeLabels[placement.mode]}</em></div>{/each}</div>{/if}</section>
+          {#if placementsInWindow(detail.id).length > 0}<section class="detail-block"><strong>Tabellarischer Verlaufsplan</strong><table class="lesson-table"><thead><tr><th>Zeit</th><th>Funktion</th><th>Lernaktivität</th><th>Modus</th></tr></thead><tbody>{#each placementsInWindow(detail.id) as placement}{@const moment = learningLandscape?.moments.find((entry) => entry.id === placement.momentId)}<tr on:click={() => openPlacementEditor(placement)}><td>{formatMinute(placement.startMinute)}–{formatMinute(placement.startMinute + placement.durationMinutes)}</td><td>{dramaturgicalRoleLabels[placement.dramaturgicalRole]}</td><td>{moment?.learningActivity || moment?.title || "—"}</td><td>{placementModeLabels[placement.mode]}</td></tr>{/each}</tbody></table></section>{/if}
+          <div class="detail-actions"><button on:click={() => { const target = detail; windowDetail = null; openWindowForm(target); }}>Fenster bearbeiten</button><button on:click={() => { windowDetail = null; focusConversation(`Zur Dramaturgie von „${detail.title}“ weiterdenken: `, { kind: "teaching_window", id: detail.id, label: detail.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button></div>
+        </div>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if proposal}
+    {@const current = proposal}
+    <div class="planning-overlay" role="presentation" on:click={() => (proposal = null)}>
+      <dialog class="start-modal detail-modal" open aria-label="Vorschlag des Critical Friend" on:click|stopPropagation>
+        <header><div><span>Vorschlag · noch nicht übernommen</span><h2>{proposalKindTitles[current.kind] ?? "Vorschlag"}</h2></div><button class="icon-button" on:click={() => (proposal = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body">
+          <dl>
+            <dt>Begründung</dt><dd>{current.rationale}</dd>
+            <dt>Erwartete Konsequenz</dt><dd>{current.expectedConsequence}</dd>
+          </dl>
+          {#if current.moment}<section class="detail-block"><strong>Vorgeschlagener Lernmoment</strong><dl><dt>Titel</dt><dd>{current.moment.title}</dd><dt>Typ</dt><dd>{momentKindLabels[current.moment.kind] ?? current.moment.kind}</dd><dt>Funktion</dt><dd>{current.moment.didacticPurpose}</dd><dt>Lernaktivität</dt><dd>{current.moment.learningActivity}</dd></dl></section>{/if}
+          {#if current.possibleTransitions && current.possibleTransitions.length}<section class="detail-block"><strong>Mögliche Übergänge</strong><ul>{#each current.possibleTransitions as edge}<li>{edge.fromLabel} → {edge.toLabel}</li>{/each}</ul></section>{/if}
+          {#if current.transition}<section class="detail-block"><strong>Vorgeschlagener Übergang</strong><p>{momentTitle(current.transition.from)} → {momentTitle(current.transition.to)} · {transitionKindLabels[current.transition.kind] ?? current.transition.kind}</p><p class="muted">{current.transition.rationale}</p></section>{/if}
+          {#if current.placement}<section class="detail-block"><strong>Vorgeschlagene Platzierung</strong><p>{momentTitle(current.placement.momentId)} in „{current.placementWindowLabel}“ · {formatMinute(current.placement.startMinute)}–{formatMinute(current.placement.startMinute + current.placement.durationMinutes)}</p></section>{/if}
+          {#if current.boardItem}<section class="detail-block"><strong>Vorgeschlagenes Arbeitsvorhaben</strong><dl><dt>Titel</dt><dd>{current.boardItem.title}</dd><dt>Art</dt><dd>{boardKindLabels[current.boardItem.kind] ?? current.boardItem.kind}</dd>{#if current.boardItem.expectedResult}<dt>Erwartetes Ergebnis</dt><dd>{current.boardItem.expectedResult}</dd>{/if}</dl></section>{/if}
+          {#if current.timeEffect}<p class="muted">{current.timeEffect}</p>{/if}
+          <div class="detail-actions"><button on:click={acceptProposal}><Check size={15} /> Übernehmen</button><button on:click={refineProposalInConversation}><MessageSquareText size={15} /> Im Gespräch ändern</button><button class="danger" on:click={() => (proposal = null)}>Verwerfen</button></div>
+          <p class="muted">Erst „Übernehmen“ schreibt diesen Vorschlag kanonisch. Bis dahin bleibt der Denkstand unverändert.</p>
         </div>
       </dialog>
     </div>

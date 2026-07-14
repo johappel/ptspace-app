@@ -257,3 +257,132 @@ bleiben über den getrennten Layout-Endpunkt versionsfrei.
 ### Nächste Aufgabe
 
 T-700: Temporal-Plan laden und speichern (Phase 7 – Zeit & Dramaturgie).
+
+## Phase 7 – Zeit & Dramaturgie
+
+Die Zeitansicht in `frontend/src/routes/+page.svelte` verwendet ausschließlich
+`temporal-plan.yml` (Laden/Speichern über die bestehende `temporal-plan`-Route
+aus Phase 4). Die Lernlandschaft bleibt unverändert; Platzierungen werden nur
+nach ausdrücklicher Bestätigung geschrieben.
+
+### T-700 Temporal-Plan laden und speichern
+
+- `persistTemporalPlan` speichert jede semantische Änderung über
+  `api.saveTemporalPlan`. Kein Zeitfeld kommt aus `learning-landscape.md` oder
+  wird nur im Browserzustand gehalten.
+
+### T-701 Unterrichtsfenster verwalten
+
+- Dialog „Unterrichtsfenster hinzufügen/bearbeiten“ (Titel, Art, Dauer, Notiz);
+  bei neuer Art wird die typische Dauer vorgeschlagen. Löschen eines Fensters mit
+  Platzierungen erfordert eine Sicherheitsbestätigung (`windowDeleteConfirm`); die
+  Lernmomente selbst bleiben erhalten.
+
+### T-702 Nicht platzierte Lernmomente anzeigen
+
+- Ablage „noch nicht eingeplant“ (`unplacedMoments`), abgeleitet aus Lernlandschaft
+  und Temporal Plan. Ein Hinweis zählt die noch nicht eingeplanten Momente.
+
+### T-703 Drag-and-drop
+
+- Lernmomente lassen sich aus der Ablage in ein Fenster ziehen. Beim Drop öffnet
+  ein Bestätigungsdialog mit Startminute, Dauer, dramaturgischer Rolle und Modus;
+  Standardwerte werden vorgeschlagen. Erst „Platzierung speichern“ legt die
+  `TimePlacement` an. Der Lernmoment wird nicht dupliziert, die Lernlandschaft
+  bleibt unverändert.
+
+### T-704 Reihenfolge und Dauer bearbeiten
+
+- Platzierungs-Editor (`placementDraft`): Fenster, Startminute, Dauer,
+  dramaturgische Rolle, Modus, Notiz ändern sowie Platzierung entfernen. Alle
+  Änderungen überstehen einen Reload (Persistenz über `temporal-plan.yml`).
+
+### T-705 Parallelität und Wahl darstellen
+
+- Platzierungsblöcke tragen einen Modus-Tag und eine modusabhängige Rahmung
+  (`common`, `parallel`, `choice`, `individual`, `group`). Die Unterscheidung
+  nutzt Form und Beschriftung, nicht nur Farbe.
+
+### T-706 Konflikte anzeigen
+
+- `windowConflicts` erkennt fehlende Dauer, Überschreitung der Fensterdauer,
+  zeitliche Überlappung gemeinsamer Momente und ungültige Referenzen. `timelineNotices`
+  weist auf nicht platzierte Lernmomente hin. Meldungen sind lehrkräfteverständlich.
+
+### T-707 Stunden-Detailansicht
+
+- Klick auf den Fenstertitel öffnet die Stunden-Detailansicht mit visueller
+  Dramaturgie (proportionale Slots) und tabellarischem Verlaufsplan (Zeit,
+  Funktion, Lernaktivität, Modus). Beide Ansichten bearbeiten dasselbe Temporal
+  Plan; ein Klick auf eine Tabellenzeile öffnet den Platzierungs-Editor.
+
+## Phase 8 – Critical Friend und Vorschläge
+
+### T-800 Kontextfokus vereinheitlichen
+
+- Es bleibt bei einem Gesprächsverlauf. Ein wählbarer Fokus
+  (Lernmoment, Übergang, Unterrichtsfenster, Platzierung, Arbeitsvorhaben,
+  Material) wird als Chip über dem Composer angezeigt, an `sendMessage` übergeben
+  und im Backend (`conversation.ts`) in den Kontext des Harness aufgenommen.
+
+### T-801–T-804 Strukturierte Vorschläge
+
+- Neuer Backend-Dienst `ProposalService` (`backend/src/services/proposals/`) und
+  Route `POST /planning-spaces/:id/proposals`. Der Critical Friend erzeugt einen
+  strukturierten, deterministisch aus dem Denkstand abgeleiteten Vorschlag für
+  Lernmoment (mit Begründung, erwarteter Konsequenz, möglichen Übergängen und
+  Zeitwirkung), Übergang, zeitliche Platzierung oder genau ein Arbeitsvorhaben.
+- Die Route schreibt nichts kanonisch. Im Frontend zeigt ein Vorschau-Modal die
+  Aktionen „Übernehmen“, „Im Gespräch ändern“ und „Verwerfen“. Erst „Übernehmen“
+  schreibt über die bestehenden Artefakt-Routen (Lernlandschaft, Temporal Plan,
+  Planungsboard). Keine Zeit- oder Landschaftsänderung ohne Zustimmung; ein
+  Vorschlag ist noch kein Service Request.
+
+## Phase 9 – Worker und Materialien
+
+### T-900 Service Request an Board-Karte binden
+
+- `ServiceRequestWorkflow.proposeBoardMaterial` bindet jeden Worker-Auftrag an
+  eine Board-Karte (`boardItemId`), mindestens einen pädagogischen Bezug
+  (`relatedMoments`), ein erwartetes Ergebnis und `reviewRequired: true`. Fehlt
+  der Bezug, wird der Auftrag abgelehnt (kein globaler ungebundener Auftrag). Neue
+  Capability `create_board_material`; Route
+  `POST /planning-spaces/:id/service-requests/board-material`.
+
+### T-901 Worker-Ergebnis zurückführen
+
+- „Entwurf beauftragen“ auf der Board-Karte erzeugt und startet den gebundenen
+  Auftrag. Das Ergebnis erscheint als Materialreferenz auf der Karte, im
+  Materialbereich und am zugehörigen Lernmoment (`materialIds`). Der Status bleibt
+  „Entwurf zur Prüfung“; die Karte wandert in die Spalte „Zur Prüfung“ und wird
+  nicht automatisch `ready_for_class`.
+
+### T-902 Fachliche Freigabe
+
+- „Freigeben“ öffnet einen Bestätigungsdialog mit sichtbarer Prüfung (Entwurf
+  ansehen), einer bestätigenden Aktion (Checkbox) und dokumentiert Zeitpunkt
+  (`reviewedAt`) sowie prüfende Rolle (`reviewedBy`). Erst danach wird die Karte
+  `ready`. Drag-and-drop kann diese Freigabe nicht ersetzen (Spaltenwechsel ändert
+  nur die Spalte). `PlanningBoardItemSchema` und der Codec wurden um
+  `serviceRequestId`, `reviewedAt`, `reviewedBy` erweitert.
+
+**Geänderte/neue Dateien (Phase 7–9):** `packages/shared/src/index.ts`,
+`backend/src/routes/conversation.ts`, `backend/src/routes/proposals.ts` (neu),
+`backend/src/routes/serviceRequests.ts`, `backend/src/app.ts`,
+`backend/src/services/proposals/ProposalService.ts` (neu),
+`backend/src/services/serviceRequests/ServiceRequestWorkflow.ts`,
+`backend/src/services/harness/MockHarnessAdapter.ts`,
+`backend/src/services/planning/PlanningArtifactCodec.ts`,
+`frontend/src/lib/api.ts`, `frontend/src/routes/+page.svelte`,
+`frontend/src/routes/styles.css`,
+`backend/test/ProposalService.test.ts` (neu),
+`backend/test/ProposalApi.test.ts` (neu),
+`backend/test/ServiceRequestWorkflow.test.ts`,
+`backend/test/PlanningArtifactCodec.test.ts`.
+
+**Tests:** `pnpm -r test` (Shared 4, Backend 66), `pnpm --filter
+@ptspace/frontend check` (0 Fehler, 0 Warnungen), `pnpm -r build` erfolgreich.
+
+### Nächste Aufgabe
+
+T-1000: Alte Zeitdaten migrieren (Phase 10 – Migration).

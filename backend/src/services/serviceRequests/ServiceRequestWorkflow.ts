@@ -21,6 +21,12 @@ export type AppServiceRequest = {
   constraints: Record<string, unknown>;
   returnTo: "critical_friend";
   requiresApproval: boolean;
+  // Phase 9 (T-900): jeder Worker-Auftrag ist an ein Arbeitsvorhaben und einen
+  // pädagogischen Bezug gebunden. Es gibt keinen ungebundenen Materialauftrag.
+  boardItemId?: string;
+  relatedMoments?: string[];
+  expectedResult?: string;
+  reviewRequired: boolean;
   createdAt: string;
   updatedAt: string;
   review?: { status: "passed" | "failed"; note: string; reviewedAt: string };
@@ -57,6 +63,14 @@ const capabilities: Record<string, CapabilityContract> = {
     outputType: "student_instruction",
     defaultLocation: "drafts/student-instruction.md",
     teacherFacingLabel: "Arbeitsauftrag als Entwurf vorbereiten"
+  },
+  create_board_material: {
+    id: "create_board_material",
+    service: "worker",
+    modes: ["draft"],
+    outputType: "material_draft",
+    defaultLocation: "materials/board-material.md",
+    teacherFacingLabel: "Material für ein Arbeitsvorhaben entwerfen"
   }
 };
 
@@ -78,6 +92,28 @@ export class ServiceRequestWorkflow {
     });
   }
 
+  // T-900: Ein Materialauftrag ist immer an eine Board-Karte und mindestens einen
+  // pädagogischen Bezug gebunden. Ohne diese Bindung entsteht kein Auftrag.
+  async proposeBoardMaterial(
+    planningSpaceId: string,
+    input: { boardItemId: string; reason: string; relatedMoments: string[]; expectedResult: string; title: string; constraints?: Record<string, unknown> }
+  ): Promise<AppServiceRequest> {
+    if (!input.boardItemId) throw new Error("service_request_needs_board_item");
+    if (input.relatedMoments.length === 0) throw new Error("service_request_needs_pedagogical_reference");
+    return this.propose(planningSpaceId, {
+      service: "worker",
+      mode: "draft",
+      capability: "create_board_material",
+      reason: input.reason,
+      input: { learningDesign: "learning-design.md", title: input.title },
+      constraints: { language: "de", ...(input.constraints ?? {}) },
+      boardItemId: input.boardItemId,
+      relatedMoments: input.relatedMoments,
+      expectedResult: input.expectedResult,
+      locationOverride: `materials/${input.boardItemId}.md`
+    });
+  }
+
   async propose(
     planningSpaceId: string,
     input: {
@@ -87,6 +123,10 @@ export class ServiceRequestWorkflow {
       reason: string;
       input?: Record<string, unknown>;
       constraints?: Record<string, unknown>;
+      boardItemId?: string;
+      relatedMoments?: string[];
+      expectedResult?: string;
+      locationOverride?: string;
     }
   ): Promise<AppServiceRequest> {
     const capability = capabilities[input.capability];
@@ -103,10 +143,14 @@ export class ServiceRequestWorkflow {
       capability: capability.id,
       reason: input.reason,
       input: input.input ?? {},
-      expectedOutput: { type: capability.outputType, location: capability.defaultLocation },
+      expectedOutput: { type: capability.outputType, location: input.locationOverride ?? capability.defaultLocation },
       constraints: input.constraints ?? {},
       returnTo: "critical_friend",
       requiresApproval: true,
+      boardItemId: input.boardItemId,
+      relatedMoments: input.relatedMoments,
+      expectedResult: input.expectedResult,
+      reviewRequired: true,
       createdAt: now,
       updatedAt: now
     };

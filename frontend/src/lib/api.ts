@@ -53,12 +53,30 @@ export type PlanningBoardItem = {
   materialNeed: string;
   expectedResult: string;
   requiresTeacherApproval: boolean;
+  serviceRequestId: string;
+  reviewedAt: string;
+  reviewedBy: string;
 };
 
 export type PlanningBoard = { schema: "ptspace.planning-board/v1"; items: PlanningBoardItem[] };
 
 
-export type PedagogicalFocus = { kind: "learning_moment" | "teaching_window" | "planning_item" | "material"; id: string; label: string };
+export type PedagogicalFocus = { kind: "learning_moment" | "transition" | "teaching_window" | "placement" | "planning_item" | "material"; id: string; label: string };
+
+export type ProposalKind = "learning_moment" | "transition" | "temporal_placement" | "board_item";
+export type Proposal = {
+  id: string;
+  kind: ProposalKind;
+  rationale: string;
+  expectedConsequence: string;
+  moment?: LearningMoment;
+  possibleTransitions?: Array<{ fromId: string; fromLabel: string; toId: string; toLabel: string; kind: LearningLandscape["transitions"][number]["kind"] }>;
+  timeEffect?: string;
+  transition?: LearningLandscape["transitions"][number];
+  placement?: TimePlacement;
+  placementWindowLabel?: string;
+  boardItem?: PlanningBoardItem;
+};
 export type RoomOverview = { progress: Array<{ id: string; label: string; complete: boolean }>; activity: Array<{ id: string; label: string; createdAt: string }>; versions: Array<{ label: string; hash: string; createdAt: string }> };
 export type PlanningSpace = {
   id: string;
@@ -106,6 +124,9 @@ export type WorkerMaterial = {
   status: "review_needed";
   format: "markdown";
   content: string;
+  location?: string;
+  boardItemId?: string | null;
+  relatedMoments?: string[];
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -144,6 +165,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, focus })
     }),
+  generateProposal: (spaceId: string, input: { kind: ProposalKind; note?: string; focus?: PedagogicalFocus }) =>
+    request<{ proposal: Proposal }>(`/planning-spaces/${spaceId}/proposals`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
   getThinkingState: (spaceId: string) =>
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
   getPlanningArtifacts: (spaceId: string) =>
@@ -168,6 +194,11 @@ export const api = {
       body: JSON.stringify({
         reason: "Der aktuelle Denkstand soll in einem ersten, ausdrücklich noch zu prüfenden Arbeitsauftrag erprobt werden."
       })
+    }),
+  proposeBoardMaterial: (spaceId: string, input: { boardItemId: string; title: string; relatedMoments: string[]; expectedResult: string }) =>
+    request<{ serviceRequest: ServiceRequest & { boardItemId?: string; relatedMoments?: string[]; expectedOutput?: { location: string } } }>(`/planning-spaces/${spaceId}/service-requests/board-material`, {
+      method: "POST",
+      body: JSON.stringify(input)
     }),
   approveServiceRequest: (spaceId: string, requestId: string) =>
     request<{ serviceRequest: ServiceRequest; material: WorkerMaterial; teacherFacingMessage: string }>(

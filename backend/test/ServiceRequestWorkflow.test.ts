@@ -73,4 +73,43 @@ describe("ServiceRequestWorkflow", () => {
       reason: "Eine nicht freigegebene Fähigkeit darf nicht still ausgeführt werden."
     })).rejects.toThrow("capability_not_approved");
   });
+
+  it("binds a material request to a board card and at least one pedagogical reference", async () => {
+    const request = await workflow.proposeBoardMaterial(space.id, {
+      boardItemId: "pb-1",
+      title: "Arbeitsblatt zum Impuls",
+      relatedMoments: ["lm-impuls"],
+      expectedResult: "Ein differenziertes Arbeitsblatt als Entwurf.",
+      reason: "Für dieses Arbeitsvorhaben soll ein erster, ausdrücklich noch zu prüfender Entwurf entstehen."
+    });
+    expect(request.boardItemId).toBe("pb-1");
+    expect(request.relatedMoments).toEqual(["lm-impuls"]);
+    expect(request.reviewRequired).toBe(true);
+    expect(request.expectedOutput.location).toBe("materials/pb-1.md");
+  });
+
+  it("refuses a material request without a pedagogical reference", async () => {
+    await expect(workflow.proposeBoardMaterial(space.id, {
+      boardItemId: "pb-1",
+      title: "Arbeitsblatt",
+      relatedMoments: [],
+      expectedResult: "",
+      reason: "Ein Materialauftrag ohne pädagogischen Bezug darf nicht entstehen."
+    })).rejects.toThrow("service_request_needs_pedagogical_reference");
+  });
+
+  it("returns a bound worker result as a reviewable draft, not as classroom-ready material", async () => {
+    const request = await workflow.proposeBoardMaterial(space.id, {
+      boardItemId: "pb-1",
+      title: "Arbeitsblatt zum Impuls",
+      relatedMoments: ["lm-impuls"],
+      expectedResult: "Ein Entwurf.",
+      reason: "Für dieses Arbeitsvorhaben soll ein erster, ausdrücklich noch zu prüfender Entwurf entstehen."
+    });
+    const completed = await workflow.approveAndRun(space.id, request.id, space);
+    expect(completed.status).toBe("reviewed");
+    const material = await workspace.readProjectFile(space.id, "materials/pb-1.md");
+    expect(material).toContain("# Entwurf: Arbeitsblatt zum Impuls");
+    expect(material).toContain("Status: Entwurf");
+  });
 });

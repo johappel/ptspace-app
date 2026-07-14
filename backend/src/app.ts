@@ -16,6 +16,7 @@ import { OkfExporter } from "./services/okf/OkfExporter.js";
 import { PermissionPolicy } from "./services/policy/PermissionPolicy.js";
 import { SensitiveContentScanner } from "./services/privacy/SensitiveContentScanner.js";
 import { ServiceRequestWorkflow } from "./services/serviceRequests/ServiceRequestWorkflow.js";
+import { ProposalService } from "./services/proposals/ProposalService.js";
 import { planningSpaceRoutes } from "./routes/planningSpaces.js";
 import { conversationRoutes } from "./routes/conversation.js";
 import { thinkingStateRoutes } from "./routes/thinkingState.js";
@@ -23,6 +24,7 @@ import { exportRoutes } from "./routes/exports.js";
 import { sensitiveContentRoutes } from "./routes/sensitiveContent.js";
 import { serviceRequestRoutes } from "./routes/serviceRequests.js";
 import { planningArtifactRoutes, planningArtifactResourceRoutes } from "./routes/planningArtifacts.js";
+import { proposalRoutes } from "./routes/proposals.js";
 import { roomOverviewRoutes } from "./routes/roomOverview.js";
 
 function createHarness(config: ReturnType<typeof loadConfig>, policy: PermissionPolicy): HarnessAdapter {
@@ -69,6 +71,7 @@ export async function buildApp() {
   const okf = new OkfExporter();
   const scanner = new SensitiveContentScanner();
   const serviceWorkflow = new ServiceRequestWorkflow(workspace, harness);
+  const proposals = new ProposalService();
 
   app.get("/health", async () => ({
     status: "ok",
@@ -83,6 +86,7 @@ export async function buildApp() {
   await app.register(roomOverviewRoutes, { prefix: "/api", store, workspace, git, conversation });
   await app.register(planningArtifactRoutes, { prefix: "/api", store, workspace, git });
   await app.register(planningArtifactResourceRoutes, { prefix: "/api", store, workspace, git });
+  await app.register(proposalRoutes, { prefix: "/api", store, workspace, proposals });
   await app.register(serviceRequestRoutes, { prefix: "/api", store, workspace, git, workflow: serviceWorkflow });
   await app.register(exportRoutes, { prefix: "/api", store, approvals, workspace, exportFilter, okf, scanner });
   await app.register(sensitiveContentRoutes, { prefix: "/api", scanner });

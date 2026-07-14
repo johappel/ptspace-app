@@ -53,9 +53,12 @@ export class MockHarnessAdapter implements HarnessAdapter {
   }
 
   async requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult> {
-    if (input.capability !== "create_student_instruction") throw new Error("mock_capability_not_supported");
+    if (input.capability !== "create_student_instruction" && input.capability !== "create_board_material") {
+      throw new Error("mock_capability_not_supported");
+    }
+    const title = input.capability === "create_board_material" ? (typeof input.input.title === "string" ? input.input.title : "Material") : "Arbeitsauftrag";
     const content = [
-      "# Entwurf: Arbeitsauftrag",
+      `# Entwurf: ${title}`,
       "",
       "## Auftrag",
       "",
@@ -72,7 +75,7 @@ export class MockHarnessAdapter implements HarnessAdapter {
       "> Status: Entwurf – noch nicht für den Unterricht freigegeben."
     ].join("\n");
     return {
-      summary: "Der Worker hat einen Arbeitsauftrag als Entwurf vorbereitet.",
+      summary: "Der Worker hat einen Entwurf vorbereitet.",
       workspaceUpdates: [{ relativePath: input.expectedOutput.relativePath, content }],
       events: [{ type: "workspace_update", relativePath: input.expectedOutput.relativePath }]
     };

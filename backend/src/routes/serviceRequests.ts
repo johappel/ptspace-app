@@ -9,6 +9,14 @@ const ProposalSchema = z.object({
   reason: z.string().min(10).default("Das Lernanliegen ist ausreichend geklärt; ein erster Arbeitsauftrag soll als prüfbarer Entwurf vorbereitet werden.")
 });
 
+const BoardMaterialSchema = z.object({
+  boardItemId: z.string().min(1),
+  title: z.string().min(2),
+  relatedMoments: z.array(z.string().min(1)).min(1, "Ein Materialauftrag braucht mindestens einen pädagogischen Bezug."),
+  expectedResult: z.string().default(""),
+  reason: z.string().min(10).default("Für dieses Arbeitsvorhaben soll ein erster, ausdrücklich noch zu prüfender Materialentwurf vorbereitet werden.")
+});
+
 export async function serviceRequestRoutes(
   app: FastifyInstance,
   deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager; workflow: ServiceRequestWorkflow }
@@ -56,6 +64,32 @@ export async function serviceRequestRoutes(
     });
   });
 
+  // T-900: Materialauftrag, ausdrücklich an eine Board-Karte und einen Lernmoment gebunden.
+  app.post("/planning-spaces/:id/service-requests/board-material", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const space = await deps.store.get(id);
+    if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
+    const parsed = BoardMaterialSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ message: "Ein Materialauftrag braucht ein Arbeitsvorhaben und mindestens einen pädagogischen Bezug." });
+    await deps.workspace.ensureWorkspace(space);
+    try {
+      const serviceRequest = await deps.workflow.proposeBoardMaterial(id, parsed.data);
+      const version = await deps.git.saveVersion(deps.workspace.getWorkspaceRoot(id), "Materialauftrag an Arbeitsvorhaben gebunden");
+      return reply.code(201).send({
+        serviceRequest,
+        nextStep: { label: "Materialentwurf vorbereiten", status: "suggested", requiresTeacherApproval: true },
+        version
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "unknown";
+      const messages: Record<string, string> = {
+        service_request_needs_board_item: "Ein Materialauftrag braucht ein Arbeitsvorhaben.",
+        service_request_needs_pedagogical_reference: "Ein Materialauftrag braucht mindestens einen pädagogischen Bezug."
+      };
+      return reply.code(422).send({ message: messages[reason] ?? "Der Materialauftrag konnte nicht angelegt werden." });
+    }
+  });
+
   app.post("/planning-spaces/:id/service-requests/:requestId/approve", async (request, reply) => {
     const { id, requestId } = request.params as { id: string; requestId: string };
     if (!(await deps.store.get(id))) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
@@ -68,12 +102,14 @@ export async function serviceRequestRoutes(
       return {
         serviceRequest,
         material: {
-          title: "Arbeitsauftrag",
+          title: typeof serviceRequest.input.title === "string" ? serviceRequest.input.title : "Arbeitsauftrag",
           status: "review_needed",
           format: "markdown",
           location: serviceRequest.expectedOutput.location,
           content,
-          review: serviceRequest.review
+          review: serviceRequest.review,
+          boardItemId: serviceRequest.boardItemId ?? null,
+          relatedMoments: serviceRequest.relatedMoments ?? []
         },
         teacherFacingMessage: "Der Worker hat den Entwurf vorbereitet; die automatische Vorprüfung ist bestanden. Jetzt kann er gemeinsam mit dem Critical Friend inhaltlich geprüft werden.",
         version

@@ -73,4 +73,29 @@ items:
     });
     expect(parsePlanningBoard(serializePlanningBoard(board))).toEqual(board);
   });
+
+  it("keeps the bound service request and the documented review of a board card across a roundtrip", () => {
+    const source = `schema: ptspace.planning-board/v1
+items:
+  - id: pb-worksheet
+    title: Arbeitsblatt zum Impuls
+    kind: produce
+    column: ready
+    related_nodes: [lm-impuls]
+    material_ids: [materials/pb-worksheet.md]
+    service_request_id: sr-123
+    reviewed_at: 2026-07-14T10:00:00.000Z
+    reviewed_by: Lehrkraft
+    status: ready
+    requires_teacher_approval: true
+`;
+
+    const board = parsePlanningBoard(source);
+    expect(board.items[0]).toMatchObject({
+      serviceRequestId: "sr-123",
+      reviewedAt: "2026-07-14T10:00:00.000Z",
+      reviewedBy: "Lehrkraft"
+    });
+    expect(parsePlanningBoard(serializePlanningBoard(board))).toEqual(board);
+  });
 });

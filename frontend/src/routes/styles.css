@@ -431,3 +431,50 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .need-editor > strong { color:#183c37; font-size:.8rem; }
 .need-row { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }.need-row span { font-size:.82rem; color:#33524d; }.need-row button { border:0; background:transparent; color:#8a6a64; padding:.2rem; display:grid; place-items:center; }
 .need-add { display:flex; gap:.4rem; }.need-add input { flex:1; }.need-add button { display:inline-flex; align-items:center; gap:.3rem; border:1px solid #bfd0cb; border-radius:.45rem; padding:.4rem .55rem; background:#fff; color:#164940; font-size:.74rem; font-weight:750; white-space:nowrap; }
+
+/* Phase 7: Zeit & Dramaturgie. */
+.timeline-notice { display:flex; align-items:center; gap:.4rem; margin:.4rem 0 0; color:#8a5a1c; font-size:.8rem; }
+.unplaced-tray { margin:1rem 0; padding:.8rem; border:1px dashed #c2d3ce; border-radius:.6rem; background:#f7fbf9; }
+.unplaced-tray h3 { margin:0 0 .5rem; color:#537370; font-size:.75rem; font-weight:750; text-transform:uppercase; }
+.tray-moments { display:flex; flex-wrap:wrap; gap:.5rem; }
+.tray-moment { display:grid; gap:.15rem; padding:.5rem .65rem; border:1px solid #c9d9d4; border-radius:.5rem; background:#fff; color:#163e3b; cursor:grab; text-align:left; }
+.tray-moment:active { cursor:grabbing; }.tray-moment strong { font-size:.82rem; }.tray-moment small { color:#66807c; font-size:.7rem; }
+.teaching-window.has-conflict { border-color:#e0b6b0; }
+.window-head { display:flex; align-items:start; justify-content:space-between; gap:.5rem; }
+.window-title-link { border:0; background:transparent; padding:0; color:#163e3b; font-size:1rem; font-weight:750; cursor:pointer; text-align:left; }
+.window-title-link:hover { text-decoration:underline; }
+.window-head > div:first-child span { display:block; color:#66807c; font-size:.75rem; }
+.window-tools { display:flex; gap:.2rem; }.window-tools button { border:1px solid #d3e0db; border-radius:.4rem; background:#fff; color:#4a6663; padding:.25rem; display:grid; place-items:center; cursor:pointer; }
+.window-conflicts { list-style:none; margin:.6rem 0 0; padding:.5rem .6rem; display:grid; gap:.3rem; border:1px solid #e6c6c0; border-radius:.45rem; background:#fbf1ef; }
+.window-conflicts li { display:flex; align-items:center; gap:.35rem; color:#9a3527; font-size:.74rem; }
+.drop-hint { margin:.6rem 0; padding:.7rem; border:1px dashed #c9d9d4; border-radius:.45rem; color:#7a908c; font-size:.76rem; text-align:center; }
+.placement-block { display:grid; gap:.25rem; width:100%; padding:.55rem .65rem; border:1px solid #c9d9d4; border-left:4px solid #4c8d7f; border-radius:.45rem; background:#fff; text-align:left; color:#163e3b; cursor:pointer; }
+.placement-block.mode-parallel { border-left-color:#3f7bb0; border-left-style:double; border-left-width:6px; }
+.placement-block.mode-choice { border-left-color:#b0803f; border-left-style:dashed; }
+.placement-block.mode-individual { border-left-color:#6a6f9a; }
+.placement-block.mode-group { border-left-color:#5a9a6a; }
+.placement-time { color:#537370; font-size:.7rem; font-weight:700; }
+.placement-block strong { font-size:.84rem; line-height:1.3; }
+.placement-tags { display:flex; flex-wrap:wrap; gap:.3rem; }
+.placement-tags em { font-style:normal; padding:.1rem .35rem; border-radius:.25rem; font-size:.65rem; font-weight:700; }
+.tag-role { background:#eef4f0; color:#527169; }
+.tag-mode { background:#e6eef4; color:#3f5f7a; }
+.tag-mode-choice { background:#f4ece0; color:#7a5a2c; }.tag-mode-parallel { background:#e2edf5; color:#345f80; }.tag-mode-individual { background:#ecedf5; color:#4a4f7a; }.tag-mode-group { background:#e7f2ea; color:#3a6a4a; }
+.dramaturgy-track { display:flex; gap:.35rem; align-items:stretch; }
+.dramaturgy-slot { display:grid; gap:.2rem; align-content:start; min-width:0; padding:.5rem; border-radius:.45rem; background:#f2f8f5; border:1px solid #d5e4de; border-top:4px solid #4c8d7f; }
+.dramaturgy-slot.mode-parallel { border-top-color:#3f7bb0; }.dramaturgy-slot.mode-choice { border-top-color:#b0803f; }.dramaturgy-slot.mode-individual { border-top-color:#6a6f9a; }.dramaturgy-slot.mode-group { border-top-color:#5a9a6a; }
+.dramaturgy-slot span { color:#537370; font-size:.68rem; font-weight:700; }.dramaturgy-slot strong { font-size:.78rem; line-height:1.25; }.dramaturgy-slot em { font-style:normal; color:#66807c; font-size:.68rem; }
+.lesson-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+.lesson-table th { text-align:left; padding:.4rem .5rem; border-bottom:1px solid #d5e1dd; color:#537370; font-size:.72rem; text-transform:uppercase; }
+.lesson-table td { padding:.45rem .5rem; border-bottom:1px solid #eef3f0; color:#25423d; vertical-align:top; }
+.lesson-table tbody tr { cursor:pointer; }.lesson-table tbody tr:hover { background:#f5f9f7; }
+.window-detail { width:min(680px, 100%); }
+
+/* Phase 8: Kontextfokus und Vorschläge. */
+.focus-chip { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.4rem; padding:.35rem .55rem; border:1px solid #cbdbd5; border-radius:.45rem; background:#eef5f1; color:#2c4c47; font-size:.75rem; font-weight:700; }
+.focus-chip button { border:0; background:transparent; color:#4a6663; display:grid; place-items:center; cursor:pointer; padding:.1rem; }
+.title-actions { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.5rem; }
+.ghost-action { color:#45645d; border-color:#d5e2dc; background:#fafcfb; }
+.ghost-action:disabled { opacity:.55; cursor:progress; }
+.review-check { display:flex; align-items:flex-start; gap:.5rem; padding:.6rem; border:1px solid #cbdbd5; border-radius:.5rem; background:#f7fbf9; color:#274642; font-size:.82rem; line-height:1.4; }
+.review-check input { margin-top:.15rem; }

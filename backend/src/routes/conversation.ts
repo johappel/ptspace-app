@@ -6,7 +6,21 @@ import { GitManager } from "../services/git/GitManager.js";
 import { HarnessAdapter } from "../services/harness/HarnessAdapter.js";
 import { ConversationStore } from "../storage/ConversationStore.js";
 
-const SendMessageSchema = z.object({ message: z.string().min(1) });
+const FocusSchema = z.object({
+  kind: z.enum(["learning_moment", "transition", "teaching_window", "placement", "planning_item", "material"]),
+  id: z.string().min(1),
+  label: z.string().min(1)
+});
+const SendMessageSchema = z.object({ message: z.string().min(1), focus: FocusSchema.optional() });
+
+const focusKindLabels: Record<string, string> = {
+  learning_moment: "Lernmoment",
+  transition: "Übergang",
+  teaching_window: "Unterrichtsfenster",
+  placement: "zeitliche Platzierung",
+  planning_item: "Arbeitsvorhaben",
+  material: "Material"
+};
 
 export async function conversationRoutes(
   app: FastifyInstance,
@@ -50,11 +64,14 @@ export async function conversationRoutes(
         return reply.code(409).send({ message: availability.teacherFacingMessage, availability });
       }
       const session = await deps.harness.createSession({ planningSpaceId: space.id, workspaceRoot });
+      const focusLine = parsed.data.focus
+        ? `\nAktueller Fokus der Lehrkraft: ${focusKindLabels[parsed.data.focus.kind] ?? parsed.data.focus.kind} „${parsed.data.focus.label}".`
+        : "";
       const result = await deps.harness.sendMessage({ 
         session, 
         space, 
         message: parsed.data.message,
-        conversationContext: `${await deps.conversation.getConversationSummary(id)}
+        conversationContext: `${await deps.conversation.getConversationSummary(id)}${focusLine}
 
 Gemeinsamer Denkstand:
 ${await deps.workspace.readProjectFile(id, "learning-design.md")}`

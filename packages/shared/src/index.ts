@@ -339,7 +339,12 @@ export const PlanningBoardItemSchema = z.object({
   // beschreibt das erwartete Ergebnis. Beide bleiben optional.
   materialNeed: z.string().default(""),
   expectedResult: z.string().default(""),
-  requiresTeacherApproval: z.boolean().default(true)
+  requiresTeacherApproval: z.boolean().default(true),
+  // T-900/T-901: der gebundene Materialauftrag und sein Ergebnisort.
+  serviceRequestId: z.string().default(""),
+  // T-902: fachliche Freigabe wird mit Zeitpunkt und prüfender Rolle dokumentiert.
+  reviewedAt: z.string().default(""),
+  reviewedBy: z.string().default("")
 });
 export type PlanningBoardItem = z.infer<typeof PlanningBoardItemSchema>;
 
