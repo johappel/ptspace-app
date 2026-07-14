@@ -172,7 +172,9 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
 
   async requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult> {
     if (input.service !== "worker") throw new Error("unsupported_harness_task_service");
-    if (input.capability !== "create_student_instruction") throw new Error("unsupported_worker_capability");
+    if (input.capability !== "create_student_instruction" && input.capability !== "create_board_material") {
+      throw new Error("unsupported_worker_capability");
+    }
     const projectDir = input.session.workspaceRoot;
     await assertProjectDirectory(projectDir, input.session.workspaceRoot);
     const expectedPath = safeRelativeOutputPath(projectDir, input.expectedOutput.relativePath);
@@ -303,16 +305,22 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
   }
 
   private workerPrompt(input: HarnessTaskRequest): string {
+    const capabilityFile = input.capability === "create_board_material" ? "CREATE_BOARD_MATERIAL.md" : "CREATE_STUDENT_INSTRUCTION.md";
+    const capabilityHint =
+      input.capability === "create_board_material"
+        ? "Erzeuge ein Material für ein konkretes Arbeitsvorhaben aus dem Planungsboard, gebunden an die angegebenen Lernmomente."
+        : "Erzeuge eine Schüler:innen-Anleitung aus dem Learning Design.";
     return [
       "Du bist ein unsichtbarer Worker im Pedagogical Thinking Space.",
       "Du sprichst nicht mit der Lehrkraft und triffst keine pädagogischen Entscheidungen.",
-      `Lies den Capability-Vertrag unter ${this.kernelReferencePath()}/capabilities/workers/CREATE_STUDENT_INSTRUCTION.md.`,
+      `Lies den Capability-Vertrag unter ${this.kernelReferencePath()}/capabilities/workers/${capabilityFile}. Falls diese Datei nicht vorhanden ist, wende die allgemeinen Worker-Regeln an.`,
       "Lies im aktuellen Planungsraum learning-design.md und decisions.md vollständig.",
       `Capability: ${input.capability}`,
       `Begründung: ${input.reason}`,
       `Zieltyp: ${input.expectedOutput.type}`,
       `Schreibe ausschließlich nach: ${input.expectedOutput.relativePath}`,
       `Constraints: ${JSON.stringify(input.constraints)}`,
+      capabilityHint,
       "Wenn Lernanliegen oder erforderliche Entscheidung nicht ausreichend geklärt sind, erzeuge keine Datei und antworte nur BLOCKED.",
       "Andernfalls erstelle die Datei exakt nach dem Capability-Vertrag. Markiere sie als Entwurf.",
       "Verändere keine andere Datei und gib keine lehrkraftgerichtete Antwort."

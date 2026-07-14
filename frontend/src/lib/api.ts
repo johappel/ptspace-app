@@ -130,10 +130,11 @@ export type WorkerMaterial = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const hasBody = init?.body !== undefined && init.body !== null && init.body !== "";
   const response = await fetch(`${backendUrl}/api${path}`, {
     ...init,
     headers: {
-      "content-type": "application/json",
+      ...(hasBody ? { "content-type": "application/json" } : {}),
       ...(init?.headers ?? {})
     }
   });

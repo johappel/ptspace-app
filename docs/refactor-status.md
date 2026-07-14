@@ -386,3 +386,149 @@ nach ausdrücklicher Bestätigung geschrieben.
 ### Nächste Aufgabe
 
 T-1000: Alte Zeitdaten migrieren (Phase 10 – Migration).
+
+## Phase 10 – Migration
+
+### Relevanzbewertung (Ergebnis: kein realer Migrationslauf erforderlich)
+
+Vor der Umsetzung wurde der Bestand geprüft:
+
+- **Kein persistiertes Alt-Zeitformat.** In keinem Workspace existiert eine
+  `learning-landscape.md` mit `teaching_windows:`/`placements:`. Zeitfenster und
+  Platzierungen wurden nie in die Lernlandschaft geschrieben; sie leben seit
+  Phase 4 kanonisch in `temporal-plan.yml`. T-1000 hat damit keine zu
+  extrahierenden Zeitdaten (kein spekulativer Parser für ein nie erzeugtes Format).
+- **Keine echten Laufzeit-Workspaces.** Das Laufzeitverzeichnis
+  (`<runtimeRoot>/workspace`) existiert nicht. Die Ordner unter
+  `backend/workspaces/space-<uuid>/project/` und `workspaces/` stammen aus einem
+  obsoleten UUID+`project/`-Layout und werden vom aktuellen (slug-basierten) Code
+  nicht mehr gelesen.
+- **App-Legacy-Listen bereits als Read Model behandelt.** `activities`,
+  `materials`, `decisions`, `learningJourney.phases` und `nextSteps` sind in
+  `planning-spaces.json` leer bzw. Vorlage und wurden in T-302 als klar
+  bezeichnete Read-Model-Projektionen entschärft. Es gibt keinen Schreibpfad, der
+  daraus doppelte Semantik erzeugt.
+
+### T-1000 / T-1001 / T-403 – umgesetzte Garantie statt Datentransformation
+
+Die eigentliche Anforderung „bestehende Workspaces sind migrierbar“ ist durch die
+Öffnungslogik aus T-403 bereits erfüllt: `WorkspaceManager.ensureWorkspace` legt
+fehlende kanonische Artefakte (`temporal-plan.yml`, `planning-board.yml`,
+`learning-landscape.md`) mit gültigen, leeren Defaults an (`writeIfMissing`) und
+überschreibt **nie** vorhandene Dateien. Ein alter Workspace wird damit beim
+Öffnen verlustfrei in das aktuelle Format überführt.
+
+Diese Garantie ist jetzt durch einen Regressionstest abgesichert
+(`backend/test/WorkspaceMigration.test.ts`):
+
+- Ein vorbefüllter Legacy-Workspace (nur `learning-design.md`, `next-steps.md`,
+  `decisions.md`, `open-questions.md`) erhält beim Öffnen valide neue Artefakte;
+  keine Legacy-Datei wird überschrieben (keine stille Löschung).
+- Wiederholbarkeit: Ein zweiter Öffnungsvorgang verändert keine Datei
+  (bereits-migriert-Erkennung über die Existenzprüfung).
+- Eine bereits vorhandene Lernlandschaft samt Lernmoment bleibt unverändert und
+  wird um einen gültigen, leeren `temporal-plan.yml` ergänzt (Zeitdaten getrennt).
+
+Für den unwahrscheinlichen Fall, dass künftig doch ein Workspace mit
+Alt-Zeitdaten auftaucht, gilt die Migrationsregel aus
+`docs/refactor-domain-inventory.md`: Legacy-Daten bleiben lesbar, nicht eindeutig
+überführbare Daten werden als Review-Aufgabe markiert, nichts wird gelöscht.
+
+## Phase 11 – Tests
+
+### T-1100 Kernel-Schema-Tests
+
+Der pädagogische Kernel (`pedagogical-thinking-space`) ist ein eigenes Repository
+und in diesem Workspace nicht eingebunden. Die Kernel-Schema-Tests gehören dorthin
+und werden hier nicht dupliziert. Die App-seitigen Schemas (`packages/shared`)
+sind über Codec- und API-Tests abgedeckt.
+
+### T-1101 Codec-Unit-Tests
+
+- Learning-Landscape-Roundtrip: `backend/test/LearningLandscapeCodec.test.ts` und
+  `PlanningArtifactCodec.test.ts`.
+- Temporal-Plan-Roundtrip: `backend/test/TemporalPlanCodec.test.ts`.
+- Planning-Board-Roundtrip: `backend/test/PlanningArtifactCodec.test.ts`.
+- **Materialmetadaten-Roundtrip (neu):** `packages/shared/test/domain.test.ts`
+  prüft, dass `MaterialSchema` einen JSON-Roundtrip verlustfrei übersteht und
+  unbekannte `status`/`kind`-Werte ablehnt.
+
+### T-1102 API-Integrationstests
+
+Abgedeckt durch `backend/test/PlanningArtifactResourceApi.test.ts`:
+
+- Lernlandschaft speichern und laden (inkl. Git-Version).
+- Temporal Plan speichern und laden; ungültige Lernmomentreferenz → 422.
+- **Git-Version bei semantischer Planungsboard-Änderung (neu):** `version.committed`
+  ist wahr und die Versionsliste wächst.
+- Keine Git-Version bei reiner Layoutänderung.
+
+### T-1103–T-1107 E2E-Flüsse
+
+Es existiert keine Browser-E2E-Umgebung (nur eine `playwright`-Abhängigkeit, kein
+Setup). Die verbindlichen Refactoring-Garantien liegen im Backend, deshalb werden
+die Abläufe deterministisch über die HTTP-Routen geprüft
+(`backend/test/RefactorFlows.e2e.test.ts`):
+
+- **T-1103** Gespräch → Lernmoment-Vorschlag → Zustimmung → Reload: Der Vorschlag
+  ändert nichts; erst das Übernehmen (`PUT learning-landscape`) macht den
+  Lernmoment kanonisch, der Reload zeigt ihn weiterhin.
+- **T-1104** Lernmoment → Platzierung speichern → Reload: Startminute und Dauer
+  überstehen den Reload identisch.
+- **T-1105** Materialbedarf → Board-Karte → Materialauftrag → Ergebnis → Review →
+  Freigabe: Das Worker-Ergebnis kommt als `review_needed` zurück, die Freigabe
+  dokumentiert Zeitpunkt und prüfende Rolle.
+- **T-1106** Reine Board-Verschiebung erzeugt keinen Service Request und keine
+  Worker-Ausführung (Service-Request-Liste bleibt leer).
+- **T-1107** Vorschläge (Lernmoment, Übergang, Platzierung, Arbeitsvorhaben) ändern
+  Landschaft, Zeitplanung und Board nicht ohne Zustimmung.
+
+**Neue Testdateien (Phase 10–11):** `backend/test/WorkspaceMigration.test.ts`,
+`backend/test/RefactorFlows.e2e.test.ts`, Ergänzungen in
+`backend/test/PlanningArtifactResourceApi.test.ts` und
+`packages/shared/test/domain.test.ts`.
+
+## Phase 12 – Dokumentation und Abschluss
+
+### T-1200 Kernel-Dokumentation
+
+Kernel-seitig; gehört in `pedagogical-thinking-space` und ist hier nicht
+anwendbar. Die App-Ableitung ist in `docs/learning-landscape-and-board.md` und im
+Domain-Inventar (`docs/refactor-domain-inventory.md`) beschrieben.
+
+### T-1201 App-Dokumentation
+
+Die App-Ableitung aus dem Kernel, die UI-Perspektiven, die Drag-and-drop-Semantik
+(erzeugt nur Platzierungen bzw. Spaltenwechsel, nie Worker) und der Materialworkflow
+sind in `docs/learning-landscape-and-board.md`, `docs/service-workflow.md` und
+`docs/ui-language.md` dokumentiert. Bekannte Grenzen: keine Browser-E2E-Suite,
+Kernel-Repository getrennt, Legacy-Read-Models bleiben lesbar.
+
+### T-1202 Veraltete Dokumentation
+
+`docs/refactor-domain-inventory.md` bleibt die maßgebliche Legacy-/Kanonisch-Tabelle.
+Es gibt keine zwei konkurrierenden aktuellen Specs für denselben Sachverhalt; die
+Zeitdaten sind eindeutig `temporal-plan.yml` zugeordnet.
+
+### T-1203 Abschlussprüfung
+
+- **Unit-/Integrations-/E2E-Tests:** `pnpm -r test` – Shared 6, Backend 75, alle
+  grün.
+- **Typecheck:** `pnpm -r check` – Frontend 0 Fehler / 0 Warnungen; Backend und
+  Shared fehlerfrei.
+- **Build:** `pnpm -r build` erfolgreich (nur bekannte Svelte-Hinweise im
+  generierten SvelteKit-Code, keine Fehler).
+
+**Geänderte/neue Dateien:** siehe Phase-10/11-Testdateien oben sowie dieses
+Statusprotokoll.
+
+**Migrationen:** Keine Datentransformation nötig (siehe Phase-10-Relevanzbewertung);
+die Öffnungsgarantie ist getestet.
+
+**Offene Risiken / bekannte Einschränkungen:**
+
+- Kernel-Schema-Tests (T-1100) und Kernel-Dokumentation (T-1200) liegen im
+  getrennten Kernel-Repository.
+- Keine Browser-E2E-Suite; die E2E-Garantien werden auf API-Ebene geprüft.
+- Legacy-Read-Models (`nextSteps`, `decisions`, `activities`, `materials`) bleiben
+  lesbar, werden aber nicht mehr kanonisch geschrieben.

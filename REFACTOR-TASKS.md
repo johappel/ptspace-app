@@ -1039,19 +1039,19 @@ Erstelle einen Abschlussbericht mit:
 
 # Globale Definition of Done
 
-- [ ] Kernel ist alleinige fachliche Quelle.
-- [ ] App ist optionale Projektion.
-- [ ] Lernmomente entstehen kontrolliert in Gespräch oder Lernlandschaft.
-- [ ] Lernaktivitäten gehören zum Lernmoment.
-- [ ] Connections bleiben Übergänge.
-- [ ] Materialbedarf wird vom Material getrennt.
-- [ ] Worker starten nur nach ausdrücklicher Freigabe.
-- [ ] Zeitplanung liegt in `temporal-plan.yml`.
-- [ ] Drag-and-drop erzeugt nur Platzierungen.
-- [ ] Zeitdaten überstehen Read-Write-Read.
-- [ ] Keine parallelen Next-Steps.
-- [ ] Keine konkurrierenden Aktivitätenlisten.
-- [ ] Keine ungebundenen Materialien.
-- [ ] KI-Änderungen bleiben Vorschläge.
-- [ ] Bestehende Workspaces sind migrierbar.
-- [ ] Tests und Dokumentation sind vollständig.
+- [x] Kernel ist alleinige fachliche Quelle.
+- [x] App ist optionale Projektion.
+- [x] Lernmomente entstehen kontrolliert in Gespräch oder Lernlandschaft.
+- [x] Lernaktivitäten gehören zum Lernmoment.
+- [x] Connections bleiben Übergänge.
+- [x] Materialbedarf wird vom Material getrennt.
+- [x] Worker starten nur nach ausdrücklicher Freigabe.
+- [x] Zeitplanung liegt in `temporal-plan.yml`.
+- [x] Drag-and-drop erzeugt nur Platzierungen.
+- [x] Zeitdaten überstehen Read-Write-Read.
+- [x] Keine parallelen Next-Steps.
+- [x] Keine konkurrierenden Aktivitätenlisten.
+- [x] Keine ungebundenen Materialien.
+- [x] KI-Änderungen bleiben Vorschläge.
+- [x] Bestehende Workspaces sind migrierbar.
+- [x] Tests und Dokumentation sind vollständig.

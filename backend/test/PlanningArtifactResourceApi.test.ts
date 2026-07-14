@@ -114,4 +114,27 @@ describe("planning artifact resource API", () => {
       await app.close();
     }
   });
+
+  it("records a git version for a semantic planning-board change (T-1102)", async () => {
+    const app = await buildApp();
+    try {
+      const id = await createSpace(app);
+      const before = await app.inject({ method: "GET", url: `/api/planning-spaces/${id}/room-overview` });
+      const versionsBefore = before.json<{ versions: unknown[] }>().versions.length;
+
+      const board = {
+        schema: "ptspace.planning-board/v1",
+        items: [{ id: "pb-1", title: "Lehrplanbezug prüfen", kind: "clarify", column: "clarify", status: "proposed", relatedNodes: [], relatedWindows: [], materialIds: [], materialNeed: "", expectedResult: "", requiresTeacherApproval: true, serviceRequestId: "", reviewedAt: "", reviewedBy: "" }]
+      };
+      const put = await app.inject({ method: "PUT", url: `/api/planning-spaces/${id}/planning-board`, payload: board });
+      expect(put.statusCode).toBe(200);
+      expect(put.json<{ version: { committed: boolean } }>().version.committed).toBe(true);
+
+      const after = await app.inject({ method: "GET", url: `/api/planning-spaces/${id}/room-overview` });
+      const versionsAfter = after.json<{ versions: unknown[] }>().versions.length;
+      expect(versionsAfter).toBeGreaterThan(versionsBefore);
+    } finally {
+      await app.close();
+    }
+  });
 });
