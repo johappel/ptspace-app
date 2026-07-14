@@ -162,7 +162,7 @@ export function parsePlanningBoard(yaml: string): PlanningBoard {
     const line = raw.trim();
     const item = raw.match(/^\s{2}-\s+id:\s*(.+)$/);
     if (item) {
-      current = { id: item[1].trim(), relatedNodes: [], relatedWindows: [], materialIds: [], requiresTeacherApproval: true };
+      current = { id: item[1].trim(), relatedNodes: [], relatedWindows: [], materialIds: [], materialNeed: "", expectedResult: "", requiresTeacherApproval: true };
       items.push(current);
       continue;
     }
@@ -177,6 +177,8 @@ export function parsePlanningBoard(yaml: string): PlanningBoard {
     if (key === "related_nodes") current.relatedNodes = inlineList(value);
     if (key === "related_windows") current.relatedWindows = inlineList(value);
     if (key === "material_ids") current.materialIds = inlineList(value);
+    if (key === "material_need") current.materialNeed = value;
+    if (key === "expected_result") current.expectedResult = value;
     if (key === "requires_teacher_approval") current.requiresTeacherApproval = value !== "false";
   }
 
@@ -194,6 +196,8 @@ export function serializePlanningBoard(board: PlanningBoard): string {
     if (item.relatedNodes.length) lines.push(`    related_nodes: ${yamlList(item.relatedNodes)}`);
     if (item.relatedWindows.length) lines.push(`    related_windows: ${yamlList(item.relatedWindows)}`);
     if (item.materialIds.length) lines.push(`    material_ids: ${yamlList(item.materialIds)}`);
+    if (item.materialNeed) lines.push(`    material_need: ${item.materialNeed}`);
+    if (item.expectedResult) lines.push(`    expected_result: ${item.expectedResult}`);
     lines.push(`    status: ${item.status}`, `    requires_teacher_approval: ${item.requiresTeacherApproval}`);
   }
   return lines.join("\n") + "\n";

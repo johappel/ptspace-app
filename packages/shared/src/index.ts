@@ -334,6 +334,11 @@ export const PlanningBoardItemSchema = z.object({
   relatedNodes: z.array(z.string().min(1)).default([]),
   relatedWindows: z.array(z.string().min(1)).default([]),
   materialIds: z.array(z.string().min(1)).default([]),
+  // T-601: fachlicher Kontext einer Board-Karte. `materialNeed` verweist auf den
+  // auslösenden Materialbedarf eines Lernmoments (Text), `expectedResult`
+  // beschreibt das erwartete Ergebnis. Beide bleiben optional.
+  materialNeed: z.string().default(""),
+  expectedResult: z.string().default(""),
   requiresTeacherApproval: z.boolean().default(true)
 });
 export type PlanningBoardItem = z.infer<typeof PlanningBoardItemSchema>;

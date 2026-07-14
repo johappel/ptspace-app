@@ -171,3 +171,89 @@ zwei fehlende Lernmomentfelder ergänzt (`materialNeeds`, `status`) und der
 ### Nächste Aufgabe
 
 T-500: Lernmoment-Detailansicht (Phase 5 – Lernlandschaft in der App).
+
+## Phase 5 – Lernlandschaft in der App
+
+Alle Detailansichten liegen in `frontend/src/routes/+page.svelte` als Dialoge
+über der Perspektive „Lernlandschaft“. Änderungen werden erst nach dem Speichern
+kanonisch (`api.savePlanningArtifacts` → Git-Version); reine Node-Bewegungen
+bleiben über den getrennten Layout-Endpunkt versionsfrei.
+
+### T-500 Lernmoment-Detailansicht
+
+- Klick auf eine Node öffnet ein Detail-Modal mit Titel, pädagogischem Typ,
+  didaktischer Funktion, Lernaktivität, erwarteter Lernerfahrung, Materialbedarf,
+  offenen Fragen, Status und den zeitlichen Platzierungen (aus `temporal-plan.yml`).
+- Aktionen: „Mit Critical Friend weiterdenken“, „Bearbeiten“ (Formular mit
+  Entwurf, kanonisch erst bei „Änderung festhalten“), „Zeitlich einplanen“
+  (öffnet die Zeit-Perspektive) und je Materialbedarf „Als Arbeitsvorhaben
+  vorschlagen“.
+
+### T-501 Lernmoment hinzufügen
+
+- Button „Lernmoment hinzufügen“ öffnet einen Dialog mit pädagogischem Typ,
+  Titel, Funktion, Lernaktivität und erwarteter Erfahrung (lehrkräftefreundliche
+  Beschriftungen). Zusatzaktion „Mit Critical Friend entwickeln“ übergibt den
+  Gedanken an das Gespräch. Die Node wird erst nach „Lernmoment aufnehmen“
+  gespeichert; eine neue `id` wird lokal vergeben.
+
+### T-502 Übergangs-Detailansicht
+
+- Klick auf eine Connection öffnet ein Modal mit Ausgangs-/Zielmoment,
+  Übergangstyp und pädagogischer Begründung. Aktionen: bearbeiten, entfernen,
+  „Mit Critical Friend prüfen“ und „Fehlenden Lernmoment vorschlagen“ (beides
+  zunächst nur ein Gesprächsimpuls, keine kanonische Änderung).
+
+### T-503 Layout getrennt speichern
+
+- Node-Positionen laufen weiterhin ausschließlich über
+  `learning-landscape.layout.json` (`onnodedragstop` → Layout-Endpunkt, keine
+  Git-Version). Semantische Änderungen erzeugen dagegen eine Version. Damit
+  bereits durch die Trennung aus Phase 4 erfüllt.
+
+## Phase 6 – Materialbedarf und Planungsboard
+
+### T-600 Materialbedarf erfassen
+
+- In der Lernmoment-Detailansicht können Materialbedarfe im Bearbeitungsformular
+  hinzugefügt und entfernt werden; im Lesemodus lässt sich jeder Bedarf einzeln
+  „Als Arbeitsvorhaben vorschlagen“. Ein Materialbedarf allein startet keinen
+  Worker.
+
+### T-601 Board-Vorschlag erzeugen
+
+- Aus einem Materialbedarf entsteht ein Vorschlagsdialog mit Titel, Art,
+  erwartetem Ergebnis und optionalem Unterrichtsfenster-Bezug. Erst „Ins
+  Planungsboard aufnehmen“ schreibt die Karte kanonisch (Spalte `clarify`,
+  Status `proposed`, `requiresTeacherApproval: true`). Dafür wurden
+  `materialNeed` und `expectedResult` in `PlanningBoardItemSchema`, im Codec
+  (`material_need`, `expected_result`) und im Frontend-Typ ergänzt.
+
+### T-602 Board-Karten-Detailansicht
+
+- Klick auf eine Board-Karte öffnet ein Detail-Modal mit Status, erwartetem
+  Ergebnis, Materialbedarf, Bezügen und Freigabehinweis. Aktionen: „Im Gespräch
+  klären“, „Entwurf beauftragen“ (ausdrückliche Aktion → Spalte `prepare`,
+  Status `in_progress`, plus Gesprächsimpuls), „Ergebnis prüfen“, „Freigeben“
+  und „Verwerfen“. Drag-and-drop zwischen Spalten ändert nur die Spalte und
+  startet keinen Worker.
+
+### T-603 Next-Steps vereinheitlichen
+
+- `thinking-state` liest `next-steps.md` nicht mehr als Quelle der Karte
+  „Nächste Schritte“; die Karte ist ausschließlich eine Projektion von
+  `planning-board.yml` und zeigt genau ein priorisiertes Arbeitsvorhaben
+  (`boardSteps.slice(0, 1)`). Die Legacy-Datei bleibt erhalten und durchsuchbar.
+
+**Geänderte/neue Dateien (Phase 5 & 6):** `packages/shared/src/index.ts`,
+`backend/src/services/planning/PlanningArtifactCodec.ts`,
+`backend/src/routes/thinkingState.ts`, `backend/test/PlanningArtifactCodec.test.ts`,
+`frontend/src/lib/api.ts`, `frontend/src/routes/+page.svelte`,
+`frontend/src/routes/styles.css`.
+
+**Tests:** `pnpm --filter @ptspace/backend test` (54 Tests), `pnpm --filter
+@ptspace/frontend check` (0 Fehler, 0 Warnungen), `pnpm -r build` erfolgreich.
+
+### Nächste Aufgabe
+
+T-700: Temporal-Plan laden und speichern (Phase 7 – Zeit & Dramaturgie).

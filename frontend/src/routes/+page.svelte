@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, ListChecks, Map, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ExportApproval, type LearningLandscape, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TemporalPlan, type ThinkingCard, type WorkerMaterial } from "$lib/api";
+  import { api, type ExportApproval, type LearningLandscape, type LearningMoment, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { uuid } from "$lib/uuid";
@@ -330,6 +330,226 @@ async function sendMessage() {
     }
   }
 
+  // --- Phase 5 & 6: Lernlandschaft, Materialbedarf und Planungsboard ---
+  const momentKindLabels: Record<string, string> = {
+    impulse: "Impuls", learning_place: "Lernort", positioning: "Positionierung",
+    inquiry: "Erkundung", choice: "Wahlphase", practice: "Übung", project: "Projektphase",
+    product: "Produkt", reflection: "Reflexion", assessment: "Leistungsrückmeldung", other: "Anderes"
+  };
+  const momentStatusLabels: Record<string, string> = {
+    draft: "Entwurf", in_progress: "In Arbeit", ready: "Bereit", needs_revision: "Zu überarbeiten"
+  };
+  const transitionKindLabels: Record<string, string> = {
+    required: "Gemeinsamer Weg", choice: "Wahl", parallel: "Parallel", return: "Rückkehr",
+    meeting_point: "Treffpunkt", prerequisite: "Voraussetzung"
+  };
+  const boardKindLabels: Record<string, string> = {
+    clarify: "Klären", research: "Recherchieren", design: "Gestalten", produce: "Erstellen",
+    review: "Prüfen", render: "Aufbereiten", export: "Bereitstellen"
+  };
+  const boardStatusLabels: Record<string, string> = {
+    proposed: "Vorgeschlagen", approved: "Angenommen", in_progress: "In Arbeit",
+    review: "Zur Prüfung", ready: "Freigegeben", blocked: "Blockiert", discarded: "Verworfen"
+  };
+
+  let momentDetail: LearningMoment | null = null;
+  let momentEditing = false;
+  let momentDraft: LearningMoment | null = null;
+  let momentNeedInput = "";
+  let addMomentOpen = false;
+  let newMomentForm: { kind: string; title: string; didacticPurpose: string; learningActivity: string; expectedExperience: string } = { kind: "impulse", title: "", didacticPurpose: "", learningActivity: "", expectedExperience: "" };
+  let transitionDetail: LearningLandscape["transitions"][number] | null = null;
+  let transitionEditing = false;
+  let transitionDraft: LearningLandscape["transitions"][number] | null = null;
+  let boardDetail: PlanningBoardItem | null = null;
+  let boardProposal: { title: string; kind: PlanningBoardItem["kind"]; momentId: string; windowId: string; expectedResult: string; materialNeed: string } | null = null;
+
+  function momentTitle(id: string): string {
+    return learningLandscape?.moments.find((moment) => moment.id === id)?.title ?? id;
+  }
+  function windowTitle(id: string): string {
+    return temporalPlan?.windows.find((window) => window.id === id)?.title ?? id;
+  }
+  function placementsFor(momentId: string): TimePlacement[] {
+    return temporalPlan?.placements.filter((placement) => placement.momentId === momentId) ?? [];
+  }
+
+  async function persistLandscape() {
+    if (!activeSpace || !learningLandscape) return;
+    planningError = "";
+    try {
+      const result = await api.savePlanningArtifacts(activeSpace.id, { learningLandscape });
+      if (result.learningLandscape) learningLandscape = result.learningLandscape;
+      makeCanvas();
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Die Lernlandschaft konnte nicht gespeichert werden.";
+    }
+  }
+  async function ensurePlanningBoard() {
+    if (planningBoard || !activeSpace) return;
+    planningBoard = (await api.getPlanningArtifacts(activeSpace.id)).planningBoard;
+  }
+  async function persistBoard() {
+    if (!activeSpace || !planningBoard) return;
+    planningError = "";
+    try {
+      const result = await api.savePlanningArtifacts(activeSpace.id, { planningBoard });
+      if (result.planningBoard) planningBoard = result.planningBoard;
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Das Planungsboard konnte nicht gespeichert werden.";
+    }
+  }
+
+  // T-500: Lernmoment-Detailansicht. Änderungen werden erst nach Speichern kanonisch.
+  function openMomentDetail(id: string) {
+    momentDetail = learningLandscape?.moments.find((moment) => moment.id === id) ?? null;
+    momentEditing = false;
+    momentDraft = null;
+    momentNeedInput = "";
+  }
+  function closeMomentDetail() { momentDetail = null; momentEditing = false; momentDraft = null; }
+  function startEditMoment() {
+    if (!momentDetail) return;
+    momentDraft = { ...momentDetail, materialNeeds: [...momentDetail.materialNeeds], materialIds: [...momentDetail.materialIds], openQuestions: [...momentDetail.openQuestions] };
+    momentEditing = true;
+  }
+  async function saveMoment() {
+    if (!learningLandscape || !momentDraft) return;
+    const draft = momentDraft;
+    learningLandscape = { ...learningLandscape, moments: learningLandscape.moments.map((moment) => moment.id === draft.id ? draft : moment) };
+    momentDetail = draft;
+    momentEditing = false;
+    momentDraft = null;
+    await persistLandscape();
+  }
+  // T-600: Materialbedarf im Entwurf pflegen.
+  function addMaterialNeedToDraft() {
+    if (!momentDraft || !momentNeedInput.trim()) return;
+    momentDraft = { ...momentDraft, materialNeeds: [...momentDraft.materialNeeds, momentNeedInput.trim()] };
+    momentNeedInput = "";
+  }
+  function removeMaterialNeedFromDraft(index: number) {
+    if (!momentDraft) return;
+    momentDraft = { ...momentDraft, materialNeeds: momentDraft.materialNeeds.filter((_, position) => position !== index) };
+  }
+
+  // T-501: Lernmoment hinzufügen. Node wird erst nach bewusster Bestätigung gespeichert.
+  function openAddMoment() {
+    newMomentForm = { kind: "impulse", title: "", didacticPurpose: "", learningActivity: "", expectedExperience: "" };
+    addMomentOpen = true;
+  }
+  async function confirmAddMoment() {
+    if (!learningLandscape || newMomentForm.title.trim().length < 2) return;
+    const id = `lm-${uuid().slice(0, 8)}`;
+    const moment: LearningMoment = {
+      id, title: newMomentForm.title.trim(), kind: newMomentForm.kind,
+      didacticPurpose: newMomentForm.didacticPurpose.trim(), learningActivity: newMomentForm.learningActivity.trim(),
+      expectedExperience: newMomentForm.expectedExperience.trim(), materialNeeds: [], materialIds: [], openQuestions: [], status: "draft"
+    };
+    learningLandscape = { ...learningLandscape, moments: [...learningLandscape.moments, moment] };
+    addMomentOpen = false;
+    await persistLandscape();
+    openMomentDetail(id);
+  }
+  function developMomentWithCriticalFriend() {
+    addMomentOpen = false;
+    focusConversation("Ich möchte mit dir gemeinsam einen neuen Lernmoment entwickeln. Mein Ausgangsgedanke: ");
+  }
+
+  // T-502: Übergangs-Detailansicht.
+  function openTransitionDetail(id: string) {
+    transitionDetail = learningLandscape?.transitions.find((transition) => transition.id === id) ?? null;
+    transitionEditing = false;
+    transitionDraft = null;
+  }
+  function startEditTransition() {
+    if (!transitionDetail) return;
+    transitionDraft = { ...transitionDetail };
+    transitionEditing = true;
+  }
+  async function saveTransition() {
+    if (!learningLandscape || !transitionDraft) return;
+    const draft = transitionDraft;
+    learningLandscape = { ...learningLandscape, transitions: learningLandscape.transitions.map((transition) => transition.id === draft.id ? draft : transition) };
+    transitionDetail = draft;
+    transitionEditing = false;
+    transitionDraft = null;
+    await persistLandscape();
+  }
+  async function removeTransition() {
+    if (!learningLandscape || !transitionDetail) return;
+    const removeId = transitionDetail.id;
+    learningLandscape = { ...learningLandscape, transitions: learningLandscape.transitions.filter((transition) => transition.id !== removeId) };
+    transitionDetail = null;
+    await persistLandscape();
+  }
+  function checkTransitionWithCriticalFriend() {
+    if (!transitionDetail) return;
+    const from = momentTitle(transitionDetail.from), to = momentTitle(transitionDetail.to);
+    transitionDetail = null;
+    focusConversation(`Lass uns den Übergang von „${from}“ zu „${to}“ gemeinsam prüfen: `);
+  }
+  function proposeMissingMoment() {
+    if (!transitionDetail) return;
+    const from = momentTitle(transitionDetail.from), to = momentTitle(transitionDetail.to);
+    transitionDetail = null;
+    focusConversation(`Zwischen „${from}“ und „${to}“ fehlt vielleicht ein Lernmoment. Welcher Zwischenschritt wäre sinnvoll? `);
+  }
+
+  // T-601: Board-Vorschlag aus Materialbedarf. Erst Zustimmung schreibt die Karte kanonisch.
+  function openBoardProposal(momentId: string, need: string) {
+    boardProposal = { title: need, kind: "produce", momentId, windowId: "", expectedResult: "", materialNeed: need };
+  }
+  async function confirmBoardProposal() {
+    if (!boardProposal || boardProposal.title.trim().length < 2) return;
+    await ensurePlanningBoard();
+    if (!planningBoard) return;
+    const proposal = boardProposal;
+    const item: PlanningBoardItem = {
+      id: `pb-${uuid().slice(0, 8)}`,
+      title: proposal.title.trim(),
+      kind: proposal.kind,
+      column: "clarify",
+      status: "proposed",
+      relatedNodes: proposal.momentId ? [proposal.momentId] : [],
+      relatedWindows: proposal.windowId ? [proposal.windowId] : [],
+      materialIds: [],
+      materialNeed: proposal.materialNeed,
+      expectedResult: proposal.expectedResult.trim(),
+      requiresTeacherApproval: true
+    };
+    planningBoard = { ...planningBoard, items: [...planningBoard.items, item] };
+    boardProposal = null;
+    await persistBoard();
+  }
+
+  // T-602: Board-Karten-Detailansicht. Aktionen sind ausdrücklich, Drag-and-drop startet nichts.
+  async function updateBoardItem(id: string, patch: Partial<PlanningBoardItem>) {
+    if (!planningBoard) return;
+    planningBoard = { ...planningBoard, items: planningBoard.items.map((item) => item.id === id ? { ...item, ...patch } : item) };
+    boardDetail = planningBoard.items.find((item) => item.id === id) ?? null;
+    await persistBoard();
+  }
+  function clarifyBoardItem(item: PlanningBoardItem) {
+    boardDetail = null;
+    focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `);
+  }
+  async function commissionBoardDraft(item: PlanningBoardItem) {
+    await updateBoardItem(item.id, { column: "prepare", status: "in_progress" });
+    boardDetail = null;
+    focusConversation(`Ich beauftrage bewusst einen ersten Entwurf für „${item.title}“. Bitte hilf mir, den Auftrag klar zu fassen: `);
+  }
+  async function reviewBoardDraft(item: PlanningBoardItem) {
+    await updateBoardItem(item.id, { column: "review", status: "review" });
+  }
+  async function approveBoardItem(item: PlanningBoardItem) {
+    await updateBoardItem(item.id, { column: "ready", status: "ready" });
+  }
+  async function discardBoardItem(item: PlanningBoardItem) {
+    await updateBoardItem(item.id, { status: "discarded" });
+    boardDetail = null;
+  }
+
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
 </script>
 
@@ -412,9 +632,9 @@ async function sendMessage() {
             </div>
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
-          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment, um dazu im Gespräch weiterzudenken.</p></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => { const moment = learningLandscape?.moments.find((item) => item.id === event.node.id); if (moment) focusConversation(`Zu „${moment.title}“ in der Lernlandschaft weiterdenken: `); }}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
+          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment oder einen Übergang, um ihn zu öffnen.</p><button class="add-moment-button" on:click={openAddMoment}><Plus size={15} /> Lernmoment hinzufügen</button></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => openMomentDetail(event.node.id)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
           {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2></header>{#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lernmomente können später zeitlich eingeplant werden.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}<section class="teaching-window"><h3>{window.title}</h3><span>{window.kind === "lesson" ? "Unterrichtsstunde" : window.kind === "double_lesson" ? "Doppelstunde" : window.kind === "project_block" ? "Projektblock" : "Offene Lernzeit"} · {window.durationMinutes} min</span><div class="window-moments">{#each temporalPlan.placements.filter((placement) => placement.windowId === window.id) as placement}{#each (learningLandscape?.moments ?? []).filter((moment) => moment.id === placement.momentId) as moment}<button on:click={() => focusConversation(`Zu „${moment.title}“ im Zeitfenster „${window.title}“ weiterdenken: `)}><strong>{moment.title}</strong><small>{placement.note || moment.didacticPurpose}</small></button>{/each}{/each}</div></section>{/each}</div>{/if}</div>
-          {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => focusConversation(`Zum Arbeitsvorhaben „${item.title}“ weiterdenken: `)}><span class="board-kind">{item.kind}</span><strong>{item.title}</strong><small>Im Gespräch aufgreifen</small></button>{/each}</div></section>{/each}</div>
+          {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => (boardDetail = item)}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>
           {:else if roomView === "materials"}<div class="materials-view"><header><span>Materialien</span><h2>Vom Arbeitsvorhaben zum Unterricht</h2><p>Arbeitsvorhaben → Entwurf → gemeinsame Prüfung → ausdrückliche Freigabe.</p></header>{#if workerMaterial}<article class="material-card"><span>Entwurf zur Prüfung</span><h3>{workerMaterial.title}</h3><pre>{workerMaterial.content}</pre><button on:click={() => focusConversation(`Den Entwurf „${workerMaterial?.title}“ gemeinsam prüfen: `)}>Gemeinsam prüfen</button></article>{:else}<p class="planning-empty">Noch kein Entwurf. Im Planungsboard kann ein Arbeitsvorhaben bewusst vorbereitet werden.</p>{/if}</div>{/if}
         </aside>
       </section>
@@ -440,7 +660,111 @@ async function sendMessage() {
         <div class="start-form"><p>{runtimeStatus}</p><p>Die lokale Konfiguration wird aus <code>.env</code> gelesen. Schlüssel werden hier nie angezeigt oder im Gespräch verarbeitet.</p><p>Wenn der Status eine nicht gestartete Runtime nennt, starte Docker Desktop. Nach Änderungen an <code>.env</code> das Backend neu starten und den Status erneut prüfen.</p></div>
       </dialog>
     </div>
-  {/if}  </main>
+  {/if}
+
+  {#if momentDetail}
+    {@const moment = momentDetail}
+    <div class="planning-overlay" role="presentation" on:click={closeMomentDetail}>
+      <dialog class="start-modal detail-modal" open aria-label="Lernmoment" on:click|stopPropagation>
+        <header><div><span>Lernmoment · {momentKindLabels[moment.kind] ?? moment.kind}</span><h2>{moment.title}</h2></div><button class="icon-button" on:click={closeMomentDetail} aria-label="Schließen"><X size={20} /></button></header>
+        {#if momentEditing && momentDraft}
+          <form class="start-form" on:submit|preventDefault={saveMoment}>
+            <label>Titel<input bind:value={momentDraft.title} /></label>
+            <label>Pädagogischer Typ<select bind:value={momentDraft.kind}>{#each Object.entries(momentKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+            <label>Didaktische Funktion<textarea bind:value={momentDraft.didacticPurpose} rows="2"></textarea></label>
+            <label>Lernaktivität<textarea bind:value={momentDraft.learningActivity} rows="2"></textarea></label>
+            <label>Erwartete Lernerfahrung<textarea bind:value={momentDraft.expectedExperience} rows="2"></textarea></label>
+            <label>Status<select bind:value={momentDraft.status}>{#each Object.entries(momentStatusLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+            <div class="need-editor"><strong>Materialbedarf</strong>{#each momentDraft.materialNeeds as need, index}<div class="need-row"><span>{need}</span><button type="button" on:click={() => removeMaterialNeedFromDraft(index)} aria-label="Materialbedarf entfernen"><X size={14} /></button></div>{/each}<div class="need-add"><input bind:value={momentNeedInput} placeholder="z. B. Bildimpuls mit Leitfragen" /><button type="button" on:click={addMaterialNeedToDraft}><Plus size={14} /> Hinzufügen</button></div></div>
+            <div class="pad-actions"><button type="button" class="ghost" on:click={() => { momentEditing = false; momentDraft = null; }}>Abbrechen</button><button type="submit">Änderung festhalten</button></div>
+          </form>
+        {:else}
+          <div class="detail-body">
+            <dl><dt>Didaktische Funktion</dt><dd>{moment.didacticPurpose || "—"}</dd><dt>Lernaktivität</dt><dd>{moment.learningActivity || "—"}</dd><dt>Erwartete Lernerfahrung</dt><dd>{moment.expectedExperience || "—"}</dd><dt>Status</dt><dd>{momentStatusLabels[moment.status] ?? moment.status}</dd></dl>
+            <section class="detail-block"><strong>Materialbedarf</strong>{#if moment.materialNeeds.length === 0}<p class="muted">Noch kein Materialbedarf festgehalten.</p>{:else}<ul class="need-list">{#each moment.materialNeeds as need}<li><span>{need}</span><button class="link-action" on:click={() => openBoardProposal(moment.id, need)}>Als Arbeitsvorhaben vorschlagen</button></li>{/each}</ul>{/if}</section>
+            {#if moment.openQuestions.length}<section class="detail-block"><strong>Offene Fragen</strong><ul>{#each moment.openQuestions as question}<li>{question}</li>{/each}</ul></section>{/if}
+            <section class="detail-block"><strong>Zeitliche Platzierungen</strong>{#if placementsFor(moment.id).length === 0}<p class="muted">Noch nicht zeitlich eingeplant.</p>{:else}<ul>{#each placementsFor(moment.id) as placement}<li>{windowTitle(placement.windowId)} · {placement.durationMinutes} min</li>{/each}</ul>{/if}</section>
+            <div class="detail-actions"><button on:click={() => { closeMomentDetail(); focusConversation(`Zu „${moment.title}“ weiterdenken: `); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
+          </div>
+        {/if}
+      </dialog>
+    </div>
+  {/if}
+
+  {#if addMomentOpen}
+    <div class="planning-overlay" role="presentation" on:click={() => (addMomentOpen = false)}>
+      <dialog class="start-modal" open aria-label="Lernmoment hinzufügen" on:click|stopPropagation>
+        <header><div><span>Neuer Lernmoment</span><h2>Was sollen Lernende hier erleben?</h2></div><button class="icon-button" on:click={() => (addMomentOpen = false)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={confirmAddMoment}>
+          <label>Pädagogischer Typ<select bind:value={newMomentForm.kind}>{#each Object.entries(momentKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Titel<input bind:value={newMomentForm.title} placeholder="z. B. KI begegnet Menschenbildern" /></label>
+          <label>Didaktische Funktion <small>optional</small><textarea bind:value={newMomentForm.didacticPurpose} rows="2" placeholder="Wozu dient dieser Moment?"></textarea></label>
+          <label>Lernaktivität <small>optional</small><textarea bind:value={newMomentForm.learningActivity} rows="2" placeholder="Was tun die Lernenden?"></textarea></label>
+          <label>Erwartete Lernerfahrung <small>optional</small><textarea bind:value={newMomentForm.expectedExperience} rows="2" placeholder="Was soll spürbar oder erkennbar werden?"></textarea></label>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={developMomentWithCriticalFriend}>Mit Critical Friend entwickeln</button><button type="submit" disabled={newMomentForm.title.trim().length < 2}>Lernmoment aufnehmen</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if transitionDetail}
+    {@const transition = transitionDetail}
+    <div class="planning-overlay" role="presentation" on:click={() => (transitionDetail = null)}>
+      <dialog class="start-modal" open aria-label="Übergang" on:click|stopPropagation>
+        <header><div><span>Übergang</span><h2>{momentTitle(transition.from)} → {momentTitle(transition.to)}</h2></div><button class="icon-button" on:click={() => (transitionDetail = null)} aria-label="Schließen"><X size={20} /></button></header>
+        {#if transitionEditing && transitionDraft}
+          <form class="start-form" on:submit|preventDefault={saveTransition}>
+            <label>Übergangstyp<select bind:value={transitionDraft.kind}>{#each Object.entries(transitionKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+            <label>Pädagogische Begründung<textarea bind:value={transitionDraft.rationale} rows="3"></textarea></label>
+            <div class="pad-actions"><button type="button" class="ghost" on:click={() => { transitionEditing = false; transitionDraft = null; }}>Abbrechen</button><button type="submit">Änderung festhalten</button></div>
+          </form>
+        {:else}
+          <div class="detail-body">
+            <dl><dt>Übergangstyp</dt><dd>{transitionKindLabels[transition.kind] ?? transition.kind}</dd><dt>Pädagogische Begründung</dt><dd>{transition.rationale || "—"}</dd></dl>
+            <div class="detail-actions"><button on:click={startEditTransition}>Bearbeiten</button><button on:click={checkTransitionWithCriticalFriend}><MessageSquareText size={15} /> Mit Critical Friend prüfen</button><button on:click={proposeMissingMoment}>Fehlenden Lernmoment vorschlagen</button><button class="danger" on:click={removeTransition}>Entfernen</button></div>
+          </div>
+        {/if}
+      </dialog>
+    </div>
+  {/if}
+
+  {#if boardProposal}
+    <div class="planning-overlay" role="presentation" on:click={() => (boardProposal = null)}>
+      <dialog class="start-modal" open aria-label="Arbeitsvorhaben vorschlagen" on:click|stopPropagation>
+        <header><div><span>Arbeitsvorhaben vorschlagen</span><h2>Aus Materialbedarf wird ein Vorhaben</h2></div><button class="icon-button" on:click={() => (boardProposal = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={confirmBoardProposal}>
+          <label>Titel<input bind:value={boardProposal.title} /></label>
+          <label>Art<select bind:value={boardProposal.kind}>{#each Object.entries(boardKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Erwartetes Ergebnis <small>optional</small><textarea bind:value={boardProposal.expectedResult} rows="2" placeholder="Was soll am Ende vorliegen?"></textarea></label>
+          <label>Zu welchem Unterrichtsfenster? <small>optional</small><select bind:value={boardProposal.windowId}><option value="">Noch offen</option>{#each temporalPlan?.windows ?? [] as window}<option value={window.id}>{window.title}</option>{/each}</select></label>
+          <p class="privacy-hint"><ShieldCheck size={15} /> Erst deine Zustimmung nimmt das Vorhaben ins Planungsboard auf.</p>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={() => (boardProposal = null)}>Verwerfen</button><button type="submit" disabled={boardProposal.title.trim().length < 2}>Ins Planungsboard aufnehmen</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if boardDetail}
+    {@const item = boardDetail}
+    <div class="planning-overlay" role="presentation" on:click={() => (boardDetail = null)}>
+      <dialog class="start-modal detail-modal" open aria-label="Arbeitsvorhaben" on:click|stopPropagation>
+        <header><div><span>Arbeitsvorhaben · {boardKindLabels[item.kind] ?? item.kind}</span><h2>{item.title}</h2></div><button class="icon-button" on:click={() => (boardDetail = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body">
+          <dl>
+            <dt>Status</dt><dd>{boardStatusLabels[item.status] ?? item.status}</dd>
+            {#if item.expectedResult}<dt>Erwartetes Ergebnis</dt><dd>{item.expectedResult}</dd>{/if}
+            {#if item.materialNeed}<dt>Materialbedarf</dt><dd>{item.materialNeed}</dd>{/if}
+            {#if item.relatedNodes.length}<dt>Bezug zum Lernmoment</dt><dd>{item.relatedNodes.map(momentTitle).join(", ")}</dd>{/if}
+            {#if item.relatedWindows.length}<dt>Bezug zum Unterrichtsfenster</dt><dd>{item.relatedWindows.map(windowTitle).join(", ")}</dd>{/if}
+            <dt>Freigabe</dt><dd>{item.requiresTeacherApproval ? "erfordert fachliche Freigabe" : "keine Freigabe nötig"}</dd>
+          </dl>
+          <div class="detail-actions"><button on:click={() => clarifyBoardItem(item)}><MessageSquareText size={15} /> Im Gespräch klären</button><button on:click={() => commissionBoardDraft(item)}>Entwurf beauftragen</button><button on:click={() => reviewBoardDraft(item)}>Ergebnis prüfen</button><button on:click={() => approveBoardItem(item)}><Check size={15} /> Freigeben</button><button class="danger" on:click={() => discardBoardItem(item)}>Verwerfen</button></div>
+          <p class="muted">Ein Entwurf entsteht nur durch die ausdrückliche Aktion „Entwurf beauftragen“ – nicht durch das Verschieben der Karte.</p>
+        </div>
+      </dialog>
+    </div>
+  {/if}
+  </main>
 </div>
 
 

@@ -50,6 +50,8 @@ export type PlanningBoardItem = {
   relatedNodes: string[];
   relatedWindows: string[];
   materialIds: string[];
+  materialNeed: string;
+  expectedResult: string;
   requiresTeacherApproval: boolean;
 };
 
