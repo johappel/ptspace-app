@@ -3,24 +3,27 @@
 Stand: 2026-07-16  
 Status: bereit zur Umsetzung durch mehrere Codex-Agenten
 
-Dieses Dokument konkretisiert die noch offenen Punkte aus `TASKS.md` zu „Nächster Schritt“, Critical-Friend-Vorschlägen, Hintergrundarbeit, Planungsboard und Materialien.
+Dieses Dokument konkretisiert die offenen Punkte aus `TASKS.md` zu „Nächster Schritt“, Critical-Friend-Vorschlägen, Hintergrundarbeit, Planungsboard, Materialien und dem UX-Refactor des gemeinsamen Denkraums.
 
-Es führt kein neues pädagogisches Modell ein. Kanonisch bleiben die Kernel-Artefakte. Die hier beschriebenen Vorschläge, Aufmerksamkeitskarten und Statusanzeigen sind App-Workflow beziehungsweise Read Models.
+Es führt kein neues pädagogisches Modell ein. Kanonisch bleiben die Kernel-Artefakte. Vorschläge, Aufmerksamkeitskarten, Gesprächsmarker und Statusanzeigen sind App-Workflow beziehungsweise Read Models.
+
+Das verbindliche UX-Zielbild steht in `REFACTOR-UX.md`.
 
 ## 1. Verbindliches Zielbild
 
-Die Lehrkraft arbeitet weiter im gemeinsamen Denkraum mit dem Critical Friend. Die Oberfläche zeigt genau eine Entscheidung unter **„Jetzt wichtig“**.
+Die Lehrkraft arbeitet im gemeinsamen Denkraum mit dem Critical Friend. Das Gespräch ist das visuelle und funktionale Zentrum. Die Oberfläche zeigt genau eine Entscheidung unter **„Jetzt wichtig“**.
 
 ```text
 Gespräch
 → Critical Friend macht einen konkreten Vorschlag
 → ✓ Passt
 → Board-Karte, Service Request und Hintergrundarbeit entstehen automatisch
+→ Arbeitsvorhaben bleibt klein und sichtbar im Hintergrund
 → Ergebnis wird direkt in „Jetzt wichtig“ sichtbar
 → ✓ Passt für den Unterricht oder ✎ Weiterreden
 ```
 
-### Minimale Interaktion
+### 1.1 Minimale Interaktion
 
 Für einen Materialentwurf sind höchstens zwei bewusste Zustimmungen erlaubt:
 
@@ -37,7 +40,26 @@ Nicht zulässig sind zusätzliche Pflichtschritte wie:
 
 `✎ Weiterreden` setzt den Vorschlag oder das Ergebnis als Fokus in den bestehenden Chat. Es entsteht kein zweiter Chat und keine kanonische Änderung.
 
-### Fachliche Grenzen
+### 1.2 Räumliches UX-Zielbild
+
+Der Hauptbildschirm wird als gemeinsamer pädagogischer Denkraum gestaltet, nicht als Dashboard mit gleichgewichtigen Modulen.
+
+Das Gespräch bildet das Zentrum. Denkstand, offene Entscheidungen, Hintergrundarbeit, Lernlandschaft, Zeitplanung, Knowledge und Materialien werden als aus dem Gespräch hervorgehende beziehungsweise räumlich zugeordnete Bereiche dargestellt.
+
+Funktionale Metaphern:
+
+- Pinnwand = festgehaltene Gedanken und offene Entscheidungen
+- Windrose beziehungsweise Karte = Lernlandschaft
+- Sanduhr = Zeit und Dramaturgie
+- Werkbank = laufende Vorbereitungen
+- Bücherregal = Knowledge, Quellen und geprüfte Bezüge
+- Materialmappe = Unterrichtsmaterialien
+
+Die Metaphern dürfen den Zugang nicht erschweren. Jeder Bereich besitzt zusätzlich eine klar beschriftete, per Tastatur erreichbare Navigation.
+
+Animationen dienen ausschließlich dazu, Zustandsübergänge verständlich zu machen. Sie dürfen keine Belohnungsmechanik, keinen Fokusraub und kein Agenten-Theater erzeugen.
+
+### 1.3 Fachliche Grenzen
 
 - Ein Vorschlag aus dem Gespräch ist noch keine kanonische Änderung.
 - Das erste Häkchen ist die ausdrückliche Lehrkraft-Zustimmung zum Worker-Auftrag.
@@ -46,26 +68,33 @@ Nicht zulässig sind zusätzliche Pflichtschritte wie:
 - Automatische Strukturprüfung und Critical-Friend-Prüfung ersetzen nicht die Lehrkraftfreigabe.
 - Board-Verschiebungen starten niemals Worker.
 - Technische Begriffe wie Service Request, Queue, Harness, Worker-ID oder Provider erscheinen nicht im Lehrkräftemodus.
+- Gesprächsmarker sind Verweise auf bestehende Ziele und keine neuen kanonischen Artefakte.
+- Animation, Ton oder räumliche Position sind nie alleinige Bedeutungsträger.
 
 ## 2. Arbeitsregeln für die Agenten
 
-1. Aufgaben werden in der unten angegebenen Reihenfolge bearbeitet.
+1. Aufgaben werden in der angegebenen Reihenfolge bearbeitet.
 2. Parallel ausgeführt werden dürfen nur Aufgaben derselben Welle, deren Dateibereiche sich nicht überschneiden.
-3. Vor Beginn liest jeder Agent `AGENTS.md`, `PRODUCT_SPEC.md`, `UI_SPEC.md`, `TASKS.md` und dieses Dokument vollständig.
+3. Vor Beginn liest jeder Agent `AGENTS.md`, `REFACTOR-UX.md`, `PRODUCT_SPEC.md`, `UI_SPEC.md`, `TASKS.md` und dieses Dokument vollständig.
 4. Bestehende, nicht zum Auftrag gehörende Änderungen im Working Tree bleiben unangetastet.
 5. `.env` und Secrets werden niemals committed oder in Testausgaben kopiert.
 6. Nach jeder Aufgabe werden die angegebenen Tests ausgeführt.
 7. Nur der koordinierende Agent ändert Checkboxen in `TASKS.md` und diesem Dokument.
 8. Jeder Handoff enthält: geänderte Dateien, ausgeführte Tests, bekannte Einschränkungen und den nächsten freigegebenen Task.
+9. Räumliche oder animierte Funktionen benötigen eine funktionsgleiche barrierefreie Alternative.
+10. Frontend-Agenten implementieren keine eigene pädagogische Prioritätslogik.
 
 ## 3. Zielverträge
 
 ### 3.1 Nicht-kanonischer Gesprächsvorschlag
 
-Der bestehende Vorschlagsvertrag wird um einen ausführbaren, aber noch nicht angenommenen Vorschlag erweitert:
-
 ```ts
-type GuidedProposalStatus = 'pending' | 'accepting' | 'accepted' | 'superseded' | 'discarded';
+type GuidedProposalStatus =
+  | 'pending'
+  | 'accepting'
+  | 'accepted'
+  | 'superseded'
+  | 'discarded';
 
 type GuidedWorkerProposal = {
   id: string;
@@ -139,6 +168,7 @@ type AttentionCard = {
     | 'continue_conversation';
   title: string;
   rationale: string;
+  sourceMessageId?: string;
   preview?: {
     format: 'text' | 'markdown';
     content: string;
@@ -156,7 +186,7 @@ type AttentionCard = {
 };
 ```
 
-Die API liefert höchstens eine Karte. Die Priorität ist rein workflowbezogen und wird nicht als neue pädagogische Semantik gespeichert:
+Die API liefert höchstens eine Karte. Priorität:
 
 1. Sicherheits- oder Blockierungsproblem,
 2. fertiges Ergebnis zur Lehrkraftprüfung,
@@ -166,7 +196,44 @@ Die API liefert höchstens eine Karte. Die Priorität ist rein workflowbezogen u
 6. erstes offenes Board-Arbeitsvorhaben,
 7. Gespräch fortsetzen.
 
-### 3.4 Öffentliche API-Änderungen
+### 3.4 Gesprächsmarker und Herkunftsbezüge
+
+```ts
+type ConversationMarkerKind =
+  | 'captured_note'
+  | 'open_decision'
+  | 'work_started'
+  | 'result_returned'
+  | 'ready_for_class';
+
+type ConversationMarker = {
+  id: string;
+  planningSpaceId: string;
+  sourceMessageId: string;
+  kind: ConversationMarkerKind;
+  targetType:
+    | 'thinking_state'
+    | 'decision'
+    | 'board_item'
+    | 'service_request'
+    | 'material';
+  targetId: string;
+  label: string;
+  createdAt: string;
+};
+```
+
+Regeln:
+
+- Ein Marker verweist auf ein bereits bestehendes Artefakt oder einen Arbeitsstatus.
+- Ein Klick im Chat öffnet das Ziel.
+- Vom Ziel kann zur auslösenden Gesprächsstelle zurückgesprungen werden.
+- Marker dürfen nach Reload nicht verloren gehen.
+- Marker dürfen nur auf Ziele desselben Planungsraums zeigen.
+- Beim Verwerfen, Ersetzen oder Löschen eines Ziels wird der Marker entfernt oder nachvollziehbar als nicht mehr aktuell markiert.
+- Symbole erhalten sichtbare Kurzlabels oder eindeutige Accessible Names.
+
+### 3.5 Öffentliche API-Änderungen
 
 ```text
 POST /api/planning-spaces/:spaceId/guided-proposals/:proposalId/accept
@@ -183,7 +250,7 @@ POST /api/planning-spaces/:spaceId/service-requests/:requestId/review
   → akzeptiert das bereits sichtbare Ergebnis fachlich
 
 GET /api/planning-spaces/:spaceId/room-overview
-  → ergänzt attentionCard und backgroundWork
+  → attentionCard + backgroundWork + conversationMarkers
 ```
 
 `accept` muss idempotent sein. Wiederholte Klicks oder Netzwerk-Retries dürfen weder doppelte Board-Karten noch doppelte Worker-Aufträge erzeugen.
@@ -202,6 +269,7 @@ GET /api/planning-spaces/:spaceId/room-overview
 - [ ] Relevante bestehende Tests einmal mit Mock-Harness ausführen.
 - [ ] Aktuelle Klickfolge für Board-Vorschlag → Auftrag → Material → Freigabe dokumentieren.
 - [ ] Aktuelle API-Antworten für Proposal, Approve und Materialabruf als Test-Fixpunkt erfassen.
+- [ ] Aktuelle Hauptansicht als visuelle Referenz bei 1280px und 980px sichern.
 - [ ] Prüfen, dass `PTSPACE_KERNEL_WRITE_ENABLED=false` bleibt.
 - [ ] Für spätere Real-Harness-Tests einen synthetischen Planungsraum ohne personenbezogene Daten festlegen.
 
@@ -210,324 +278,364 @@ GET /api/planning-spaces/:spaceId/room-overview
 
 ## Welle 1 – Verträge und unabhängige Backend-Bausteine
 
-GW-100 und GW-110 dürfen nach Abschluss von GW-000 parallel laufen. Luna und Nova dürfen dabei nicht dieselben Dateien bearbeiten.
+GW-100 und GW-110 dürfen nach Abschluss von GW-000 parallel laufen.
 
 ### GW-100 – Statusmodell, Migration und persistenter Runner
 
 **Owner:** Luna  
-**Abhängigkeiten:** GW-000  
-**Primäre Dateien:** Shared Schemas, `ServiceRequestWorkflow`, neuer Runner, Backend-Tests
+**Abhängigkeiten:** GW-000
 
-- [ ] Backend- und Shared-Statusmodell auf den Vertrag aus Abschnitt 3.2 vereinheitlichen.
-- [ ] Automatische Vorprüfung aus dem bisherigen missverständlichen Status `reviewed` lösen und als `automaticCheck` speichern.
-- [ ] Die modellgestützte Critical-Friend-Prüfung als Teil derselben Hintergrundarbeit ausführen und separat als `criticalFriendCheck` speichern; sie erzeugt keinen zusätzlichen Lehrkraftklick.
-- [ ] Bestehende Requests verlustfrei lesen:
-  - altes `reviewed` ohne dokumentierte Lehrkraftfreigabe → `returned`,
-  - vorhandene Review-Notiz → `automaticCheck`,
-  - vorhandene Board-Freigabe → `reviewed` mit abgeleitetem `teacherReview`.
-- [ ] Einen `ServiceRequestRunner` mit persistenter Queue implementieren.
+- [ ] Backend- und Shared-Statusmodell auf Abschnitt 3.2 vereinheitlichen.
+- [ ] Automatische Vorprüfung aus dem missverständlichen Status `reviewed` lösen und als `automaticCheck` speichern.
+- [ ] Modellgestützte Critical-Friend-Prüfung separat als `criticalFriendCheck` speichern.
+- [ ] Bestehende Requests verlustfrei lesen.
+- [ ] `ServiceRequestRunner` mit persistenter Queue implementieren.
 - [ ] Pro Planungsraum höchstens einen Harness-Auftrag gleichzeitig ausführen.
 - [ ] `queued` nach Backend-Neustart wieder aufnehmen.
-- [ ] Beim Start vorgefundene `in_progress`-Requests als unterbrochen und erneut ausführbar markieren; niemals automatisch doppelt starten.
+- [ ] Vorgefundene `in_progress`-Requests sicher erneut ausführbar markieren.
 - [ ] Statusänderungen vor und nach jedem externen Harness-Aufruf persistieren.
-- [ ] Fehlerkategorien in stabile interne Codes und lehrkräftefreundliche Meldungen übersetzen.
-- [ ] Runner-Shutdown in `app.onClose` sauber abwarten, ohne neue Aufträge anzunehmen.
+- [ ] Fehler in stabile interne Codes und lehrkräftefreundliche Meldungen übersetzen.
+- [ ] Runner-Shutdown sauber abwarten.
 
-**Nicht Teil dieses Tasks:** UI, Gesprächsvorschläge, Real-Harness-Netzwerktest.  
-**Tests:** Statusmigration, Queue-Recovery, Idempotenz, Parallelitätsgrenze, Fehlerpersistenz, sauberer Shutdown.  
-**Abnahme:** Ein Approve-Pfad muss nicht mehr auf den Harness warten; kein Status behauptet eine Lehrkraftprüfung, die nicht stattgefunden hat.
+**Tests:** Statusmigration, Queue-Recovery, Idempotenz, Parallelitätsgrenze, Fehlerpersistenz, Shutdown.  
+**Abnahme:** Kein Status behauptet eine Lehrkraftprüfung, die nicht stattgefunden hat.
 
 ### GW-110 – Strukturierter Vorschlag aus dem Gespräch
 
 **Owner:** Nova  
-**Abhängigkeiten:** GW-000  
-**Primäre Dateien:** Harness-Vertrag, OpenCode-/Mock-Adapter, ConversationOrchestrator, ProposalService/Store
+**Abhängigkeiten:** GW-000
 
-- [ ] Bestehenden Proposal-Vertrag um `worker_draft` erweitern.
-- [ ] Einen persistenten `GuidedProposalStore` für nicht-kanonische Vorschläge implementieren.
+- [ ] Proposal-Vertrag um `worker_draft` erweitern.
+- [ ] Persistenten `GuidedProposalStore` implementieren.
 - [ ] Pro Critical-Friend-Antwort höchstens einen strukturierten Vorschlag akzeptieren.
-- [ ] Den Harness-Vertrag um ein optionales, typisiertes `suggestedAction` erweitern.
-- [ ] OpenCode-Prompt so ergänzen, dass ein konkreter Arbeitsvorschlag als klar abgegrenzter JSON-Sidecar zurückgegeben werden kann.
-- [ ] Sidecar vor Anzeige vollständig aus dem Lehrkräftetext entfernen.
-- [ ] Sidecar strikt mit Zod validieren; unbekannte Capabilities, Pfade, Providerangaben, Runtimebefehle oder unbekannte Lernmoment-IDs verwerfen.
-- [ ] Titel, Grund und erwartetes Ergebnis auf sinnvolle Längen begrenzen.
-- [ ] ProposalService füllt Board-ID, Status, Capability und erlaubte Output-Position serverseitig; Modellwerte werden nicht blind übernommen.
-- [ ] MockHarnessAdapter liefert mindestens einen deterministischen Worker-Vorschlag für Tests.
-- [ ] Conversation-SSE meldet nach `complete` optional die ID des gespeicherten Vorschlags.
-- [ ] Ein späterer Vorschlag darf einen alten offenen Vorschlag nur als `superseded` markieren, nicht löschen.
+- [ ] Harness-Vertrag um optionales typisiertes `suggestedAction` erweitern.
+- [ ] JSON-Sidecar vollständig aus dem sichtbaren Lehrkräftetext entfernen.
+- [ ] Sidecar strikt validieren.
+- [ ] unbekannte Capabilities, Pfade, Providerangaben, Runtimebefehle und unbekannte Lernmoment-IDs verwerfen.
+- [ ] `sourceMessageId` zuverlässig speichern.
+- [ ] MockHarnessAdapter liefert einen deterministischen Worker-Vorschlag.
+- [ ] Conversation-SSE meldet nach `complete` optional die Proposal-ID.
+- [ ] Späterer Vorschlag markiert alten offenen Vorschlag nur als `superseded`.
 
-**Nicht Teil dieses Tasks:** Annahme des Vorschlags oder Worker-Ausführung.  
-**Tests:** gültiger Sidecar, ungültiges JSON, unbekannte Capability, unbekannte Moment-ID, mehr als ein Vorschlag, Sidecar-Leak im sichtbaren Text, Reload des ProposalStore.  
-**Abnahme:** Aus dem Gespräch entsteht ein sichtbarer, persistenter Vorschlag, aber weder Board-Karte noch Service Request noch Workspace-Änderung.
+**Tests:** gültiger Sidecar, ungültiges JSON, unbekannte Capability, unbekannte Moment-ID, Sidecar-Leak, Reload.  
+**Abnahme:** Ein sichtbarer persistenter Vorschlag entsteht, aber keine kanonische Änderung.
+
+### GW-115 – Gesprächsmarker-Read-Model
+
+**Owner:** Nova  
+**Abhängigkeiten:** GW-000  
+**Parallelisierung:** parallel zu GW-100/GW-110, sofern getrennte Dateien
+
+- [ ] Persistenten oder deterministisch rekonstruierbaren Marker-Store implementieren.
+- [ ] Marker aus Denkstand-Festhaltung, offener Entscheidung, angenommener Vorbereitung, Ergebnisrückkehr und Freigabe ableiten.
+- [ ] `sourceMessageId` und Zielreferenz serverseitig validieren.
+- [ ] Ziele anderer Planungsräume ablehnen.
+- [ ] Ziel-Lifecycle für `superseded`, `discarded` und gelöscht definieren.
+- [ ] `room-overview` um Marker ergänzen.
+- [ ] Markerreihenfolge und Deduplizierung festlegen.
+
+**Tests:** Reload, ungültige Quelle, ungültiges Ziel, fremder Planungsraum, Deduplizierung, verworfenes Ziel.  
+**Abnahme:** Terra kann Marker ohne eigene Herkunftslogik anzeigen.
 
 ## Welle 2 – Atomarer Ein-Klick-Workflow
 
 ### GW-120 – Vorschlag mit einem Häkchen annehmen und starten
 
 **Owner:** Luna  
-**Abhängigkeiten:** GW-100 und GW-110  
-**Primäre Dateien:** Proposal-/Service-Request-Routen, Workflow-Orchestrierung, Board- und Materialpersistenz
+**Abhängigkeiten:** GW-100, GW-110 und GW-115
 
 - [ ] `POST .../guided-proposals/:proposalId/accept` implementieren.
 - [ ] Innerhalb eines atomaren, idempotenten Vorgangs:
   1. Proposal erneut laden und `pending` prüfen,
-  2. stabile Board- und Request-IDs vorab erzeugen,
-  3. Proposal mit diesen IDs auf `accepting` setzen,
-  4. pädagogische Referenzen gegen die aktuelle Lernlandschaft validieren,
+  2. stabile Board- und Request-IDs erzeugen,
+  3. Proposal auf `accepting` setzen,
+  4. pädagogische Referenzen validieren,
   5. genau eine Board-Karte erzeugen,
-  6. genau einen daran gebundenen Service Request erzeugen,
+  6. genau einen Service Request erzeugen,
   7. Board-Karte auf `in_progress`/`prepare` setzen,
   8. Request auf `queued` setzen,
-  9. Proposal auf `accepted` setzen,
-  10. verständliche Git-Version erzeugen,
-  11. HTTP 202 zurückgeben.
-- [ ] Einen pro Planungsraum serialisierten Acceptance-Workflow verwenden; `accepting` ist das Wiederaufnahme-Journal für Absturz und Teilschreibfehler.
-- [ ] Beim Backend-Start unvollständige `accepting`-Vorgänge anhand der gespeicherten IDs idempotent vervollständigen oder sicher auf `pending` zurückführen.
-- [ ] Bei Fehlern vor Queue-Übergabe keine halbfertigen kanonischen Artefakte hinterlassen.
-- [ ] Wiederholtes Accept mit derselben Proposal-ID liefert den bestehenden Auftrag zurück.
-- [ ] Den alten UI-Pfad „Board-Vorschlag aufnehmen → Entwurf beauftragen“ API-seitig kompatibel halten, aber nicht mehr als Hauptfluss verwenden.
+  9. Marker `work_started` erzeugen,
+  10. Proposal auf `accepted` setzen,
+  11. verständliche Git-Version erzeugen,
+  12. HTTP 202 zurückgeben.
+- [ ] Acceptance-Workflow pro Planungsraum serialisieren.
+- [ ] Unvollständige `accepting`-Vorgänge nach Backend-Start idempotent abschließen oder zurückführen.
+- [ ] Keine halbfertigen kanonischen Artefakte bei Fehlern.
+- [ ] Wiederholtes Accept liefert bestehenden Auftrag zurück.
+- [ ] Alten UI-Pfad API-seitig kompatibel halten, aber nicht mehr als Hauptfluss verwenden.
 - [ ] Runner-Abschluss atomar zurückführen:
   - Materialdatei und Metadaten,
   - Board-Karte nach `review`,
   - Materialreferenz am Lernmoment,
   - Service Request nach `returned`,
+  - Marker `result_returned`,
   - verständliche Git-Version.
-- [ ] Fehler halten die Board-Karte nachvollziehbar bei `prepare/blocked` und bieten einen idempotenten Retry; kein stiller Neustart.
+- [ ] Fehler halten Board-Karte nachvollziehbar bei `prepare/blocked`.
 
-**Tests:** ein Accept erzeugt genau ein Tripel aus Proposal/Board/Request; Retry erzeugt kein Duplikat; Fehlerrollbacks; unbekannte oder veraltete Referenz; Runner-Rückführung.  
+**Tests:** genau ein Proposal/Board/Request-Tripel, Marker, Retry, Rollback, veraltete Referenz, Runner-Rückführung.  
 **Abnahme:** Zwischen Gesprächsvorschlag und laufender Hintergrundarbeit existiert genau ein Lehrkraftklick.
 
 ### GW-130 – Fachliche Freigabe mit einem zweiten Häkchen
 
 **Owner:** Luna  
-**Abhängigkeiten:** GW-120  
+**Abhängigkeiten:** GW-120
 
 - [ ] `POST .../service-requests/:requestId/review` implementieren.
-- [ ] Review nur erlauben, wenn Request `returned`, AutomaticCheck bestanden, kein blockierender Critical-Friend-Befund vorhanden und Material lesbar ist.
+- [ ] Review nur bei `returned`, bestandenem AutomaticCheck, keinem blockierenden Critical-Friend-Befund und lesbarem Material erlauben.
 - [ ] Bei Accept atomar setzen:
   - Service Request `reviewed`,
-  - `teacherReview` mit Rolle und Zeitpunkt,
+  - `teacherReview`,
   - Material `ready_for_class`,
   - Board-Karte `ready`,
-  - `reviewedAt` und `reviewedBy`,
+  - Marker `ready_for_class`,
   - verständliche Git-Version.
-- [ ] Der Stift ruft diese Route nicht auf: Weiterreden setzt nur den Materialfokus im bestehenden Chat; Request und Material bleiben `returned` beziehungsweise `review_needed`.
-- [ ] Keine zusätzliche Bestätigungsroute und kein „Freigabe bestätigen“-Zwischenstatus.
+- [ ] Der Stift ruft diese Route nicht auf.
+- [ ] Keine zusätzliche Bestätigungsroute.
 - [ ] Wiederholtes Accept ist idempotent.
 
-**Tests:** Freigabe vor Ergebnis abgelehnt; fehlgeschlagener AutomaticCheck oder blockierender Critical-Friend-Befund abgelehnt; Accept aktualisiert alle Referenzen; Pencil verändert keinen Status; doppelter Klick bleibt idempotent.  
+**Tests:** Freigabe vor Ergebnis, Checks, Accept, Marker, Pencil, Doppelklick.  
 **Abnahme:** Zwischen sichtbarem Ergebnis und `ready_for_class` existiert genau ein Lehrkraftklick.
 
-### GW-140 – Projektion „Jetzt wichtig“ und Arbeitsereignisse
+### GW-140 – Projektion „Jetzt wichtig“, Marker und Arbeitsereignisse
 
 **Owner:** Luna  
-**Abhängigkeiten:** GW-120 und GW-130  
+**Abhängigkeiten:** GW-120 und GW-130
 
-- [ ] `room-overview` um genau eine `attentionCard` und `backgroundWork` erweitern.
-- [ ] Prioritätsregeln aus Abschnitt 3.3 serverseitig als reine Projektion implementieren.
+- [ ] `room-overview` um genau eine `attentionCard`, `backgroundWork` und `conversationMarkers` erweitern.
+- [ ] Prioritätsregeln serverseitig als reine Projektion implementieren.
 - [ ] Nie mehr als eine Hauptkarte zurückgeben.
-- [ ] Für `result_review` Materialinhalt oder eine sichere Markdown-Vorschau liefern; kein rohes HTML.
+- [ ] Sichere Markdown-Vorschau für `result_review` liefern.
+- [ ] `sourceMessageId` für AttentionCards und Hintergrundarbeit liefern, sofern vorhanden.
 - [ ] `GET .../service-requests/:requestId` implementieren.
 - [ ] `GET .../work-events` als SSE implementieren.
-- [ ] Ereignisse enthalten nur Planungsraum-ID, Request-ID, teacher-facing Status und Zeitstempel; keine Prompts, Secrets, Providerantworten oder Dateisystempfade.
-- [ ] Der GET-Zustand bleibt autoritativ; SSE darf nach Reconnect Ereignisse verlieren, aber keinen Zustand.
-- [ ] Teacher-facing Texte zentral testen und technische Begriffe ausschließen.
+- [ ] Ereignisse enthalten nur teacher-facing Status und sichere IDs.
+- [ ] GET-Zustand bleibt autoritativ.
+- [ ] Teacher-facing Texte zentral testen.
+- [ ] Keine funktionslosen oder planungsraumfremden Marker ausliefern.
 
-**Tests:** Prioritätsmatrix, eine Karte maximal, sichere Vorschau, SSE-Reconnect, Reload ohne Eventverlust, kein Secret-/Pfad-Leak.  
-**Abnahme:** Terra kann die UI ausschließlich aus API-Verträgen bauen, ohne eigene Prioritätslogik oder parallele Next-Step-Liste.
+**Tests:** Prioritätsmatrix, eine Karte, sichere Vorschau, Marker-Reload, Rücksprungdaten, SSE-Reconnect, kein Leak.  
+**Abnahme:** Terra kann die UI ausschließlich aus API-Verträgen bauen.
 
-## Welle 3 – Geführte Oberfläche
+## Welle 3 – Geführte Denkraum-Oberfläche
 
 Terra beginnt erst nach einem dokumentierten API-Handoff aus GW-140.
 
-### GW-200 – Informationsarchitektur vereinfachen
+### GW-200 – Gemeinsamen Denkraum als primäre Oberfläche gestalten
 
 **Owner:** Terra  
 **Abhängigkeiten:** GW-140  
 **Primäre Dateien:** Svelte-Hauptansicht, UI-Komponenten, Styles
 
-- [ ] Critical Friend und Gespräch dauerhaft als primären Arbeitsbereich erhalten.
-- [ ] Die fünf gleichgewichtigen Perspektivbuttons aus dem Hauptkopf entfernen.
-- [ ] Rechts oben beziehungsweise neben dem Gespräch genau eine Karte „Jetzt wichtig“ anzeigen.
-- [ ] Lernlandschaft, Zeit & Dramaturgie und Planungsboard unter einer sekundären Aktion „Planung ansehen“ erreichbar machen.
-- [ ] Materialien nicht als weitere Perspektive des didaktischen Designs darstellen, sondern als Ergebnisbereich, erreichbar vom Ergebnis, Lernmoment und sekundären Menü.
-- [ ] Mehrfach vorhandene Statusleisten und Fortschrittszähler reduzieren; laufende Arbeit erhält einen einzigen ruhigen Statuszugang.
-- [ ] Leerer Zustand: konkrete Einladung zum Gespräch statt leerer Boards oder Menüs.
-- [ ] Responsive Verhalten so gestalten, dass „Jetzt wichtig“ vor sekundären Übersichten erscheint.
+- [ ] Hauptbildschirm als ruhigen gemeinsamen Denkraum gestalten, nicht als nebeneinanderliegendes Chat- und Dashboard-Layout.
+- [ ] Gespräch als größten und dauerhaft bedienbaren Bereich erhalten.
+- [ ] Reduzierte gemeinsame Arbeitsszene umsetzen; keine detaillierten Avatare.
+- [ ] Fünf gleichgewichtige Perspektivbuttons aus dem Hauptkopf entfernen.
+- [ ] Pinnwand zeigt nur wenige aktuelle Gegenstände.
+- [ ] Genau eine Karte „Jetzt wichtig“ anzeigen.
+- [ ] Lernlandschaft, Zeit, Vorbereitungen, Knowledge und Materialien über räumlich verständliche und beschriftete Zugänge erreichbar machen.
+- [ ] Alternative lineare Navigation implementieren.
+- [ ] Materialien als Ergebnisbereich und nicht als gleichgewichtige Planungsperspektive darstellen.
+- [ ] Mehrfache Statusleisten und Fortschrittszähler reduzieren.
+- [ ] Leerer Zustand lädt zum Gespräch ein.
+- [ ] Responsive Priorität: Gespräch → Jetzt wichtig → Hintergrundarbeit → Navigation.
+- [ ] Szene bleibt ohne Illustration vollständig bedienbar.
 
-**Tests/Prüfung:** Svelte-Check, Produktionsbuild, Tastaturreihenfolge, 1280px/980px/kleine Mobilbreite.  
-**Abnahme:** Ohne Navigation kann die Lehrkraft erkennen, was jetzt entschieden werden soll.
+**Tests:** Svelte-Check, Build, Tastaturreihenfolge, 1280px, 980px, Mobil, Illustration aus.  
+**Abnahme:** Beim Öffnen ist unmittelbar ein gemeinsamer pädagogischer Denkraum erkennbar.
+
+### GW-205 – Gesprächsmarker und sichtbare Zustandsübergänge
+
+**Owner:** Terra  
+**Abhängigkeiten:** GW-200 und GW-140
+
+- [ ] Marker für festgehaltene Gedanken, offene Entscheidungen, gestartete Vorbereitungen, Ergebnisse und Freigaben anzeigen.
+- [ ] Klick auf Marker öffnet das verknüpfte Ziel.
+- [ ] Vom Ziel Rücksprung zur auslösenden Gesprächsstelle anbieten.
+- [ ] Chatfilter umsetzen: Alle, Festgehaltenes, offene Entscheidungen, Vorbereitungen und Ergebnisse.
+- [ ] Filter zeigen genügend Gesprächskontext.
+- [ ] Neues fachliches Ereignis einmalig durch kurze Übergangsanimation sichtbar machen.
+- [ ] Animation verändert weder DOM-Reihenfolge, Fokus noch Scrollposition.
+- [ ] Bei `prefers-reduced-motion` ruhige Hervorhebung verwenden.
+- [ ] Optionalen, separat abschaltbaren Ton vorsehen.
+- [ ] Keine Erfolgs-Jingles, Punkte, Belohnungsanimationen oder vermenschlichten Worker.
+- [ ] Animation nach Reload nicht erneut abspielen.
+
+**Tests:** Marker-Zielnavigation, Rücksprung, Reload, Filter, Tastatur, Screenreader, Reduced Motion, Ton aus, Fokusstabilität.  
+**Abnahme:** Die Lehrkraft kann nachvollziehen, aus welcher Gesprächsstelle ein Zustand hervorgegangen ist.
 
 ### GW-210 – Häkchen und Stift als vollständiger Bedienvertrag
 
 **Owner:** Terra  
-**Abhängigkeiten:** GW-200  
+**Abhängigkeiten:** GW-205
 
-- [ ] Jede entscheidbare Karte zeigt maximal zwei Aktionen:
-  - `✓ Passt` beziehungsweise `✓ Passt für den Unterricht`,
-  - `✎ Weiterreden`.
-- [ ] Icons erhalten sichtbare Kurzlabels oder mindestens eindeutige Accessible Names und Tooltips; Bedeutung darf nicht nur über das Symbol vermittelt werden.
-- [ ] `✓ Passt` ruft direkt Proposal-Accept auf; kein Modal und keine zweite Bestätigung.
-- [ ] `✎ Weiterreden` setzt den Focus Chip im bestehenden Composer, verschiebt den Tastaturfokus ins Eingabefeld und verändert keine kanonischen Daten.
-- [ ] Doppelklick während laufendem Request clientseitig sperren; Backend-Idempotenz bleibt maßgeblich.
-- [ ] Erfolgreiches Accept ersetzt die Vorschlagskarte unmittelbar durch den teacher-facing Laufstatus oder die nächste AttentionCard.
-- [ ] Alte Buttons „Arbeitsvorhaben aufnehmen“, „Entwurf beauftragen“, „Gemeinsam prüfen“ und „Freigabe bestätigen“ aus dem Hauptfluss entfernen.
-- [ ] Planungsboard-Detail darf administrative Übersicht bieten, aber keinen zweiten konkurrierenden Startfluss.
+- [ ] Jede entscheidbare Karte zeigt maximal zwei Aktionen.
+- [ ] Icons erhalten sichtbare Kurzlabels oder eindeutige Accessible Names.
+- [ ] `✓ Passt` ruft direkt Proposal-Accept auf.
+- [ ] `✎ Weiterreden` setzt den Focus Chip und verschiebt den Tastaturfokus ins Eingabefeld.
+- [ ] Doppelklick während laufendem Request clientseitig sperren.
+- [ ] Accept ersetzt Vorschlagskarte durch Laufstatus oder nächste AttentionCard.
+- [ ] Alte Mehrschritt-Buttons aus dem Hauptfluss entfernen.
+- [ ] Planungsboard-Detail bietet keinen zweiten Startfluss.
 
-**Tests:** genau ein Accept-Request pro Klick, Pencil ohne Mutation, Tastaturbedienung mit Enter/Space, Screenreader-Namen, kein Bestätigungsmodal.  
-**Abnahme:** Vorschlag → Hintergrundarbeit benötigt genau ein Häkchen; kein Pflichtbesuch im Planungsboard.
+**Tests:** ein Accept pro Klick, Pencil ohne Mutation, Tastatur, Screenreader, kein Modal.  
+**Abnahme:** Vorschlag → Hintergrundarbeit benötigt genau ein Häkchen.
 
 ### GW-220 – Hintergrundarbeit ohne Überraschung
 
 **Owner:** Terra  
-**Abhängigkeiten:** GW-210  
+**Abhängigkeiten:** GW-210
 
 - [ ] Nach Start sofort anzeigen: „Der Entwurf wird vorbereitet. Du kannst im Gespräch weiterarbeiten.“
-- [ ] Einen kleinen persistenten Status wie „1 Entwurf wird vorbereitet“ anzeigen, solange Arbeit läuft.
-- [ ] SSE abonnieren; bei Verbindungsabbruch mit begrenztem Polling auf den autoritativen GET-Zustand zurückfallen.
-- [ ] Polling pausieren, wenn kein Planungsraum offen ist; beim Wiederöffnen Status sofort neu laden.
-- [ ] Fertigstellung mit ruhigem `aria-live='polite'`-Hinweis melden.
-- [ ] Nie automatisch die Perspektive, Scrollposition oder den Chatfokus wechseln.
-- [ ] Fertiges Ergebnis wird zur neuen AttentionCard und bleibt bis zur Entscheidung auffindbar.
-- [ ] Fehlerkarte bietet `✎ Weiterreden`; Retry darf nur erscheinen, wenn Backend ihn als sicher und idempotent meldet.
-- [ ] Mehrere wartende Ergebnisse werden nicht als Kartenstapel gezeigt; `Jetzt wichtig` zeigt eines, der sekundäre Statuszugang nennt die Anzahl.
+- [ ] Kleine persistente Werkstattleiste anzeigen.
+- [ ] Leiste zeigt maximal Titel, teacher-facing Status und Anzahl.
+- [ ] Subtile Aktivitätsanimation nur während real laufender Arbeit.
+- [ ] Klick öffnet kompakte Übersicht laufender und zuletzt zurückgekehrter Arbeiten.
+- [ ] Keine Worker-Namen, Provider, Harness-Begriffe oder technische Warteschlangen.
+- [ ] SSE abonnieren; bei Abbruch begrenzt pollen.
+- [ ] Polling pausieren, wenn kein Planungsraum offen ist.
+- [ ] Fertigstellung mit `aria-live="polite"` melden.
+- [ ] Nie Perspektive, Scrollposition oder Chatfokus automatisch wechseln.
+- [ ] Fertiges Ergebnis wird neue AttentionCard.
+- [ ] Fehlerkarte bietet `✎ Weiterreden`; Retry nur bei sicherem Backend-Vertrag.
+- [ ] Mehrere Ergebnisse nicht als Kartenstapel darstellen.
 
-**Tests:** Abschluss während anderer Ansicht, Reload während Lauf, SSE-Ausfall, mehrere Jobs, Fehlerstatus, kein Fokusraub.  
-**Abnahme:** Hintergrundarbeit kann nicht „überraschend“ verschwinden oder fertig werden; sie unterbricht den Denkraum dennoch nicht.
+**Tests:** Abschluss in anderer Ansicht, Reload, SSE-Ausfall, mehrere Jobs, Fehler, kein Fokusraub.  
+**Abnahme:** Hintergrundarbeit bleibt nachvollziehbar, ohne den Denkraum zu unterbrechen.
 
 ### GW-230 – Ergebnis direkt prüfen und freigeben
 
 **Owner:** Terra  
-**Abhängigkeiten:** GW-220  
+**Abhängigkeiten:** GW-220
 
-- [ ] Materialtitel, Entstehungsgrund, Bezug zum Lernmoment und Markdown-Inhalt direkt in der AttentionCard anzeigen.
-- [ ] Lange Inhalte innerhalb derselben Karte aufklappbar machen; kein Pflichtwechsel zum Materialbereich.
-- [ ] Ergebnis von automatischer Vorprüfung und Critical-Friend-Prüfung knapp unterscheiden; beide Prüfungen sind vor der Lehrkraftentscheidung bereits abgeschlossen.
-- [ ] `✓ Passt für den Unterricht` ruft direkt Review-Accept auf; kein Checkbox- oder Bestätigungsdialog.
+- [ ] Materialtitel, Entstehungsgrund, Lernmomentbezug und Inhalt direkt in der AttentionCard anzeigen.
+- [ ] Lange Inhalte innerhalb derselben Karte aufklappbar machen.
+- [ ] AutomaticCheck und Critical-Friend-Prüfung knapp unterscheiden.
+- [ ] `✓ Passt für den Unterricht` ruft direkt Review-Accept auf.
 - [ ] `✎ Weiterreden` übernimmt Material-ID und Board-Bezug als Chatfokus.
-- [ ] Nach Freigabe zeigt die Karte kurz „Für den Unterricht bereit“ und wechselt danach zur nächsten AttentionCard.
-- [ ] Materialbereich bleibt Sammlung und Nachweis, nicht zusätzlicher Workflow-Schritt.
+- [ ] Nach Freigabe kurz „Für den Unterricht bereit“ zeigen.
+- [ ] Materialbereich bleibt Sammlung und Nachweis.
+- [ ] Ergebnis-Marker und Rücksprung funktionieren.
 
-**Tests:** Inhalt vor Freigabe sichtbar, Accept genau einmal, Pencil ohne Ready-Status, Material nach Freigabe in Sammlung und Lernmoment auffindbar.  
-**Abnahme:** Ergebnis → `ready_for_class` benötigt genau ein Häkchen nach sichtbarer Prüfung.
+**Tests:** Inhalt sichtbar, Accept einmal, Pencil ohne Ready, Marker, Material auffindbar.  
+**Abnahme:** Ergebnis → `ready_for_class` benötigt genau ein Häkchen.
 
-## Welle 4 – Real-Harness-Verifikation und Qualität
+## Welle 4 – Qualität und Real-Harness
 
 ### GW-300 – Automatisierte Gesamtregression
 
 **Owner:** Orion  
-**Abhängigkeiten:** GW-130 und GW-230  
+**Abhängigkeiten:** GW-130 und GW-230
 
-- [ ] Bestehende Unit-, API- und Refactor-E2E-Tests an den asynchronen Vertrag anpassen.
-- [ ] Browser-E2E für folgende Flüsse ergänzen:
-  1. Chat → strukturierter Vorschlag → ein Häkchen → queued,
-  2. währenddessen weiterchatten oder Perspektive öffnen,
+- [ ] Unit-, API- und Refactor-E2E-Tests anpassen.
+- [ ] Browser-E2E:
+  1. Chat → Vorschlag → ein Häkchen → queued,
+  2. weiterchatten oder Bereich öffnen,
   3. Ergebnis erscheint ohne Navigation,
   4. Inhalt ansehen → ein Häkchen → ready,
   5. Reload in queued, in_progress und returned,
-  6. Pencil setzt Fokus und verändert keine kanonischen Daten,
-  7. Board-Drop startet weiterhin nichts.
-- [ ] Klickbudget als Regression festhalten:
-  - Start eines Gesprächsvorschlags: genau ein bewusster Klick,
-  - Freigabe eines sichtbaren Ergebnisses: genau ein bewusster Klick,
-  - keine dazwischenliegenden Bestätigungsdialoge.
-- [ ] Accessibility-Prüfung für Focus, Accessible Names, `aria-live`, Kontrast und reine Icon-Aktionen.
-- [ ] Sicherstellen, dass technische Statuscodes und Sidecar-JSON nie im DOM erscheinen.
+  6. Pencil setzt Fokus ohne Mutation,
+  7. Board-Drop startet nichts,
+  8. Marker → Ziel → Rücksprung,
+  9. Chatfilter,
+  10. Reduced Motion und Ton aus.
+- [ ] Klickbudget als Regression festhalten.
+- [ ] Accessibility für Fokus, Names, `aria-live`, Kontrast und Icons prüfen.
+- [ ] Technische Statuscodes und Sidecar-JSON nie im DOM.
+- [ ] Visuelle Regression für Denkraum, Pinnwand, Werkstattleiste, Marker und Ergebnisprüfung.
+- [ ] Hauptbildschirm ohne Hintergrundgrafik prüfen.
 
 **Tests:** `pnpm test`, `pnpm check`, `pnpm build`, Browser-E2E.  
-**Abnahme:** Alle Kernflüsse sind deterministisch im Mock-Modus grün und das Klickbudget ist testgesichert.
+**Abnahme:** Kernflüsse sind deterministisch grün; UX bleibt ohne Motion und Illustration funktionsgleich.
 
 ### GW-310 – Lokaler Real-Harness-Smoke-Test
 
 **Owner:** Orion  
-**Abhängigkeiten:** GW-300  
-**Startmodus:** lokales `pnpm`, nicht Docker Compose
+**Abhängigkeiten:** GW-300
 
-- [ ] Lokal prüfen, dass `.env` `PTSPACE_HARNESS=opencode-docker` und `PTSPACE_REAL_HARNESS_ENABLED=true` setzt, ohne Werte zu committen.
-- [ ] `/health` muss `harnessId=opencode-docker`, Modus `docker` und Availability `ready` melden.
-- [ ] Ausschließlich den synthetischen Test-Planungsraum verwenden.
-- [ ] Einen echten Gesprächsvorschlag erzeugen und prüfen, dass Sidecar/JSON nicht sichtbar wird.
-- [ ] Vorschlag mit einem Häkchen annehmen und prüfen, dass HTTP sofort zurückkehrt, während der Harness im Hintergrund läuft.
-- [ ] Während der Laufzeit weiterchatten und einen anderen Planungsbereich öffnen.
-- [ ] Ergebnisrückkehr, AttentionCard, Materialbezug und Freigabe prüfen.
-- [ ] Timeout, Harness-Fehler und Backend-Neustart mindestens einmal kontrolliert testen.
-- [ ] Keine API-Keys, Providerantworten, vollständigen Prompts oder personenbezogenen Inhalte in Bericht und Logs übernehmen.
+- [ ] Lokal `PTSPACE_HARNESS=opencode-docker` und `PTSPACE_REAL_HARNESS_ENABLED=true` setzen, ohne Werte zu committen.
+- [ ] `/health` prüfen.
+- [ ] Ausschließlich synthetischen Test-Planungsraum verwenden.
+- [ ] Echten Gesprächsvorschlag erzeugen; kein Sidecar sichtbar.
+- [ ] Mit einem Häkchen annehmen; HTTP kehrt sofort zurück.
+- [ ] Während Laufzeit weiterchatten und Bereich öffnen.
+- [ ] Ergebnisrückkehr, AttentionCard, Marker, Materialbezug und Freigabe prüfen.
+- [ ] Timeout, Harness-Fehler und Backend-Neustart kontrolliert testen.
+- [ ] Keine Secrets, vollständigen Prompts oder personenbezogenen Inhalte in Bericht und Logs.
 
-**Abnahme:** Der reale Harness verhält sich im sichtbaren Produktfluss wie der Mock-Vertrag; Abweichungen werden als konkrete Bugs dokumentiert.
+**Abnahme:** Reales Harness verhält sich im sichtbaren Produktfluss wie der Mock-Vertrag.
 
 ### GW-320 – Dokumentation und Abschluss
 
 **Owner:** Koordinator  
 **Abhängigkeiten:** GW-310
 
-- [ ] `UI_SPEC.md` auf den Vertrag „eine Karte, Häkchen oder Stift“ aktualisieren.
-- [ ] `docs/service-workflow.md` auf Queue, AutomaticCheck und TeacherReview aktualisieren.
-- [ ] `docs/harness-opencode.md` um den unterstützten lokalen Real-Harness-Testpfad ergänzen.
+- [ ] `UI_SPEC.md` und `REFACTOR-UX.md` gegen die Implementierung prüfen.
+- [ ] `docs/service-workflow.md` aktualisieren.
+- [ ] `docs/harness-opencode.md` aktualisieren.
 - [ ] `TASKS.md` erst nach vollständiger Abnahme aktualisieren.
-- [ ] Veraltete Beschreibungen entfernen, nach denen Board-Aufnahme, Beauftragung, Prüfung und Freigabebestätigung einzelne UI-Schritte sind.
-- [ ] Abschlussbericht mit geänderten Dateien, Migration, Testergebnissen, Real-Harness-Ergebnis und bekannten Einschränkungen erstellen.
+- [ ] Veraltete Dashboard-, Mehrschritt- und Tab-Beschreibungen entfernen.
+- [ ] Abschlussbericht mit Migration, Tests, UX-Abnahme und bekannten Einschränkungen erstellen.
 
-**Abnahme:** Dokumentation, Produktverhalten und Tests beschreiben denselben Zwei-Häkchen-Maximalfluss.
+**Abnahme:** Dokumentation, Produktverhalten und Tests beschreiben denselben Denkraum und Zwei-Häkchen-Maximalfluss.
 
 ## 5. Globale Definition of Done
 
-- [ ] `Jetzt wichtig` zeigt höchstens eine Entscheidung.
+- [ ] Das Gespräch ist visuell und funktional Mittelpunkt des Planungsraums.
+- [ ] „Jetzt wichtig“ zeigt höchstens eine Entscheidung.
 - [ ] Ein Gesprächsvorschlag startet mit genau einem Häkchen die erlaubte Hintergrundarbeit.
-- [ ] Board-Karte und Service Request entstehen dabei automatisch und atomar.
+- [ ] Board-Karte und Service Request entstehen automatisch und atomar.
 - [ ] Es gibt keinen zusätzlichen Beauftragungs- oder Bestätigungsdialog.
-- [ ] Laufende Arbeit bleibt sichtbar, ohne den aktuellen Denkraum zu unterbrechen.
+- [ ] Laufende Arbeit bleibt sichtbar, ohne den Denkraum zu unterbrechen.
 - [ ] Ein fertiges Ergebnis erscheint direkt und dauerhaft zur Prüfung.
-- [ ] Ein sichtbares Ergebnis wird mit genau einem weiteren Häkchen fachlich freigegeben.
-- [ ] Der Stift führt immer in den bestehenden fokussierten Chat und verändert nichts kanonisch.
-- [ ] Planungsboard ist Arbeitsübersicht; Materialien sind Ergebnisse, keine konkurrierenden Planungsperspektiven.
-- [ ] Automatische Prüfung und Lehrkraftfreigabe sind fachlich und technisch getrennt.
-- [ ] Reload, Backend-Neustart und Netzwerk-Retry erzeugen keine Doppelaufträge und keinen Statusverlust.
-- [ ] Mock-Tests, Real-Harness-Smoke-Test, Typecheck, Build und E2E sind erfolgreich.
-- [ ] Keine technischen Interna, Secrets oder personenbezogenen Testdaten gelangen in die Lehrkräfteoberfläche oder Testberichte.
+- [ ] Ein sichtbares Ergebnis wird mit genau einem weiteren Häkchen freigegeben.
+- [ ] Der Stift führt in den bestehenden fokussierten Chat.
+- [ ] Denkstand, Entscheidungen und Arbeitsvorhaben sind mit ihrer Gesprächsherkunft verknüpft.
+- [ ] Marker funktionieren bidirektional und nach Reload.
+- [ ] Räumliche Metaphern ergänzen eine beschriftete lineare Navigation.
+- [ ] Animationen erklären Zustandsübergänge, verändern aber weder Fokus noch Arbeitsfluss.
+- [ ] Reduced Motion, Ton aus und Tastaturbedienung sind unterstützt.
+- [ ] Hintergrundarbeit legt keine technische Agentenarchitektur offen.
+- [ ] Planungsboard ist Übersicht; Materialien sind Ergebnisse.
+- [ ] Automatische Prüfung und Lehrkraftfreigabe sind getrennt.
+- [ ] Reload, Backend-Neustart und Retry erzeugen keine Doppelaufträge.
+- [ ] Mock-Tests, Real-Harness-Smoke-Test, Typecheck, Build, E2E und visuelle Regression sind erfolgreich.
+- [ ] Keine technischen Interna, Secrets oder personenbezogenen Testdaten gelangen in UI oder Berichte.
 
-## 6. Kopierbare Startaufträge für die Agenten
+## 6. Kopierbare Startaufträge
 
-### Luna – erster Auftrag
+### Luna
 
 ```text
-Lies AGENTS.md, PRODUCT_SPEC.md, UI_SPEC.md, TASKS.md und
-docs/guided-workflow-tasks.md vollständig. Bearbeite ausschließlich GW-100.
-Erhalte bestehende Daten, ändere keine UI und starte keinen Real-Harness-Test.
-Führe die in GW-100 genannten Tests aus und liefere danach einen Handoff mit
-geänderten Dateien, Testergebnissen, offenen Problemen und der Aussage, ob
-GW-120 freigegeben werden kann. Ändere keine Task-Checkboxen selbst.
+Lies AGENTS.md, REFACTOR-UX.md, PRODUCT_SPEC.md, UI_SPEC.md, TASKS.md und
+docs/guided-workflow-tasks.md vollständig. Bearbeite zunächst ausschließlich
+GW-100. Ändere keine UI und führe keinen Real-Harness-Test aus. Liefere einen
+Handoff mit Dateien, Tests, offenen Problemen und Freigabeaussage für GW-120.
 ```
 
-### Nova – paralleler erster Auftrag
+### Nova
 
 ```text
-Lies AGENTS.md, PRODUCT_SPEC.md, UI_SPEC.md, TASKS.md und
-docs/guided-workflow-tasks.md vollständig. Bearbeite ausschließlich GW-110.
-Der Vorschlag muss nicht-kanonisch bleiben; kein Board-Eintrag, Service Request
-oder Workspace-Write vor Lehrkraftzustimmung. Verhindere Sidecar-, Secret- und
-Pfad-Leaks. Führe alle GW-110-Tests aus und liefere einen API-/Typ-Handoff für
-Luna. Ändere keine Task-Checkboxen selbst.
+Lies alle verbindlichen Dokumente. Bearbeite GW-110 und – sofern die
+Dateibereiche getrennt bleiben – GW-115. Vorschlag und Marker bleiben
+nicht-kanonische App-Verträge. Verhindere Sidecar-, Secret-, Pfad- und
+planungsraumfremde Referenzen. Liefere einen API-/Typ-Handoff.
 ```
 
-### Terra – Auftrag nach Backend-Handoff
+### Terra
 
 ```text
-Beginne erst, wenn GW-140 als abgenommen übergeben wurde. Lies AGENTS.md,
-PRODUCT_SPEC.md, UI_SPEC.md, TASKS.md und docs/guided-workflow-tasks.md
-vollständig. Bearbeite GW-200 bis GW-230 in dieser Reihenfolge. Implementiere
-keine eigene Prioritätslogik und keinen zweiten kanonischen Next-Step-Pfad.
-Halte das Klickbudget verbindlich ein: ein Häkchen startet, ein späteres
-Häkchen gibt das sichtbare Ergebnis frei; der Stift führt nur ins Gespräch.
-Führe nach jedem Task Svelte-Check und Build aus und liefere einen Handoff.
+Beginne erst nach dem API-Handoff aus GW-140. Bearbeite GW-200, GW-205,
+GW-210, GW-220 und GW-230 in dieser Reihenfolge. Implementiere keine eigene
+Prioritätslogik und keinen zweiten Workflow. Halte das Klickbudget ein.
+Jede räumliche oder animierte Funktion benötigt eine funktionsgleiche
+barrierefreie Alternative.
 ```
 
-### Orion – Qualitäts- und Real-Harness-Auftrag
+### Orion
 
 ```text
-Beginne erst nach dem Frontend-Handoff aus GW-230. Bearbeite GW-300 und danach
-GW-310. Nutze für den Real-Harness-Test ausschließlich den synthetischen
-Planungsraum und den lokalen pnpm-Startmodus. Gib niemals Secrets, vollständige
-Prompts oder Providerantworten aus. Belege das Klickbudget, Reload-Verhalten,
-Idempotenz, Hintergrundfeedback und die fachliche Freigabe mit Tests. Liefere
-einen Abschluss-Handoff an den Koordinator; ändere keine Checkboxen selbst.
+Beginne nach GW-230. Bearbeite GW-300 und GW-310. Belege Klickbudget,
+Marker-Herkunft, Reload, Idempotenz, Hintergrundfeedback, Reduced Motion,
+Tastaturbedienung und fachliche Freigabe mit Tests. Nutze im Real-Harness-Test
+nur den synthetischen Planungsraum.
 ```

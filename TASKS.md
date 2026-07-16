@@ -9,7 +9,11 @@ Diese Liste ist das operative Arbeitsdokument für Agenten. Pädagogische Semant
 
 Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md` beschrieben.
 
-Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbeitsfluss, „Jetzt wichtig“ und asynchrone Harness-Aufträge steht in:
+Der verbindliche UX-Refactor steht in:
+
+- `REFACTOR-UX.md`
+
+Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbeitsfluss, „Jetzt wichtig“, Hintergrundarbeit und die Denkraum-Oberfläche steht in:
 
 - `docs/guided-workflow-tasks.md`
 
@@ -27,6 +31,9 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [ ] Fokusübergabe für Platzierungen vervollständigen; Lernmoment, Übergang, Unterrichtsfenster, Board-Karte und Material funktionieren bereits kontextbezogen.
 - [x] Zeit & Dramaturgie mit bearbeitbaren Unterrichtsfenstern und Lernlandschaft-Platzierungen.
 - [ ] vollständige Materialmetadaten und Ergebnisbereich als Projektion von Lernmoment und Board-Karte.
+- [ ] Hauptansicht vom Dashboard-Layout zu einem fokussierten gemeinsamen Denkraum weiterentwickeln.
+- [ ] Gesprächsereignisse bidirektional mit Denkstand, offenen Entscheidungen, Vorbereitungen und Ergebnissen verknüpfen.
+- [ ] Ruhige Hintergrundarbeitsanzeige als kompakte Werkstattleiste umsetzen.
 
 ## L0 — Voraussetzung: Kernel-Verträge
 
@@ -55,8 +62,11 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [ ] API: Material einem Lernmoment oder Board-Item zuordnen; offen bis Kernel-Materialmetadaten und atomare Backend-Rückführung vollständig vorliegen.
 - [x] Jede semantische Änderung als verständliche Git-Version speichern.
 - [x] Layoutdaten getrennt von semantischen Daten speichern.
+- [ ] Gesprächsmarker als App-Read-Model mit `sourceMessageId`, Art und Zielreferenz implementieren.
+- [ ] Zielreferenzen serverseitig auf denselben Planungsraum begrenzen.
+- [ ] Marker bei verworfenen, ersetzten oder gelöschten Zielen konsistent behandeln.
 
-**Done when:** alle UI-Operationen serverseitig validiert und versioniert sind.
+**Done when:** alle UI-Operationen serverseitig validiert und versioniert sind und Herkunftsbezüge keine parallele pädagogische Semantik erzeugen.
 
 ## L2 — Lernlandschaft-Modal
 
@@ -94,6 +104,27 @@ Der frühere Mehrschritt „Nächste Schritte → Board-Karte → Auftrag“ ent
 
 **Done when:** Board und Materialien verlässlich auf denselben kanonischen Bezügen beruhen; kein Bereich wird zur Pflichtstation des geführten Arbeitsflusses.
 
+## L4a — Denkraum und räumliche Informationsarchitektur
+
+Das verbindliche UX-Zielbild steht in `REFACTOR-UX.md`.  
+Die konkrete Umsetzung ist in `docs/guided-workflow-tasks.md`, GW-200 bis GW-230, beschrieben.
+
+- [ ] Gespräch als visuelles und funktionales Zentrum gestalten.
+- [ ] Gleichgewichtige Dashboard-Spalten und Haupttabs zugunsten einer fokussierten Raumstruktur reduzieren.
+- [ ] Ruhige gemeinsame Arbeitsszene umsetzen; keine detaillierten Avatare oder simulierte Emotionalität.
+- [ ] Pinnwand als kompakte Projektion von Denkstand, offener Entscheidung und aktuellem Ergebnis umsetzen.
+- [ ] Lernlandschaft, Zeitplanung, Vorbereitungen, Knowledge und Materialien über verständliche Raumzugänge und eine lineare Navigation erreichbar machen.
+- [ ] Gesprächsmarker für festgehaltene Gedanken, Entscheidungen, Arbeitsvorhaben und Ergebnisse implementieren.
+- [ ] Bidirektionale Navigation zwischen Gesprächsstelle und Zielartefakt.
+- [ ] Chatfilter für markierte Ereignistypen.
+- [ ] Kurze Zustandsübergänge mit Reduced-Motion-Alternative.
+- [ ] Optionale, abschaltbare akustische Rückmeldung.
+- [ ] Hintergrundarbeit in einer kleinen, nicht technischen Werkstattleiste anzeigen.
+- [ ] Visuelle Regression, Tastaturbedienung und Screenreader-Zugänge testen.
+- [ ] Funktionsgleiche Darstellung ohne Illustration, Animation und Ton sicherstellen.
+
+**Done when:** Der Planungsraum wirkt als gemeinsamer pädagogischer Denkraum und nicht als Verwaltungsdashboard; alle räumlichen Funktionen bleiben auch ohne Animation, Illustration oder Maus vollständig zugänglich.
+
 ## L5 — AI-Vorschläge und Review
 
 - [ ] Fokus aus einer Platzierung an den bestehenden Planungsraum-Chat übergeben; die übrigen Fokustypen funktionieren bereits.
@@ -101,9 +132,10 @@ Der frühere Mehrschritt „Nächste Schritte → Board-Karte → Auftrag“ ent
 - [ ] Canvas-Diff für neue, geänderte und entfernte Knoten/Kanten implementieren.
 - [ ] Für strukturelle Landschaftsänderungen Vorschau, Übernehmen, im Gespräch ändern und Verwerfen anbieten.
 - [x] KI darf ohne Zustimmung keine kanonische Lernlandschaft oder Zeitplanung ändern.
-Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte separate Board-Proposal-Schritt entfällt.
 - [ ] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren (siehe L5a/GW-100).
 - [ ] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden (siehe L5a/GW-100/GW-140).
+
+Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte separate Board-Proposal-Schritt entfällt.
 
 **Done when:** KI-Entwürfe nachvollziehbar, reversibel und lehrkraftgesteuert sind.
 
@@ -121,9 +153,12 @@ Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflo
 - [ ] Ein zweites Häkchen gibt das sichtbare Ergebnis fachlich frei.
 - [ ] Der Stift führt immer in den bestehenden fokussierten Chat und speichert nichts kanonisch.
 - [ ] AutomaticCheck und Lehrkraftfreigabe getrennt speichern und anzeigen.
+- [ ] Gesprächsvorschlag, gestartete Vorbereitung und zurückgekehrtes Ergebnis im Chat mit dem zugehörigen Ziel verknüpfen.
+- [ ] Laufende Arbeit als kompakte, persistent sichtbare Hintergrundaktivität darstellen.
+- [ ] Abschluss einer Arbeit sichtbar, aber ohne automatischen Fokuswechsel melden.
 - [ ] Lokalen Real-Harness-Fluss mit einem synthetischen Planungsraum verifizieren.
 
-**Done when:** Vom Gespräch bis zur laufenden Vorbereitung und vom sichtbaren Ergebnis bis `ready_for_class` ist jeweils genau ein bewusster Klick nötig; Planungsboard und Materialbereich sind keine Pflichtstationen.
+**Done when:** Vom Gespräch bis zur laufenden Vorbereitung und vom sichtbaren Ergebnis bis `ready_for_class` ist jeweils genau ein bewusster Klick nötig; Planungsboard und Materialbereich sind keine Pflichtstationen; die Herkunft im Gespräch bleibt nachvollziehbar.
 
 ## L6 — Knowledge und Qualität
 
@@ -132,9 +167,13 @@ Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflo
 - [ ] Lehrplanbezug als Board-Aufgabe und Knowledge-Ergebnis modellieren.
 - [ ] E2E-Test: Landschaftsänderung → Canvas-Vorschau → Zustimmung → Workspace → UI.
 - [ ] E2E-Test: Gesprächsvorschlag → ein Häkchen → Hintergrundarbeit → Ergebnis in „Jetzt wichtig“ → zweites Häkchen → `ready_for_class`.
+- [ ] E2E-Test: Gesprächsmarker → Ziel öffnen → zur Gesprächsstelle zurückspringen.
 - [ ] Browser-E2E für Canvas-/Zeitansicht-Wechsel und Informationsverlust.
 - [ ] Barrierefreiheit: Tastatur, Fokus, Kontrast, nicht allein farbcodierte Kanten.
-- [ ] Responsive Verhalten: Canvas-Modal auf kleineren Displays.
+- [ ] Reduced Motion, abschaltbare Töne und funktionsgleiche Darstellung ohne Raumillustration sicherstellen.
+- [ ] Räumliche Navigation nie ausschließlich über Position, Farbe, Animation oder Symbol vermitteln.
+- [ ] Responsive Verhalten: Denkraum und Canvas-Modal auf kleineren Displays.
+- [ ] Visuelle Regression für Hauptzustände des Denkraums.
 
 ## Noch nicht beginnen
 
@@ -142,4 +181,7 @@ Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflo
 - automatische KI-Umbauten ohne Vorschau und Zustimmung,
 - Produktivbetrieb mit Schüler:innendaten,
 - Nextcloud- oder PDF/DOCX-Export vor stabiler Landschafts- und Materialzuordnung,
-- Host Bridge ohne eigenes Sicherheitsreview.
+- Host Bridge ohne eigenes Sicherheitsreview,
+- begehbare 3D-Welt,
+- vermenschlichte Worker-Figuren,
+- Belohnungs-, Punkte- oder Levelsysteme.

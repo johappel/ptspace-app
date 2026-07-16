@@ -1,13 +1,12 @@
-# AGENTS.md 
+# AGENTS.md
 
 ---
 
 !!! folge den Anweisungen in [REFACTOR-AGENTS.md](REFACTOR-AGENTS.md)
 
-Passe die folgenden Inhalte im Sinne der REFACTOR-GOALS.md an.
+Passe die folgenden Inhalte im Sinne der `REFACTOR-GOALS.md` und des verbindlichen UX-Zielbilds in [REFACTOR-UX.md](REFACTOR-UX.md) an.
 
 ---
-
 
 > Arbeitsanweisung für KI-/Coding-Agenten im Repository `ptspace-app`.
 >
@@ -23,7 +22,7 @@ Die Anwendung soll Lehrkräfte nicht in eine technische Agenten-, Git- oder Codi
 
 Die zentrale Produktidee lautet:
 
-> Lehrkräfte arbeiten in einem gemeinsamen pädagogischen Denkraum mit einem Critical Friend.
+> Lehrkräfte arbeiten in einem gemeinsamen pädagogischen Denkraum mit einem Critical Friend.  
 > Technische Dienste, Agenten, Harnesses, Git, Worker und Renderer bleiben im Hintergrund.
 
 Die App ist deshalb keine Oberfläche für `opencode`, kein Chatbot-Spielzeug und kein Materialgenerator. Sie ist eine strukturierte Umgebung für professionelles pädagogisches Denken, gemeinsame Planung und verantwortete Materialerstellung.
@@ -93,7 +92,19 @@ Zum Teilen vorgeschlagen
 
 Die Lehrkraft interagiert vorrangig mit dem Critical Friend.
 
-Die rechte beziehungsweise begleitende Oberfläche dokumentiert, ordnet und macht Entwicklungen sichtbar. Sie führt aber nicht den Denkprozess.
+Die begleitende Oberfläche dokumentiert, ordnet und macht Entwicklungen sichtbar. Sie führt aber nicht den Denkprozess.
+
+### Entscheidung 2a: Der Planungsraum wird als Denkraum, nicht als Dashboard gestaltet
+
+Das Gespräch bildet das visuelle und funktionale Zentrum.
+
+Denkstand, offene Entscheidungen, Hintergrundarbeit, Lernlandschaft, Zeitplanung, Knowledge und Materialien erscheinen als aus dem Gespräch hervorgehende oder räumlich zugeordnete Bereiche.
+
+Räumliche Metaphern dürfen Orientierung und Nachvollziehbarkeit verbessern, aber niemals professionelle Arbeitsansichten, klare Beschriftungen, Tastaturbedienung oder Barrierefreiheit ersetzen.
+
+Animationen dienen ausschließlich dazu, fachlich relevante Zustandsübergänge sichtbar zu machen. Gamification, Belohnungsmechaniken, vermenschlichte Worker und dauerhaft bewegte Dekoration sind ausgeschlossen.
+
+Die verbindlichen Einzelheiten stehen in `REFACTOR-UX.md`.
 
 ### Entscheidung 3: Tasks heißen nicht Tasks
 
@@ -238,698 +249,43 @@ requires_admin_approval
   Installation, Provider-Freigabe, Runtime-Änderung, Secrets, Systemzugriffe
 
 ask_critical_friend
-  nur wenn daraus eine sinnvolle pädagogische oder organisatorische Rückfrage entsteht
+  fachliche Klärung im bestehenden Gespräch, keine technische Permission
 ```
 
-### Entscheidung 21: Der Critical Friend fragt nur professionell sinnvoll Entscheidbares
+### Entscheidung 21: Raumereignisse bleiben nachvollziehbar
 
-Der Critical Friend fragt Lehrkräfte nach pädagogischem Zweck, Ton, Freigabe, Unterrichtseinsatz, Export oder Teilbarkeit.
+Wenn aus einer Gesprächsstelle ein festgehaltener Gedanke, eine offene Entscheidung, ein Arbeitsvorhaben oder ein Ergebnis hervorgeht, wird die Herkunft bidirektional verknüpft.
 
-Er fragt nicht nach Docker-Kommandos, API-Requests, Shell-Befehlen, Paketinstallationen, Ports, GPU-Konfigurationen oder Dateisystemrisiken.
+Die Verknüpfung ist eine App-Projektion. Sie ersetzt weder das kanonische Artefakt noch macht sie den gesamten Chat kanonisch.
 
-### Entscheidung 22: Audio Worker Capability gehört zur lokalen App
+### Entscheidung 22: Bewegung erklärt Zustände, sie belohnt nicht
 
-Audioerzeugung, z. B. ein Dialog zwischen zwei Schüler:innen und einer Lehrkraft, ist kein direkter Chatbefehl. In `ptspace-app` wird sie als **Audio Worker Capability** modelliert. Diese Capability beschreibt den pädagogischen Workflow, die erlaubten Inputs, die Reviewpflichten, die Sicherheitsregeln, die Rückgabe an den Critical Friend und die möglichen Fallbacks. Sie entscheidet nicht selbst, welche technische Runtime benutzt wird.
-
-Der eigentliche ausführende Skill, z. B. `tts-generation`, liegt im Harness oder in der Runtime-Schicht, etwa bei `opencode`, einem MCP-Tool, einem lokalen Worker-Container oder einem externen Provider-Adapter. Die Capability ist also der app-seitige Vertrag; der Skill ist die technische Ausführung.
-
-```text
-ptspace-app Audio Worker Capability
-  = pädagogischer und organisatorischer Auftrag
-  = Transcript, Review, Freigabe, Transparenz, Rückgabe
-
-opencode / Harness Skill `tts-generation`
-  = konkrete technische Ausführung
-  = ElevenLabs, ComfyUI, lokales TTS, Script-only-Fallback
-```
-
-Der Critical Friend darf eine Audio Worker Capability vorschlagen. Das Backend routet sie auf einen freigegebenen Skill oder fällt sicher auf Script-only zurück.
-
-### Entscheidung 23: Die Lehrkraft entscheidet Zweck und Nutzung, nicht den Provider
-
-Bei Audio entscheidet die Lehrkraft über pädagogischen Zweck, Rollen, Ton, Länge, Freigabe und Nutzung.
-
-Die Wahl zwischen lokalem TTS, ComfyUI, ElevenLabs oder Script-only-Fallback ist Aufgabe von Backend-Policy und Admin-Konfiguration.
-
-### Entscheidung 24: Providerwahl ist Policy, nicht UI-Last
-
-Provider werden über freigegebene Integrationen und verfügbare Runtimes gewählt. Die UI darf technische Providerwahl nur dann erklären, wenn die Lehrkraft ausdrücklich danach fragt oder wenn eine pädagogisch relevante Entscheidung betroffen ist.
-
-### Entscheidung 25: Technische Permissions werden nicht als Lehrerfragen formuliert
-
-Nicht erlaubt:
-
-```text
-Allow POST request to external TTS API?
-Soll ich ComfyUI per Docker installieren?
-Darf ich pip install ausführen?
-```
-
-Erlaubt:
-
-```text
-Soll das Audio eher wie ein realistisches Klassengespräch wirken oder bewusst wie ein Hörspiel erkennbar sein?
-Soll ich aus dem geprüften Skript jetzt eine Audiofassung erstellen?
-Soll ich einen Admin-Vorschlag für eine lokale Audio-Runtime vorbereiten?
-```
-
-### Entscheidung 26: Audioartefakte benötigen Transcript, Review und Status
-
-Jedes KI-generierte Audio benötigt ein Transcript, einen Review-Vermerk, einen Status als Entwurf oder freigegebenes Material und einen Transparenzhinweis für den Unterrichtseinsatz.
-
-### Entscheidung 27: Voice Cloning und identifizierbare Stimmen sind im Default-System ausgeschlossen
-
-Die App darf standardmäßig keine Stimmen realer Schüler:innen, Lehrkräfte, Eltern, Kolleg:innen oder öffentlicher Personen klonen oder imitieren.
-
-### Entscheidung 28: Worker dürfen keine Runtime eigenmächtig installieren oder verändern
-
-Worker dürfen Materialien erzeugen, aber keine Laufzeitumgebung verändern. Verboten sind automatische Installationen, Docker-Pulls, Paketinstallationen, Systemupdates oder eigenmächtige Aktivierung neuer Provider.
-
-### Entscheidung 29: Fehlende Runtimes führen zu Fallback oder Admin Request
-
-Wenn z. B. ComfyUI oder eine lokale TTS-Runtime fehlt, wird nicht die Lehrkraft mit einer technischen Installationsfrage konfrontiert. Die App nutzt Script-only-Fallback oder erstellt einen Admin Request.
-
-### Entscheidung 30: API-Keys und Secrets werden niemals im Chat eingegeben
-
-API-Keys, Tokens, Passwörter und Zugangsdaten dürfen nicht im Dialog abgefragt, verarbeitet oder gespeichert werden. Sie gehören in Integrations-Einstellungen, Admin-Konfiguration oder einen Secret Store.
-
-### Entscheidung 31: Providerfreigaben sind Backend-/Admin-Aufgabe
-
-Ob ElevenLabs, lokale Modelle, ComfyUI oder andere Dienste verfügbar sind, entscheidet die Instanzkonfiguration. Der Critical Friend darf den Status erklären, aber keine Secrets entgegennehmen und keine Provider selbst freischalten.
-
-### Entscheidung 32: Die Lehrkraft wird beraten, aber nicht zur Administratorin gemacht
-
-Der Critical Friend darf erklären, wo ein API-Key sicher eingetragen wird oder warum eine lokale Installation auf Tablet, PC oder Server sinnvoll oder nicht sinnvoll ist. Er darf aber keine Installation auslösen und keine technischen Risikoentscheidungen an die Lehrkraft delegieren.
-
-### Entscheidung 33: Realistische KI-Audios sind didaktisch und ethisch besonders prüfpflichtig
-
-Realistische Stimmen können Autorität, Authentizität oder soziale Nähe vortäuschen. Deshalb sind Transparenz, generische synthetische Stimmen, Transcript, Review und klare didaktische Funktion verpflichtend.
+Animation und optionaler Ton dürfen einen tatsächlichen Zustandsübergang verdeutlichen. Sie dürfen keine Belohnungslogik erzeugen, die Aufmerksamkeit dauerhaft binden oder Fokus und Scrollposition verändern.
 
 ---
 
-## 4. Zentrale Fachobjekte der App
-
-Die App soll fachlich objektbasiert gedacht werden. Dateien sind interne Repräsentationen, nicht die primäre Produktlogik.
-
-Wichtige Objekte:
-
-```text
-PlanningSpace
-Conversation
-CriticalFriendSession
-LearningDesign
-Decision
-OpenQuestion
-NextStep
-ServiceRequest
-WorkerResult
-Material
-ExportPackage
-OKFPackage
-NextcloudExport
-VersionSnapshot
-```
-
-### PlanningSpace
-
-Ein Planungsraum ist das zentrale Arbeitsobjekt.
-
-Er enthält:
-
-- Titel
-- Thema
-- Fach / Lernbereich
-- Zielgruppe
-- Beteiligte
-- Dialog
-- Denkstand
-- offene Entscheidungen
-- nächste Schritte
-- Materialien
-- Exporte
-- interne Versionen
-
-### LearningDesign
-
-Das Learning Design ist der strukturierte Denkstand.
-
-Es enthält mindestens:
-
-- Kontext
-- Zielgruppe
-- pädagogische Intention
-- Lernreise
-- Lernmomente
-- Aktivitäten
-- Materialien
-- Reflexionsfragen
-- offene Fragen
-- Entscheidungen und Begründungen
-
-### Decision
-
-Eine Entscheidung ist nicht nur ein Ergebnis, sondern enthält:
-
-- Entscheidung
-- Begründung
-- Alternativen
-- Unsicherheiten
-- Zeitpunkt
-- beteiligte Personen
-
-### NextStep
-
-Ein nächster Schritt ist die pädagogisch formulierte Oberfläche eines internen Tasks oder Service Requests.
-
-Beispiele:
-
-- Lehrplanbezug prüfen
-- Lernreise skizzieren
-- Arbeitsauftrag entwerfen
-- Quellenlage prüfen
-- Material für Klasse 9 sprachlich vereinfachen
-
-### ServiceRequest
-
-Service Requests sind das interne Nervensystem der App.
-
-Sie entsprechen dem Schema aus `pedagogical-thinking-space/specs/SERVICE_REQUEST_SCHEMA.md`.
-
-Sie werden in der UI nur indirekt sichtbar.
-
----
-
-## 5. Erwartete Repository-Struktur
-
-Eine mögliche erste Struktur:
-
-```text
-ptspace-app/
-  README.md
-  AGENTS.md
-  PRODUCT_SPEC.md
-  LICENSE
-  .env.example
-  docker-compose.yml
-
-  frontend/
-    package.json
-    src/
-      app/
-      components/
-      features/
-        conversation/
-        thinking-state/
-        planning-space/
-        materials/
-        export/
-      lib/
-
-  backend/
-    package.json oder pyproject.toml
-    src/
-      api/
-      auth/
-      planning_spaces/
-      critical_friend/
-      service_requests/
-      workspaces/
-      git_store/
-      okf/
-      nextcloud/
-      harness/
-      jobs/
-
-  kernel/
-    README.md
-    # optional: synchronisierte oder referenzierte Kernel-Dateien
-
-  docs/
-    architecture.md
-    data-protection.md
-    ui-language.md
-    okf-export.md
-    nextcloud-integration.md
-    harness-opencode.md
-
-  examples/
-    planning-spaces/
-
-  tests/
-```
-
-Die genaue Technologie ist noch offen. Änderungen an der Struktur sind erlaubt, wenn sie die Produktentscheidungen nicht verletzen.
-
----
-
-## 6. UI-Prinzipien
-
-Die Oberfläche soll ruhig, kollegial und lehrkräftefreundlich sein.
-
-### Hauptbereiche
-
-Minimaler Zielzustand:
-
-```text
-Gespräch | Denkstand | Nächste Schritte | Materialien | Export
-```
-
-Oder als Layout:
-
-```text
-links / zentral: Gespräch mit dem Critical Friend
-rechts: Denkstand, offene Entscheidungen, nächste Schritte
-unten / eigener Bereich: Materialien und Exporte
-```
-
-### Sprache
-
-Die App spricht wie ein erfahrener Kollege, nicht wie ein Tool, eine Verwaltungssoftware oder ein KI-Demo-System.
-
-Vermeiden:
-
-```text
-Agent ausführen
-Task starten
-Render erzeugen
-Repository synchronisieren
-Service Request dispatchen
-```
-
-Verwenden:
-
-```text
-weiterdenken
-prüfen
-zusammenfassen
-als Entwurf vorbereiten
-für den Unterricht bereitstellen
-zum Teilen vormerken
-```
-
-### Keine Überforderung
-
-Immer nur ein sinnvoller nächster Schritt.
-
-Keine Listenflut. Keine permanenten Automationsvorschläge. Kein Dashboard voller technischer Zustände.
-
----
-
-## 7. Backend-Prinzipien
-
-Das Backend ist nicht nur API-Schicht, sondern Schutz- und Orchestrierungsschicht.
-
-Es ist verantwortlich für:
-
-- Authentifizierung
-- Autorisierung
-- Planungsräume
-- Workspace-Isolation
-- Git-Versionierung
-- Service-Request-Validierung
-- Harness-Kommunikation
-- Job-Queue
-- Datenschutzregeln
-- Exportfreigaben
-- Nextcloud-Anbindung
-- OKF-Import und -Export
-
-### Verboten
-
-- Browser darf nicht direkt auf opencode zugreifen.
-- Browser darf keine Shell-Kommandos auslösen.
-- Harness darf nicht außerhalb eines isolierten Workspaces arbeiten.
-- Exporte nach Nextcloud dürfen nicht automatisch rohe Dialoge enthalten.
-- Worker dürfen keine pädagogischen Grundentscheidungen treffen.
-- Worker dürfen keine Runtime eigenmächtig installieren, verändern oder erweitern.
-- API-Keys, Tokens und Passwörter dürfen nie im Chat abgefragt oder gespeichert werden.
-- Technische Harness-Permissions dürfen nicht direkt an Lehrkräfte durchgereicht werden.
-
----
-
-## 8. Harness-Anbindung
-
-`opencode` ist die naheliegende erste Harness-Implementierung, weil der bestehende Denkraum damit bereits praktisch funktioniert.
-
-Die App muss jedoch so gebaut werden, dass später ein anderer Harness möglich ist. Der Harness ist Kerninfrastruktur des Ziel-MVP, aber nicht Identität des Produkts.
-
-Daher sollte es eine interne Schnittstelle geben:
-
-```ts
-interface HarnessClient {
-  startSession(input: StartSessionInput): Promise<SessionRef>
-  sendMessage(session: SessionRef, message: UserMessage): Promise<HarnessResponse>
-  readWorkspace(path: string): Promise<FileTree>
-  applyResult(result: HarnessResult): Promise<void>
-}
-```
-
-Oder äquivalent in einer anderen Sprache.
-
-Der Harness darf nicht das Produktmodell bestimmen. Produktbegriffe wie Planungsraum, Denkstand, nächste Schritte und Materialien gehören zur App. Der Harness liefert Ausführung und Workspace-Wirkung.
-
----
-
-## 9. Git-Store
-
-In Version 1 reicht lokales Git.
-
-Pro Planungsraum wird ein isolierter Workspace angelegt:
-
-```text
-workspaces/<planning-space-id>/
-  .git/
-  learning-design.md
-  decisions.md
-  open-questions.md
-  service-requests/
-  drafts/
-  materials/
-  exports/
-  okf/
-```
-
-Commits werden durch das Backend erzeugt.
-
-In der UI erscheinen sie als gespeicherte Versionen:
-
-```text
-Gespeichert: Lernanliegen geklärt
-Gespeichert: Lernreise überarbeitet
-Gespeichert: Materialentwurf vorbereitet
-```
-
----
-
-## 10. OKF-Import und -Export
-
-OKF ist das bevorzugte Austausch- und Kurationsformat.
-
-Exportiert werden können:
-
-- Learning Design
-- Knowledge Proposal
-- Materialpaket
-- Quellenpaket
-- Capability Proposal
-- exemplarischer Planungsraum ohne sensible Daten
-
-Nicht automatisch exportieren:
-
-- roher Chat
-- interne Service Requests
-- private Reflexionen
-- personenbezogene Informationen
-- sensible Lerngruppenbeschreibungen
-
-OKF-Dateien sollen Markdown mit YAML-Frontmatter verwenden.
-
----
-
-## 11. Nextcloud-Export
-
-Nextcloud ist externe Schulablage.
-
-Die App kann fertige Materialien exportieren:
-
-- PDF
-- DOCX
-- PPTX
-- H5P
-- Moodle-ZIP
-- Markdown
-- Quellenübersicht
-
-Vor einem Export muss die Lehrkraft bestätigen, was exportiert wird.
-
-Nextcloud darf nicht zur internen Arbeitsdatenbank werden.
-
----
-
-## 12. Datenschutz und Sicherheit
-
-Datenschutz ist nicht späteres Add-on, sondern Grundanforderung.
-
-Mindestens beachten:
-
-- keine Schüler:innendaten ohne Notwendigkeit
-- Pseudonymisierung fördern
-- sensible Angaben markieren
-- getrennte Workspaces pro Planungsraum
-- klare Exportfreigaben
-- kein automatischer Upload unfertiger Reflexionen
-- lokale oder datenschutzkonforme LLM-Provider ermöglichen
-- Protokollierung von Exporten
-- Lösch- und Archivierungsfunktionen
-
-Die App soll Lehrkräfte aktiv dabei unterstützen, keine unnötigen personenbezogenen Daten einzugeben.
-
-Beispiel:
-
-```text
-Hinweis: Für die Planung reicht meist eine Beschreibung der Lerngruppe ohne Namen einzelner Schüler:innen.
-```
-
----
-
----
-
-## 13. Runtime-, Integrations- und Secret-Policy
-
-Diese App braucht eine klare Trennung zwischen pädagogischem Dialog und technischer Ausführung.
-
-### Critical Friend
-
-Der Critical Friend darf technische Voraussetzungen in Lehrkräfte-Sprache erklären. Er darf z. B. sagen:
-
-```text
-Für realistische Audioerzeugung ist ElevenLabs in dieser Instanz vorgesehen.
-Der API-Key wird nicht hier im Gespräch eingetragen, sondern unter
-Einstellungen → Integrationen → ElevenLabs.
-```
-
-Oder:
-
-```text
-Eine lokale ComfyUI-/TTS-Installation ist für ein Tablet nicht sinnvoll.
-Für den Unterrichtsalltag sollte die Audioerzeugung auf einem freigegebenen Server
-oder über eine geprüfte Integration laufen.
-```
-
-Er darf nicht:
-
-- API-Keys entgegennehmen,
-- Installationen auslösen,
-- Docker-, Shell- oder Paketbefehle freigeben lassen,
-- Lehrkräfte mit technischen Sicherheitsfragen belasten.
-
-### Integrations UI
-
-Secrets gehören in eine eigene Oberfläche:
-
-```text
-Einstellungen
-  Integrationen
-    ElevenLabs
-      Status: nicht eingerichtet / eingerichtet / admin-only
-      API-Key: sicher hinterlegen
-      Nutzung erlaubt für: Audio Worker
-      Datenschutzhinweis
-      Kostenhinweis
-```
-
-Für institutionellen Betrieb zusätzlich:
-
-```text
-Admin
-  Runtimes
-    opencode
-    local_tts
-    comfyui
-    export_worker
-    nextcloud
-
-  Provider
-    allowed_external_tts
-    allowed_llm_providers
-    data_processing_status
-```
-
-### Runtime Check
-
-Worker müssen vor Ausführung über das Backend prüfen, ob eine Capability technisch verfügbar und freigegeben ist:
-
-```yaml
-audio_generation:
-  local_tts: unavailable
-  comfyui: unavailable
-  elevenlabs: configured
-  external_tts_allowed: true
-  transcript_required: true
-  human_review_required: true
-```
-
-Wenn eine Runtime fehlt, gilt:
-
-```text
-fehlende Capability
-  → sicherer Fallback, z. B. Script-only
-  → oder Admin Request
-  → keine Installationsfrage an Lehrkräfte
-```
-
-### Admin Requests
-
-Ein Admin Request ist ein technisches Artefakt für Betreiber:innen, nicht Teil des normalen Lehrkräfte-Dialogs.
-
-Beispiel:
-
-```yaml
-service: admin
-mode: request_runtime
-runtime: local_tts_comfyui
-reason: >
-  Audio Worker needs an approved local TTS runtime for realistic dialogue generation.
-status: proposed
-requires_admin_approval: true
-```
-
-In der UI kann der Critical Friend höchstens anbieten:
-
-```text
-Soll ich einen kurzen Einrichtungsvorschlag für eure Administration vorbereiten?
-```
-
----
-
-## 14. Erste Entwicklungsphase
-
-Für Version 0.1 zählt nicht Vollständigkeit, sondern die richtige Grundbewegung.
-
-### Muss
-
-- Planungsraum anlegen
-- Gespräch mit Critical Friend führen
-- Denkstand sichtbar machen
-- offene Entscheidungen sichtbar machen
-- nächste Schritte anzeigen
-- Workspace-Dateien speichern
-- lokale Git-Versionen erzeugen
-- einfacher Markdown/PDF/DOCX-Export
-
-### Soll
-
-- minimale opencode- oder Harness-Anbindung implementieren
-- Service Requests intern modellieren
-- erste Worker-/Service-Workflows über Harness oder kontrollierten Backend-Worker vorbereiten
-- OKF-Export für Learning Design
-
-### Später
-
-- kollaborative Planungsräume mit mehreren Lehrkräften
-- Nextcloud-Export
-- Rollen- und Rechtekonzept
-- SSO / Keycloak
-- H5P / Moodle / LiaScript Renderer
-- Forgejo optional
-- institutionelle Wissensbasis
-
----
-
-## 15. Arbeitsweise für Coding-Agenten
-
-Wenn du als Coding-Agent in diesem Repository arbeitest:
-
-1. Lies zuerst `PRODUCT_SPEC.md`.
-2. Prüfe, ob eine Aufgabe die pädagogischen Produktentscheidungen berührt.
-3. Verwende lehrkräftefreundliche Begriffe in UI und API-Antworten.
-4. Halte technische Begriffe aus der UI heraus.
-5. Implementiere Schutzschichten vor Automatisierung.
-6. Schreibe Tests für Datenmodell, Service-Request-Logik und Exportfilter.
-7. Dokumentiere Annahmen.
-8. Frage nach, wenn eine Entscheidung das Menschenbild, Datenschutz oder pädagogische Verantwortung betrifft.
-
----
-
-## 16. Definition of Done
-
-Ein Feature ist nur fertig, wenn:
-
-- es die Produktentscheidungen nicht verletzt,
-- die UI pädagogisch verständlich bleibt,
-- keine technischen Interna unnötig sichtbar werden,
-- Datenzugriffe durch das Backend kontrolliert sind,
-- sensible Daten nicht unkontrolliert exportiert werden,
-- relevante Tests existieren,
-- die Dokumentation aktualisiert wurde.
-
----
-
-## 17. Leitfrage
-
-Bei jeder größeren Entscheidung gilt:
-
-> Hilft diese Änderung Lehrkräften, klarer und verantwortlicher über Unterricht nachzudenken?
-
-Wenn die Antwort nur lautet:
-
-> Es macht den Agenten mächtiger.
-
-ist die Änderung wahrscheinlich falsch oder zumindest noch nicht ausreichend pädagogisch übersetzt.
-
----
-
-## Harness Adapter and Host Bridge Rules
-
-Coding agents working in this repository must treat `opencode` as the reference harness, not as a hard dependency.
-
-Implement harness integration behind a common backend adapter boundary.
-
-```text
-Browser UI
-  → ptspace-backend
-    → HarnessAdapter
-      → opencode | Claude Code | Codex | Hermes | Custom
-```
-
-Do not build teacher-facing UI that assumes a specific harness brand.
-
-### Local desktop harnesses
-
-If a user has Claude Code, Codex, Hermes or another agent installed locally, the Dockerized app must not mount local home directories or secret folders to access that tool.
-
-Use a controlled Host Harness Bridge:
-
-```text
-backend container
-  → host.docker.internal:<bridge-port>
-  → ptspace-harness-bridge on host
-  → local harness
-```
-
-The bridge may use local credentials, but it must not expose them to the app.
-
-### Prohibited implementations
-
-Do not implement:
-
-- direct mounting of `~/.claude`, `~/.config`, `~/.ssh`, `~/.local/share` or similar secret-bearing folders into the app container,
-- arbitrary host command execution from the backend,
-- direct browser access to the harness,
-- chat-based API-key or OAuth-token collection,
-- provider-specific UI as the main teacher-facing workflow.
-
-### Required implementation principle
-
-The backend policy layer remains authoritative even when the selected harness runs on the user's desktop.
-
-Teacher-facing language should say things like:
-
-> "Your local Claude Code harness is available through the desktop bridge. I can use it only for this planning room."
-
-not:
-
-> "I will mount your local Claude auth directory into Docker."
-
-See `HARNESS_ADAPTERS.md`.
-
+## 4. Arbeitsregeln für Coding-Agenten
+
+1. Vor Änderungen `REFACTOR-AGENTS.md`, `REFACTOR-GOALS.md`, `REFACTOR-UX.md`, `PRODUCT_SPEC.md`, `UI_SPEC.md`, `TASKS.md` und den jeweils relevanten Detailplan vollständig lesen.
+2. Pädagogische Semantik nicht im App-Repo neu erfinden.
+3. Bestehende, nicht zum Auftrag gehörende Änderungen nicht verändern.
+4. Keine Secrets, `.env`-Werte, vollständigen Prompts oder personenbezogenen Daten committen.
+5. Backend-Verträge vor UI-Eigenlogik bevorzugen.
+6. Keine zweite Workflowstrecke neben „Jetzt wichtig“ erzeugen.
+7. Jede räumliche oder animierte Funktion mit einer funktionsgleichen barrierefreien Alternative umsetzen.
+8. Nach jedem Task die angegebenen Tests ausführen.
+9. Handoffs enthalten geänderte Dateien, Tests, bekannte Einschränkungen und den nächsten freigegebenen Task.
+10. Nur der koordinierende Agent ändert zentrale Task-Checkboxen.
+
+## 5. UX-Prüffragen für jeden Frontend-Task
+
+Vor der Abnahme ist zu prüfen:
+
+- Bleibt das Gespräch der Mittelpunkt?
+- Entsteht ein Dashboard mit konkurrierenden Karten?
+- Ist die Herkunft eines neuen Zustands nachvollziehbar?
+- Ist der Bereich ohne Illustration, Ton und Animation erreichbar?
+- Verändert eine Animation Fokus oder Scrollposition?
+- Werden technische Begriffe sichtbar?
+- Entsteht ein zusätzlicher Bestätigungs- oder Pflichtschritt?
+- Funktioniert der Ablauf mit Tastatur und Screenreader?
