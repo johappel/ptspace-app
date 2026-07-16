@@ -6,6 +6,7 @@ import { GitManager } from "../services/git/GitManager.js";
 import { HarnessAdapter } from "../services/harness/HarnessAdapter.js";
 import { ConversationStore } from "../storage/ConversationStore.js";
 import { ConversationMetricsCollector } from "../services/conversation/ConversationMetrics.js";
+import { ConversationMetricsStore } from "../services/conversation/ConversationMetricsStore.js";
 import { ConversationOrchestrator } from "../services/conversation/ConversationOrchestrator.js";
 
 const FocusSchema = z.object({
@@ -24,6 +25,7 @@ export async function conversationRoutes(
     harness: HarnessAdapter;
     conversation: ConversationStore;
     orchestrator: ConversationOrchestrator;
+    metrics: ConversationMetricsStore;
     devMode?: boolean;
   }
 ) {
@@ -53,6 +55,7 @@ export async function conversationRoutes(
 
     try {
       const outcome = await deps.orchestrator.handleTurn(space, parsed.data.message, parsed.data.focus);
+      deps.metrics.record(id, outcome.metrics);
       if (!outcome.ok) {
         return reply.code(outcome.code).send({
           message: outcome.message,
@@ -112,6 +115,7 @@ export async function conversationRoutes(
     try {
       send("status", { status: "thinking" });
       const outcome = await deps.orchestrator.handleTurn(space, parsed.data.message, parsed.data.focus);
+      deps.metrics.record(id, outcome.metrics);
       if (!outcome.ok) {
         send("error", { message: outcome.message });
         reply.raw.end();
@@ -134,6 +138,19 @@ export async function conversationRoutes(
       reply.raw.end();
       return reply;
     }
+  });
+
+  // Performance-Dashboard (CHAT-PERFORMANCE-TASKS TASK 18) – nur im Dev-Modus.
+  // Zeigt Antwortzeiten, Promptgrößen, Session-Reuse und Cache-Trefferquote.
+  // Technische Details bleiben aus der Lehrkraft-Oberfläche heraus.
+  app.get("/conversation/metrics", async (_request, reply) => {
+    if (!devMode) {
+      return reply.code(404).send({ message: "Nicht verfügbar." });
+    }
+    return {
+      aggregate: deps.metrics.aggregate(),
+      recent: deps.metrics.recent(20)
+    };
   });
 }
 

@@ -18,6 +18,7 @@ import { SensitiveContentScanner } from "./services/privacy/SensitiveContentScan
 import { ServiceRequestWorkflow } from "./services/serviceRequests/ServiceRequestWorkflow.js";
 import { ProposalService } from "./services/proposals/ProposalService.js";
 import { ConversationOrchestrator } from "./services/conversation/ConversationOrchestrator.js";
+import { ConversationMetricsStore } from "./services/conversation/ConversationMetricsStore.js";
 import { planningSpaceRoutes } from "./routes/planningSpaces.js";
 import { conversationRoutes } from "./routes/conversation.js";
 import { thinkingStateRoutes } from "./routes/thinkingState.js";
@@ -77,6 +78,7 @@ export async function buildApp() {
     { store, workspace, git, harness, conversation },
     { kernelDir: config.kernelDir }
   );
+  const conversationMetrics = new ConversationMetricsStore();
   app.addHook("onClose", async () => {
     await orchestrator.flush();
   });
@@ -89,7 +91,7 @@ export async function buildApp() {
   }));
 
   await app.register(planningSpaceRoutes, { prefix: "/api", store, workspace, git });
-  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation, orchestrator, devMode: process.env.NODE_ENV !== "production" });
+  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation, orchestrator, metrics: conversationMetrics, devMode: process.env.NODE_ENV !== "production" });
   await app.register(thinkingStateRoutes, { prefix: "/api", store, workspace, git });
   await app.register(roomOverviewRoutes, { prefix: "/api", store, workspace, git, conversation });
   await app.register(planningArtifactRoutes, { prefix: "/api", store, workspace, git });
