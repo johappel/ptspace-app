@@ -48,6 +48,64 @@ export async function serviceRequestRoutes(
     }
   });
 
+  // Generischer Material-Endpoint für beliebige Material-Dateien
+  app.get<{ Params: { id: string; materialId: string } }>("/planning-spaces/:id/materials/:materialId", async (request, reply) => {
+    const { id, materialId } = request.params;
+    const space = await deps.store.get(id);
+    if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
+    await deps.workspace.ensureWorkspace(space);
+    try {
+      // Normalisiere die materialId: Extrahiere nur den Dateinamen ohne Pfad und Erweiterung
+      let normalizedId = materialId;
+      if (materialId.includes("/")) {
+        // Extrahiere Dateinamen aus dem Pfad
+        normalizedId = materialId.split("/").pop() ?? materialId;
+      }
+      // Entferne .md Erweiterung, falls vorhanden
+      if (normalizedId.endsWith(".md")) {
+        normalizedId = normalizedId.slice(0, -3);
+      }
+
+      // Versuche verschiedene Material-Pfade
+      const possiblePaths = [
+        `materials/${normalizedId}.md`,
+        `drafts/${normalizedId}.md`,
+        `materials/${normalizedId}`,
+        `drafts/${normalizedId}`,
+        // Falls die originalId ein Pfad war, versuche auch den direkten Pfad
+        ...(materialId !== normalizedId ? [materialId] : [])
+      ];
+      let content: string | undefined;
+      let foundPath: string | undefined;
+      for (const path of possiblePaths) {
+        try {
+          content = await deps.workspace.readProjectFile(id, path);
+          foundPath = path;
+          break;
+        } catch {
+          // Versuche nächsten Pfad
+        }
+      }
+      if (!content) {
+        return reply.code(404).send({ message: `Das Material "${normalizedId}" liegt nicht vor.` });
+      }
+      const title = normalizedId
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+      return {
+        title,
+        status: "review_needed",
+        format: "markdown",
+        content,
+        location: foundPath,
+        materialId: normalizedId
+      };
+    } catch (err) {
+      return reply.code(500).send({ message: "Das Material konnte nicht geladen werden." });
+    }
+  });
+
   app.post("/planning-spaces/:id/service-requests/student-instruction", async (request, reply) => {
     const { id } = request.params as { id: string };
     const space = await deps.store.get(id);
@@ -115,8 +173,17 @@ export async function serviceRequestRoutes(
         version
       };
     } catch (error) {
-      request.log.error({ err: error }, "service request execution failed");
-      return reply.code(409).send({ message: "Der Entwurf konnte noch nicht sicher vorbereitet und geprüft werden." });
+      const errorMessage = error instanceof Error ? error.message : "unknown";
+      request.log.error({ err: error, errorType: errorMessage }, "service request execution failed");
+      const userMessages: Record<string, string> = {
+        worker_execution_failed: "Der Worker konnte den Entwurf nicht erstellen. Überprüfe die Runtime-Konfiguration unter Einstellungen.",
+        review_failed: "Der erstellte Entwurf erfüllt nicht die Qualitätsanforderungen. Der Worker muss überarbeitet werden.",
+        service_request_not_proposed: "Der Auftrag befindet sich nicht im Status ‚Vorgeschlagen'.",
+        enoent: "Die Datei konnte nach der Erstellung nicht gelesen werden.",
+        EBUSY: "Der Workspace ist derzeit blockiert. Bitte versuche es in wenigen Sekunden erneut."
+      };
+      const message = userMessages[errorMessage] ?? "Der Entwurf konnte noch nicht sicher vorbereitet und geprüft werden. Fehler: " + errorMessage;
+      return reply.code(409).send({ message });
     }
   });
 }

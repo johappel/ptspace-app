@@ -1,10 +1,12 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 import { GitManager } from "../services/git/GitManager.js";
 import { HarnessAdapter } from "../services/harness/HarnessAdapter.js";
 import { ConversationStore } from "../storage/ConversationStore.js";
+import { ConversationMetricsCollector } from "../services/conversation/ConversationMetrics.js";
+import { ConversationOrchestrator } from "../services/conversation/ConversationOrchestrator.js";
 
 const FocusSchema = z.object({
   kind: z.enum(["learning_moment", "transition", "teaching_window", "placement", "planning_item", "material"]),
@@ -13,19 +15,20 @@ const FocusSchema = z.object({
 });
 const SendMessageSchema = z.object({ message: z.string().min(1), focus: FocusSchema.optional() });
 
-const focusKindLabels: Record<string, string> = {
-  learning_moment: "Lernmoment",
-  transition: "Übergang",
-  teaching_window: "Unterrichtsfenster",
-  placement: "zeitliche Platzierung",
-  planning_item: "Arbeitsvorhaben",
-  material: "Material"
-};
-
 export async function conversationRoutes(
   app: FastifyInstance,
-  deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager; harness: HarnessAdapter; conversation: ConversationStore }
+  deps: {
+    store: PlanningSpaceStore;
+    workspace: WorkspaceManager;
+    git: GitManager;
+    harness: HarnessAdapter;
+    conversation: ConversationStore;
+    orchestrator: ConversationOrchestrator;
+    devMode?: boolean;
+  }
 ) {
+  const devMode = deps.devMode ?? false;
+
   app.get("/planning-spaces/:id/messages", async (request, reply) => {
     const { id } = request.params as { id: string };
     const space = await deps.store.get(id);
@@ -48,63 +51,93 @@ export async function conversationRoutes(
       return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     }
 
-    // Store teacher message
-    const teacherMessageId = `msg-${Date.now()}-teacher`;
-    await deps.conversation.addMessage(id, {
-      id: teacherMessageId,
-      author: "teacher",
-      text: parsed.data.message,
-      createdAt: new Date().toISOString()
-    });
-
-    const workspaceRoot = await deps.workspace.ensureWorkspace(space);
     try {
-      const availability = await deps.harness.checkAvailability();
-      if (availability.status !== "ready") {
-        return reply.code(409).send({ message: availability.teacherFacingMessage, availability });
+      const outcome = await deps.orchestrator.handleTurn(space, parsed.data.message, parsed.data.focus);
+      if (!outcome.ok) {
+        return reply.code(outcome.code).send({
+          message: outcome.message,
+          availability: outcome.availability,
+          events: outcome.events,
+          ...(devMode ? { metrics: outcome.metrics } : {})
+        });
       }
-      const session = await deps.harness.createSession({ planningSpaceId: space.id, workspaceRoot });
-      const focusLine = parsed.data.focus
-        ? `\nAktueller Fokus der Lehrkraft: ${focusKindLabels[parsed.data.focus.kind] ?? parsed.data.focus.kind} „${parsed.data.focus.label}".`
-        : "";
-      const result = await deps.harness.sendMessage({ 
-        session, 
-        space, 
-        message: parsed.data.message,
-        conversationContext: `${await deps.conversation.getConversationSummary(id)}${focusLine}
-
-Gemeinsamer Denkstand:
-${await deps.workspace.readProjectFile(id, "learning-design.md")}`
-      });
-      const failed = result.events.some((event) => event.type === "status" && event.status === "failed");
-      if (failed) {
-        return reply.code(409).send({ message: result.reply.text, events: result.events });
+      if (devMode) {
+        request.log.info(
+          { metrics: outcome.metrics, profile: outcome.profile },
+          `\n${ConversationMetricsCollector.formatLog(outcome.metrics)}`
+        );
       }
-
-      // Store CF message
-      const cfMessageId = `msg-${Date.now()}-cf`;
-      await deps.conversation.addMessage(id, {
-        id: cfMessageId,
-        author: "critical_friend",
-        text: result.reply.text,
-        createdAt: new Date().toISOString()
-      });
-
-      for (const update of result.workspaceUpdates) {
-        await deps.workspace.writeProjectFile(space.id, update.relativePath, update.content);
-      }
-      const stateChanged = result.events.some(
-        (event) =>
-          event.type === "workspace_update" &&
-          ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"].includes(event.relativePath)
-      );
-      const version = await deps.git.saveVersion(workspaceRoot, stateChanged ? "Denkstand aktualisiert" : "Gespräch fortgeführt");
-      return { status: "wird_vorbereitet", reply: result.reply, version, events: result.events };
+      return {
+        status: outcome.status,
+        reply: outcome.reply,
+        events: outcome.events,
+        ...(devMode ? { metrics: outcome.metrics, profile: outcome.profile } : {})
+      };
     } catch (error) {
       request.log.error({ err: error }, "harness conversation failed");
       return reply.code(409).send({
-        message: "Die geschützte Testausführung konnte noch nicht abgeschlossen werden. Bitte prüfe die freigegebene Harness-Konfiguration."
+        message:
+          "Die geschützte Testausführung konnte noch nicht abgeschlossen werden. Bitte prüfe die freigegebene Harness-Konfiguration."
       });
     }
   });
+
+  // Streaming-Endpunkt (CHAT-PERFORMANCE-TASKS TASK 2, ARCHITECTURE Abschnitt 10).
+  // Sendet früh einen Status ("Kontext wird vorbereitet"/"denkt") und danach die
+  // fertige Antwort. Technische Detailereignisse bleiben verborgen.
+  app.post("/planning-spaces/:id/conversation/stream", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = SendMessageSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ message: "Bitte schreibe kurz, woran du weiterdenken möchtest." });
+    }
+    const space = await deps.store.get(id);
+    if (!space) {
+      return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
+    }
+
+    // CORS-Header für SSE (fastify-cors setzt diese für normale Responses,
+    // aber raw.writeHead() überschreibt sie, deshalb explizit mitgeben).
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    });
+    const send = (event: string, data: unknown) => sendSse(reply, event, data);
+
+    send("status", { status: "preparing_context" });
+    try {
+      send("status", { status: "thinking" });
+      const outcome = await deps.orchestrator.handleTurn(space, parsed.data.message, parsed.data.focus);
+      if (!outcome.ok) {
+        send("error", { message: outcome.message });
+        reply.raw.end();
+        return reply;
+      }
+      send("status", { status: "saving_state" });
+      send("complete", {
+        messageId: outcome.reply.id,
+        reply: outcome.reply,
+        ...(devMode ? { metrics: outcome.metrics } : {})
+      });
+      reply.raw.end();
+      return reply;
+    } catch (error) {
+      request.log.error({ err: error }, "harness conversation stream failed");
+      send("error", {
+        message:
+          "Die geschützte Testausführung konnte noch nicht abgeschlossen werden. Bitte prüfe die freigegebene Harness-Konfiguration."
+      });
+      reply.raw.end();
+      return reply;
+    }
+  });
+}
+
+function sendSse(reply: FastifyReply, event: string, data: unknown): void {
+  reply.raw.write(`event: ${event}\n`);
+  reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
 }

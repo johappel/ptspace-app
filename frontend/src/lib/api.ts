@@ -1,4 +1,4 @@
-const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:5174";
+const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:3000";
 
 
 export type LearningMoment = {
@@ -166,6 +166,49 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, focus })
     }),
+  // Streaming-Variante (SSE): meldet früh einen Denkstatus und liefert am Ende
+  // die vollständige Antwort. Fällt bei Serverfehlern auf einen klaren Fehler zurück.
+  sendMessageStream: async (
+    spaceId: string,
+    message: string,
+    handlers: {
+      onStatus?: (status: string) => void;
+      onComplete: (reply: { id: string; author: "critical_friend"; text: string; createdAt: string }) => void;
+      onError?: (message: string) => void;
+    },
+    focus?: PedagogicalFocus
+  ): Promise<void> => {
+    const response = await fetch(`${backendUrl}/api/planning-spaces/${spaceId}/conversation/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, focus })
+    });
+    if (!response.ok || !response.body) {
+      const fallback = await response.json().catch(() => ({ message: "Die Antwort konnte nicht gestreamt werden." }));
+      handlers.onError?.(fallback.message ?? "Die Antwort konnte nicht gestreamt werden.");
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop() ?? "";
+      for (const chunk of chunks) {
+        const eventMatch = chunk.match(/^event: (.+)$/m);
+        const dataMatch = chunk.match(/^data: (.+)$/m);
+        if (!eventMatch || !dataMatch) continue;
+        const event = eventMatch[1].trim();
+        const data = JSON.parse(dataMatch[1]);
+        if (event === "status") handlers.onStatus?.(data.status);
+        else if (event === "complete") handlers.onComplete(data.reply);
+        else if (event === "error") handlers.onError?.(data.message);
+      }
+    }
+  },
   generateProposal: (spaceId: string, input: { kind: ProposalKind; note?: string; focus?: PedagogicalFocus }) =>
     request<{ proposal: Proposal }>(`/planning-spaces/${spaceId}/proposals`, {
       method: "POST",
@@ -187,6 +230,8 @@ export const api = {
     }),
   getServiceRequests: (spaceId: string) =>
     request<{ requests: ServiceRequest[] }>(`/planning-spaces/${spaceId}/service-requests`),
+  getMaterial: (spaceId: string, materialId: string) =>
+    request<WorkerMaterial>(`/planning-spaces/${spaceId}/materials/${materialId}`),
   getStudentInstruction: (spaceId: string) =>
     request<WorkerMaterial>(`/planning-spaces/${spaceId}/materials/student-instruction`),
   proposeStudentInstruction: (spaceId: string) =>

@@ -467,14 +467,18 @@ async function collectFiles(root: string, current: string, snapshot: FileSnapsho
     }
     if (!entry.isFile()) continue;
     const relativePath = path.relative(root, fullPath).replace(/\\/g, "/");
-    snapshot.set(relativePath, await fs.readFile(fullPath, "utf8"));
+    // Workspace-Änderungserkennung über Größe + mtime statt vollständigem
+    // UTF-8-Inhalt (ARCHITECTURE-SESSION-MODEL Abschnitt 13, TASK 9).
+    // Das vermeidet das vollständige Einlesen von Binärdateien und ist schneller.
+    const stat = await fs.stat(fullPath);
+    snapshot.set(relativePath, `${stat.size}:${Math.floor(stat.mtimeMs)}`);
   }
 }
 
 function diffSnapshots(before: FileSnapshot, after: FileSnapshot): string[] {
   const changed = new Set<string>();
-  for (const [file, content] of after) {
-    if (before.get(file) !== content) changed.add(file);
+  for (const [file, fingerprint] of after) {
+    if (before.get(file) !== fingerprint) changed.add(file);
   }
   for (const file of before.keys()) {
     if (!after.has(file)) changed.add(file);

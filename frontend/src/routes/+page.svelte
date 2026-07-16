@@ -24,6 +24,7 @@
   let expandedCard = "denkstand";
   let loading = true;
   let sending = false;
+  let thinkingStatus = "";
   let error = "";
   let draftMessage = "";
   let activeFocus: PedagogicalFocus | null = null;
@@ -147,14 +148,31 @@ async function sendMessage() {
     const text = draftMessage.trim();
     draftMessage = "";
     sending = true;
+    thinkingStatus = "Ich bereite den Kontext vor …";
     error = "";
     messages = [...messages, { id: uuid(), author: "teacher", text }];
     await scrollConversationToEnd();
     try {
       await scanText(text);
-      const result = await api.sendMessage(activeSpace.id, text, activeFocus ?? undefined);
-      messages = [...messages, { id: result.reply.id, author: "critical_friend", text: result.reply.text }];
-    await scrollConversationToEnd();
+      let streamError = "";
+      await api.sendMessageStream(
+        activeSpace.id,
+        text,
+        {
+          onStatus: (status) => {
+            thinkingStatus = thinkingStatusLabel(status);
+          },
+          onComplete: (reply) => {
+            messages = [...messages, { id: reply.id, author: "critical_friend", text: reply.text }];
+          },
+          onError: (message) => {
+            streamError = message;
+          }
+        },
+        activeFocus ?? undefined
+      );
+      if (streamError) throw new Error(streamError);
+      await scrollConversationToEnd();
       const state = await api.getThinkingState(activeSpace.id);
       cards = state.cards;
       roomOverview = await api.getRoomOverview(activeSpace.id);
@@ -162,7 +180,15 @@ async function sendMessage() {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
     } finally {
       sending = false;
+      thinkingStatus = "";
     }
+  }
+
+  function thinkingStatusLabel(status: string): string {
+    if (status === "preparing_context") return "Ich bereite den Kontext vor …";
+    if (status === "thinking") return "Ich denke kurz mit …";
+    if (status === "saving_state") return "Ich sichere den Denkstand …";
+    return "Ich denke kurz mit …";
   }
 
   async function scanText(text: string) {
@@ -569,12 +595,73 @@ async function sendMessage() {
     }
   }
   async function reviewBoardDraft(item: PlanningBoardItem) {
-    await updateBoardItem(item.id, { column: "review", status: "review" });
+    await startBoardReview(item);
   }
   // T-902: fachliche Freigabe erfordert sichtbare Prüfung, eine bestätigende Aktion,
   // einen dokumentierten Zeitpunkt und die prüfende Rolle. Kein Drag-and-drop ersetzt das.
+  let reviewBoardItem: PlanningBoardItem | null = null;
+  let reviewBoardMaterial: WorkerMaterial | null = null;
   let approvalConfirm: PlanningBoardItem | null = null;
   let approvalReviewed = false;
+  async function startBoardReview(item: PlanningBoardItem) {
+    if (!activeSpace) return;
+    boardDetail = null;
+    planningError = "";
+    try {
+      // Falls workerMaterial bereits geladen ist und zum gleichen Item gehört, verwende das
+      if (workerMaterial && workerMaterial.boardItemId === item.id) {
+        reviewBoardItem = item;
+        reviewBoardMaterial = workerMaterial;
+        return;
+      }
+      
+      // Versuche, das Material mit verschiedenen IDs zu laden
+      let material: WorkerMaterial | null = null;
+      const idsToTry = [
+        ...(item.materialIds ?? []), // Zuerst gespeicherte Material-IDs versuchen
+        item.id,                       // Dann die Board-Item-ID selbst
+        `pb-${item.id}`                // Mit pb- Prefix
+      ];
+      
+      for (const materialId of idsToTry) {
+        if (!materialId) continue;
+        try {
+          let cleanId = materialId;
+          // Normalisiere die ID: Extrahiere nur den Dateinamen ohne Pfad und Erweiterung
+          if (cleanId.includes("/")) {
+            cleanId = cleanId.split("/").pop() ?? cleanId;
+          }
+          if (cleanId.endsWith(".md")) {
+            cleanId = cleanId.slice(0, -3);
+          }
+          console.log(`Trying to load material with ID: ${cleanId}`);
+          material = await api.getMaterial(activeSpace.id, cleanId);
+          console.log(`Successfully loaded material: ${cleanId}`);
+          break;
+        } catch (loadErr) {
+          console.log(`Failed to load material ${materialId}: ${loadErr}`);
+          continue;
+        }
+      }
+      
+      if (!material) {
+        planningError = "Für dieses Arbeitsvorhaben wurde noch kein Entwurf beauftragt. Klick auf 'Entwurf beauftragen', um einen Entwurf zu generieren.";
+        return;
+      }
+      
+      reviewBoardItem = item;
+      reviewBoardMaterial = material;
+    } catch (err) {
+      planningError = err instanceof Error ? err.message : "Der Entwurf konnte nicht geöffnet werden.";
+    }
+  }
+  async function confirmBoardReview() {
+    if (!reviewBoardItem) return;
+    reviewBoardItem = null;
+    reviewBoardMaterial = null;
+    // Nach der Prüfung kann der Nutzer auf "Freigeben" klicken
+    // Das Element bleibt in "Zur Prüfung"
+  }
   function requestBoardApproval(item: PlanningBoardItem) {
     approvalConfirm = item;
     approvalReviewed = false;
@@ -879,7 +966,7 @@ async function sendMessage() {
           <div class="conversation-heading"><MessageSquareText size={18} /><div><strong>Gespräch mit Critical Friend</strong><span>{roomView === "conversation" ? "Gemeinsam weiterdenken" : "Die gewählte Perspektive bleibt rechts sichtbar"}</span></div></div>
           <div class="messages" bind:this={messagesElement}>
             {#each messages as message}<article class:teacher={message.author === "teacher"} class="message"><div class="avatar">{message.author === "teacher" ? "L" : "CF"}</div><div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div></article>{/each}
-            {#if sending}<article class="message thinking"><div class="avatar">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest.</p></article>{/if}
+            {#if sending}<article class="message thinking"><div class="avatar">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>{thinkingStatus || "Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest."}</p></article>{/if}
           </div>
           <div class="composer-wrap">{#if activeFocus}<div class="focus-chip"><span>Fokus: {focusKindLabels[activeFocus.kind]} · {activeFocus.label}</span><button on:click={() => (activeFocus = null)} aria-label="Fokus aufheben"><X size={13} /></button></div>{/if}<div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
         </section>
@@ -1034,6 +1121,31 @@ async function sendMessage() {
           </dl>
           <div class="detail-actions"><button on:click={() => clarifyBoardItem(item)}><MessageSquareText size={15} /> Im Gespräch klären</button><button on:click={() => commissionBoardDraft(item)}>Entwurf beauftragen</button><button on:click={() => reviewBoardDraft(item)}>Ergebnis prüfen</button><button on:click={() => requestBoardApproval(item)}><Check size={15} /> Freigeben</button><button class="danger" on:click={() => discardBoardItem(item)}>Verwerfen</button></div>
           <p class="muted">Ein Entwurf entsteht nur durch die ausdrückliche Aktion „Entwurf beauftragen“ – nicht durch das Verschieben der Karte. Die fachliche Freigabe erfordert eine bestätigte Prüfung.</p>
+        </div>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if reviewBoardItem && reviewBoardMaterial}
+    {@const item = reviewBoardItem}
+    {@const material = reviewBoardMaterial}
+    <div class="planning-overlay" role="presentation" on:click={() => { reviewBoardItem = null; reviewBoardMaterial = null; }}>
+      <dialog class="start-modal review-modal" open aria-label="Entwurf prüfen" on:click|stopPropagation>
+        <header><div><span>Entwurf zur Prüfung</span><h2>{item.title}</h2></div><button class="icon-button" on:click={() => { reviewBoardItem = null; reviewBoardMaterial = null; }} aria-label="Schließen"><X size={20} /></button></header>
+        <div class="detail-body">
+          <section class="material-preview">
+            <h3>Entwurf</h3>
+            <pre>{material.content.slice(0, 800)}</pre>
+            {#if material.content.length > 800}<p class="muted">… ({material.content.length} Zeichen gesamt)</p>{/if}
+            {#if material.review}<div class="review-info"><strong>Automatische Vorprüfung:</strong> {material.review.status === "passed" ? "✓ Bestanden" : "✗ Fehlgeschlagen"}</div>{/if}
+          </section>
+          <section class="review-actions">
+            <p>Prüfe den Entwurf sorgfältig. Nach deiner Prüfung kannst du ihn für den Unterricht freigeben.</p>
+            <div class="detail-actions">
+              <button on:click={() => { reviewBoardItem = null; reviewBoardMaterial = null; }}>Später weitermachen</button>
+              <button on:click={() => confirmBoardReview()}><Check size={15} /> Prüfung abgeschlossen</button>
+            </div>
+          </section>
         </div>
       </dialog>
     </div>

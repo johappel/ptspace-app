@@ -57,25 +57,67 @@ export class MockHarnessAdapter implements HarnessAdapter {
       throw new Error("mock_capability_not_supported");
     }
     const title = input.capability === "create_board_material" ? (typeof input.input.title === "string" ? input.input.title : "Material") : "Arbeitsauftrag";
-    const content = [
+    const expectedResult = typeof input.input.expectedResult === "string" ? input.input.expectedResult : "";
+    
+    // Generate differentiated content based on input
+    const sections: string[] = [
       `# Entwurf: ${title}`,
-      "",
-      "## Auftrag",
-      "",
-      "Beschreibt, was ihr an der vereinbarten Situation wahrnehmt, und begründet eure Deutung.",
-      "",
-      "## Vorgehen",
-      "",
-      "Tauscht euch zu zweit aus und haltet Gemeinsamkeiten sowie einen Unterschied fest.",
-      "",
-      "## Rückmeldung oder Ergebnis",
-      "",
-      "Formuliert eine offene Frage für das gemeinsame Gespräch.",
-      "",
-      "> Status: Entwurf – noch nicht für den Unterricht freigegeben."
-    ].join("\n");
+      ""
+    ];
+    
+    // Add context section if available
+    if (expectedResult) {
+      sections.push("## Ziel");
+      sections.push("");
+      sections.push(expectedResult);
+      sections.push("");
+    }
+    
+    // Add task-specific content based on title keywords
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes("begriff")) {
+      sections.push("## Arbeitsauftrag");
+      sections.push("");
+      sections.push("1. Lest die Definitionen sorgfältig durch.");
+      sections.push("2. Notiert Beispiele aus eurem Alltag oder der Praxis.");
+      sections.push("3. Diskutiert, welche Begriffe zusammenhängen.");
+      sections.push("");
+    } else if (titleLower.includes("recherch")) {
+      sections.push("## Rechercheprozess");
+      sections.push("");
+      sections.push("1. Sammelt zuverlässige Quellen.");
+      sections.push("2. Lest kritisch und notiert Kernaussagen.");
+      sections.push("3. Bereitet eine kurze Zusammenfassung vor.");
+      sections.push("");
+    } else if (titleLower.includes("plan") || titleLower.includes("entwick")) {
+      sections.push("## Planung");
+      sections.push("");
+      sections.push("1. Überlegt gemeinsam den Aufbau.");
+      sections.push("2. Notiert offene Entscheidungen.");
+      sections.push("3. Skizziert den Ablauf.");
+      sections.push("");
+    } else {
+      sections.push("## Arbeitsauftrag");
+      sections.push("");
+      sections.push("Beschreibt, was ihr an der vereinbarten Situation wahrnehmt, und begründet eure Deutung.");
+      sections.push("");
+    }
+    
+    sections.push("## Vorgehen");
+    sections.push("");
+    sections.push("- Arbeitet zu zweit oder in kleinen Gruppen.");
+    sections.push("- Haltet eure Gedanken schriftlich fest.");
+    sections.push("- Bereitet eine Rückmeldung vor.");
+    sections.push("");
+    sections.push("## Rückmeldung oder Ergebnis");
+    sections.push("");
+    sections.push("Formuliert eine offene Frage für das gemeinsame Gespräch.");
+    sections.push("");
+    sections.push("> Status: Entwurf – noch nicht für den Unterricht freigegeben.");
+    
+    const content = sections.join("\n");
     return {
-      summary: "Der Worker hat einen Entwurf vorbereitet.",
+      summary: "Der Worker hat einen differenzierten Entwurf vorbereitet.",
       workspaceUpdates: [{ relativePath: input.expectedOutput.relativePath, content }],
       events: [{ type: "workspace_update", relativePath: input.expectedOutput.relativePath }]
     };
