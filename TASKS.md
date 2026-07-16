@@ -1,6 +1,6 @@
 # ptspace-app – Umsetzungsliste
 
-Stand: 2026-07-10
+Stand: 2026-07-16
 
 Diese Liste ist das operative Arbeitsdokument für Agenten. Pädagogische Semantik kommt aus dem Kernel:
 
@@ -8,6 +8,10 @@ Diese Liste ist das operative Arbeitsdokument für Agenten. Pädagogische Semant
 - `pedagogical-thinking-space/specs/PLANNING_BOARD_SCHEMA.md`
 
 Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md` beschrieben.
+
+Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbeitsfluss, „Jetzt wichtig“ und asynchrone Harness-Aufträge steht in:
+
+- `docs/guided-workflow-tasks.md`
 
 ## Aktueller Stand
 
@@ -17,20 +21,21 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [x] geschützte Harness-Grenze und Mock-/OpenCode-Adapter.
 - [x] erster Worker-Auftrag für einen Arbeitsauftrag als Entwurf.
 - [x] automatische strukturelle Vorprüfung von Worker-Ergebnissen.
-- [ ] modellgestützte Critical-Friend-Review von Worker-Ergebnissen.
+- [ ] modellgestützte Critical-Friend-Review von Worker-Ergebnissen (siehe L5a/GW-100).
 - [ ] echter Knowledge-Adapter mit Quellen, Abrufdatum und Unsicherheit.
 - [x] Lernlandschaft und Planungsboard: lesen, validieren, speichern und im Modal zeigen.
-- [ ] kontextbezogener Critical-Friend-Bereich im Planungsmodal.
-- [ ] Zeit & Dramaturgie, Materialzuordnung und bearbeitbare Lernlandschaft.
+- [ ] Fokusübergabe für Platzierungen vervollständigen; Lernmoment, Übergang, Unterrichtsfenster, Board-Karte und Material funktionieren bereits kontextbezogen.
+- [x] Zeit & Dramaturgie mit bearbeitbaren Unterrichtsfenstern und Lernlandschaft-Platzierungen.
+- [ ] vollständige Materialmetadaten und Ergebnisbereich als Projektion von Lernmoment und Board-Karte.
 
 ## L0 — Voraussetzung: Kernel-Verträge
 
-- [ ] Kernel-PR für Lernlandschaft und Planungsboard einbinden.
-- [ ] Zod-Schemas aus den Kernel-Verträgen ableiten.
+- [ ] Kernel-Verträge synchronisieren und den noch unversionierten Board-Material-Worker-Vertrag prüfen.
+- [ ] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind noch unvollständig.
 - [x] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
-- [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Nächste Schritte“ wird daraus abgeleitet.
-- [ ] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
-- [ ] Ungültige Node-IDs, Kanten und Referenzen mit lehrkräfteverständlichen Fehlern ablehnen.
+- [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Jetzt wichtig“ wird daraus nur als eine priorisierte Projektion abgeleitet.
+- [x] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
+- [ ] Ungültige Node-IDs, Kanten und Referenzen ablehnen und technische Fehlercodes aus Lehrkräftemeldungen entfernen.
 
 **Done when:** App und Kernel lesen denselben kanonischen Inhalt ohne parallele Datenmodelle.
 
@@ -45,11 +50,11 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
   - `PlanningBoardItem`
   - `LandscapeChangeProposal`
 - [x] API: Lernlandschaft lesen und speichern.
-- [ ] API: Unterrichtsfenster und Platzierungen lesen und speichern.
+- [x] API: Unterrichtsfenster und Platzierungen lesen und speichern.
 - [x] API: Planungsboard lesen und Board-Karten verschieben.
-- [ ] API: Material einem Lernmoment oder Board-Item zuordnen.
+- [ ] API: Material einem Lernmoment oder Board-Item zuordnen; offen bis Kernel-Materialmetadaten und atomare Backend-Rückführung vollständig vorliegen.
 - [x] Jede semantische Änderung als verständliche Git-Version speichern.
-- [ ] Layoutdaten getrennt von semantischen Daten speichern.
+- [x] Layoutdaten getrennt von semantischen Daten speichern.
 
 **Done when:** alle UI-Operationen serverseitig validiert und versioniert sind.
 
@@ -59,7 +64,7 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [x] Tab „Lernlandschaft“ implementieren.
 - [x] `@xyflow/svelte` integrieren.
 - [ ] Custom Nodes für die vereinbarten Lernmoment-Typen bauen.
-- [ ] Knoten-Detailkarte implementieren.
+- [x] Knoten-Detailkarte implementieren.
 - [ ] Verbindung nur über Auswahl einer didaktischen Bedeutung erzeugen.
 - [ ] Gruppenflächen für Phasen, Räume und Stationen implementieren.
 - [x] Zoom und MiniMap implementieren; Tastaturbedienung und Rücksetzen des Layouts ergänzen.
@@ -69,12 +74,12 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 
 ## L3 — Zeit & Dramaturgie
 
-- [ ] Tab „Zeit & Dramaturgie“ implementieren.
-- [ ] Unterrichtsfenster anlegen und benennen.
-- [ ] Lernmomente zeitlich zuordnen, auch mehrfach.
-- [ ] Wahl- und Stationsmomente als nicht-lineare Platzierung darstellen.
-- [ ] zeitliche Konflikte und unzugeordnete Lernmomente sichtbar machen.
-- [ ] Wechsel zwischen Canvas und Zeitansicht ohne Informationsverlust testen.
+- [x] Tab „Zeit & Dramaturgie“ implementieren.
+- [x] Unterrichtsfenster anlegen und benennen.
+- [x] Lernmomente zeitlich zuordnen, auch mehrfach.
+- [x] Wahl- und Stationsmomente als nicht-lineare Platzierung darstellen.
+- [x] zeitliche Konflikte und unzugeordnete Lernmomente sichtbar machen.
+- [ ] Browser-E2E für den Wechsel zwischen Canvas und Zeitansicht ohne Informationsverlust.
 
 **Done when:** die Lehrkraft erkennen kann, was wann stattfindet, ohne die didaktische Offenheit zu verlieren.
 
@@ -83,35 +88,51 @@ Die App-spezifische Arbeitsfläche ist in `docs/learning-landscape-and-board.md`
 - [x] Tab „Planungsboard“ implementieren.
 - [x] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
 - [x] Board-Karten mit Lernmomenten verknüpfen; Unterrichtsfenster und Materialien ergänzen.
-- [ ] „Nächste Schritte“ in der Seitenleiste auf exakt ein priorisiertes Board-Arbeitsvorhaben umstellen; Klick öffnet die zugehörige Karte im Modal.
-- [ ] keine parallele „Nächste-Schritte“-Liste neben dem Board führen.
-- [ ] Materialtab mit Zuordnung zu Lernmomenten und Status implementieren.
-- [ ] Worker-Ausgabe aus einer Board-Karte heraus als sichtbaren Vorschlag starten, nicht über einen pauschalen Materialbutton.
+- [ ] Materialtab mit vollständigen Metadaten und atomarer Zuordnung zu Lernmomenten und Board-Items implementieren.
 
-**Done when:** eine Unterrichtsstunde nicht mehr als „Nächster Schritt“ erscheint, „Nächste Schritte“ immer auf eine Board-Karte verweist und jedes Material einen didaktischen Bezug hat.
+Der frühere Mehrschritt „Nächste Schritte → Board-Karte → Auftrag“ entfällt. Die geführte Entscheidung läuft ausschließlich über „Jetzt wichtig“ und ist in L5a/GW-140 bis GW-230 beschrieben. Das Board bleibt Übersicht, der Materialbereich Ergebnis- und Nachweisbereich.
+
+**Done when:** Board und Materialien verlässlich auf denselben kanonischen Bezügen beruhen; kein Bereich wird zur Pflichtstation des geführten Arbeitsflusses.
 
 ## L5 — AI-Vorschläge und Review
 
-- [ ] aufklappbaren, kontextbezogenen Critical-Friend-Bereich im Modal implementieren.
-- [ ] Fokus aus Lernmoment, Übergang, Board-Karte oder Material an den bestehenden Planungsraum-Chat übergeben.
-- [ ] Aktion „Zur Gesamtplanung“ implementieren; kein zweiter Chat-Verlauf.
+- [ ] Fokus aus einer Platzierung an den bestehenden Planungsraum-Chat übergeben; die übrigen Fokustypen funktionieren bereits.
 - [ ] `LandscapeChangeProposal` als eigenes Artefakt implementieren.
 - [ ] Canvas-Diff für neue, geänderte und entfernte Knoten/Kanten implementieren.
-- [ ] Lehreraktionen: Vorschau, Übernehmen, Gespräch, Verwerfen.
-- [ ] KI darf ohne Zustimmung keine kanonische Lernlandschaft oder Zeitplanung ändern.
-- [ ] Board-Proposal erzeugt erst nach Zustimmung einen Service Request.
-- [ ] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren.
-- [ ] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden.
+- [ ] Für strukturelle Landschaftsänderungen Vorschau, Übernehmen, im Gespräch ändern und Verwerfen anbieten.
+- [x] KI darf ohne Zustimmung keine kanonische Lernlandschaft oder Zeitplanung ändern.
+Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte separate Board-Proposal-Schritt entfällt.
+- [ ] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren (siehe L5a/GW-100).
+- [ ] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden (siehe L5a/GW-100/GW-140).
 
 **Done when:** KI-Entwürfe nachvollziehbar, reversibel und lehrkraftgesteuert sind.
+
+## L5a — Geführter Arbeitsfluss und Hintergrundarbeit
+
+Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflow-tasks.md`.
+
+- [ ] Frontend-Typecheck reparieren: `WorkerMaterial.review` wird in `frontend/src/routes/+page.svelte` verwendet, fehlt aber in `frontend/src/lib/api.ts`.
+- [ ] Genau eine Entscheidung unter „Jetzt wichtig“ anzeigen.
+- [ ] Gesprächsvorschlag als nicht-kanonisches, strukturiertes Proposal speichern.
+- [ ] Ein Häkchen erzeugt atomar Board-Karte, Service Request und Hintergrundauftrag.
+- [ ] Keine zusätzlichen Pflichtklicks für Board-Aufnahme, Beauftragung oder Startbestätigung.
+- [ ] Laufende Arbeit persistent und nicht unterbrechend anzeigen.
+- [ ] Fertiges Material direkt in „Jetzt wichtig“ zur Prüfung anzeigen.
+- [ ] Ein zweites Häkchen gibt das sichtbare Ergebnis fachlich frei.
+- [ ] Der Stift führt immer in den bestehenden fokussierten Chat und speichert nichts kanonisch.
+- [ ] AutomaticCheck und Lehrkraftfreigabe getrennt speichern und anzeigen.
+- [ ] Lokalen Real-Harness-Fluss mit einem synthetischen Planungsraum verifizieren.
+
+**Done when:** Vom Gespräch bis zur laufenden Vorbereitung und vom sichtbaren Ergebnis bis `ready_for_class` ist jeweils genau ein bewusster Klick nötig; Planungsboard und Materialbereich sind keine Pflichtstationen.
 
 ## L6 — Knowledge und Qualität
 
 - [ ] Knowledge-Adapter mit freigegebenen Quellen integrieren.
 - [ ] Quellen, Abrufdatum, Prüfstatus und Unsicherheit speichern und anzeigen.
 - [ ] Lehrplanbezug als Board-Aufgabe und Knowledge-Ergebnis modellieren.
-- [ ] E2E-Test: Chat → Proposal → Canvas-Vorschau → Zustimmung → Workspace → UI.
-- [ ] E2E-Test: Worker-Material → Review → Lernmoment-Zuordnung → Freigabe.
+- [ ] E2E-Test: Landschaftsänderung → Canvas-Vorschau → Zustimmung → Workspace → UI.
+- [ ] E2E-Test: Gesprächsvorschlag → ein Häkchen → Hintergrundarbeit → Ergebnis in „Jetzt wichtig“ → zweites Häkchen → `ready_for_class`.
+- [ ] Browser-E2E für Canvas-/Zeitansicht-Wechsel und Informationsverlust.
 - [ ] Barrierefreiheit: Tastatur, Fokus, Kontrast, nicht allein farbcodierte Kanten.
 - [ ] Responsive Verhalten: Canvas-Modal auf kleineren Displays.
 
