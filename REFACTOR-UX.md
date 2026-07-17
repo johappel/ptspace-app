@@ -87,7 +87,39 @@ Die konkrete Illustration darf sich ändern. Die fachliche Zuordnung bleibt stab
 
 ## 6. Hauptansicht des Denkraums
 
+### 6.0 Referenzentwurf „Quietude & Thought“
+
+Der vorliegende Screendesign-Entwurf dient als visuelle Referenz für die weitere Umsetzung. Er zeigt eine helle, weitgehend freie Arbeitsfläche mit einer zentralen Gesprächsspur und einer deutlich zurückgenommenen Pinnwand im rechten Hintergrund.
+
+Verbindlich übernommen werden:
+
+- warmes Off-White als Grundfläche, dunkles Petrol für Text und zentrale Aktionen, Salbeigrün für Fokus und Herkunftsbezüge,
+- Source Serif 4 für Überschriften und längere Reflexionstexte; eine hochlesbare Sans-Serif darf für kompakte UI-Metadaten verwendet werden,
+- großzügige Ränder und ein zentraler Gesprächsbereich von ungefähr 75 Prozent der Aufmerksamkeit,
+- Notizen als ruhige Papierflächen mit sehr weichen, breiten Schatten,
+- die Pinnwand als atmosphärisch zurückgesetzte Tiefenebene, die bei Fokus oder Öffnung an Schärfe und Kontrast gewinnt,
+- Kontext-Anker im Gespräch, über die ein Zettel oder eine Entscheidung aus der Pinnwand im Chat aufgegriffen wird,
+- ein flacher Composer mit sichtbarem Fokus-Chip und klarer Sendeaktion,
+- eine schmale, unaufdringliche Statusleiste für Hintergrundarbeit.
+
+Nicht verbindlich übernommen werden:
+
+- englische Werkzeugbegriffe wie `TABLE`, `PIN`, `MAP` oder `WORK`,
+- eine dauerhaft voll ausgeklappte linke Werkzeugleiste,
+- ein Header, der nur den Produktnamen und nicht den aktuellen Planungsraum zeigt,
+- eine Pinnwand, die so stark verblasst, dass ihre Interaktivität nicht mehr erkennbar ist,
+- übergroße Papierkarten, die den Gesprächsfluss in einzelne starre Blöcke zerlegen.
+
+Der Entwurf ist damit Referenz für Atmosphäre, Hierarchie und Materialität, nicht pixelgenaue Vorlage.
+
 ### 6.1 Zentrum
+
+Der Header zeigt den aktuellen Planungsraum als primäre Orientierung. `Planungsräume` bleibt eine kleine Produkt- oder Bereichsmarke. Beispiel:
+
+```text
+Planungsräume
+KI-Nutzung bei den Hausaufgaben
+```
 
 Das Gespräch erhält den größten visuellen Raum.
 
@@ -100,9 +132,11 @@ Die Szene kann reduziert darstellen, dass zwei Perspektiven gemeinsam auf einen 
 
 Nicht geeignet sind detaillierte Avatare mit dauernden Gesten, Mimik oder Spielanimationen.
 
-Der Chat liegt als gut lesbare, ruhige Ebene über oder neben dieser Szene. Transparenz darf die Lesbarkeit nicht beeinträchtigen.
+Der Chat liegt als gut lesbare, ruhige Ebene über oder neben dieser Szene. Transparenz darf die Lesbarkeit nicht beeinträchtigen. Nachrichten dürfen wie abgelegte Notizen wirken, sollen aber nicht als übergroße, gleichförmige Karten den Gesprächsrhythmus unterbrechen. Rollen- und Zeitangaben werden konsistent dargestellt.
 
 ### 6.2 Pinnwand
+
+Im Ruhezustand darf die Pinnwand atmosphärisch unscharf und kontrastarm sein. Überschrift, aktiver Zettel und Fokuszustand müssen dennoch als interaktive Elemente erkennbar bleiben. Bei Tastaturfokus, Hover oder Öffnung gewinnt die Pinnwand an Schärfe und Kontrast; rein dekorative Hintergrundzettel bleiben zurückgenommen.
 
 Die Pinnwand ist keine vollständige Dokumentansicht. Sie zeigt im Normalzustand nur wenige aktuelle Gegenstände:
 
@@ -113,6 +147,18 @@ Die Pinnwand ist keine vollständige Dokumentansicht. Sie zeigt im Normalzustand
 Vollständige Listen und der vollständige gemeinsame Denkstand öffnen sich in einer vertieften Ansicht.
 
 ### 6.3 Raumzugänge
+
+Die globale Navigation ist standardmäßig stark reduziert: ein schmaler Handle oder wenige klar beschriftete Zugänge statt einer dauerhaften Werkzeugleiste. Begriffe stammen aus dem Planungsalltag, nicht aus einer räumlichen Engine.
+
+Bevorzugte teacher-facing Labels:
+
+- Gespräch
+- Pinnwand
+- Lernlandschaft
+- Zeit & Dramaturgie
+- Vorbereitungen
+- Knowledge & Quellen
+- Materialien
 
 Sekundäre Bereiche werden durch verständliche Raumobjekte und gleichzeitig durch eine lineare Navigation angeboten:
 
@@ -189,6 +235,14 @@ Nicht geeignet:
 Töne sind separat abschaltbar. Die Anwendung bleibt ohne Ton vollständig verständlich.
 
 ## 10. Hintergrundarbeit
+
+Die Statusanzeige liegt als flache Fußzeile oder schmale Leiste am unteren Rand des Denkraums. Im Normalzustand zeigt sie nur eine Zeile, zum Beispiel:
+
+```text
+Im Hintergrund · Lehrplanbezug wird geprüft
+```
+
+Erst ein Klick öffnet die Werkstatt- beziehungsweise Planungsboard-Übersicht.
 
 Laufende Hintergrundarbeit erscheint in einer kleinen, persistenten Werkstatt- beziehungsweise „Im Hintergrund“-Leiste.
 
@@ -286,4 +340,8 @@ Der UX-Refactor ist fachlich abgenommen, wenn:
 - Animationen weder Fokus noch Arbeitsfluss verändern,
 - alle Funktionen ohne Animation, Ton oder Illustration verfügbar bleiben,
 - keine zweite Pflichtstrecke über Planungsboard oder Materialien entsteht,
-- die Oberfläche professionell und nicht kindlich oder spielerisch-belohnend wirkt.
+- die Oberfläche professionell und nicht kindlich oder spielerisch-belohnend wirkt,
+- der aktuelle Planungsraum im Header klarer hervortritt als der Produktname,
+- Navigation und Statusleiste diskret bleiben und teacher-facing beschriftet sind,
+- die Pinnwand im Hintergrund liegt, aber als interaktiver Bereich erkennbar bleibt,
+- Gesprächsnotizen haptisch wirken, ohne wieder eine dominante Kartenwand zu bilden.
