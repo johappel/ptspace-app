@@ -127,6 +127,7 @@ export type WorkerMaterial = {
   location?: string;
   boardItemId?: string | null;
   relatedMoments?: string[];
+  review?: { status: "passed" | "failed"; note: string; reviewedAt?: string };
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

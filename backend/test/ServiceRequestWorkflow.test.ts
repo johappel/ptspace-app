@@ -40,6 +40,36 @@ beforeEach(async () => {
   await workspace.ensureWorkspace(space);
 });
 
+async function seedBoardMaterialContext(): Promise<void> {
+  await workspace.writeProjectFile(space.id, "learning-landscape.md", [
+    "---",
+    "schema: ptspace.learning-landscape/v1",
+    "title: Lernlandschaft",
+    "structure: linear",
+    "---",
+    "",
+    "# Lernlandschaft",
+    "",
+    "## lm-impuls – Bildimpuls",
+    "",
+    "- Typ: Impuls",
+    "- Funktion: Erste Wahrnehmung und Irritation",
+    "- Lernaktivität: Die Lernenden beschreiben ihre Beobachtung.",
+    "- Erwartete Lernerfahrung: Die Lernenden bemerken unterschiedliche Deutungen.",
+    "- Status: draft"
+  ].join("\n") + "\n");
+  await workspace.writeProjectFile(space.id, "planning-board.yml", [
+    "schema: ptspace.planning-board/v1",
+    "items:",
+    "  - id: pb-1",
+    "    title: Arbeitsblatt zum Impuls",
+    "    kind: produce",
+    "    column: prepare",
+    "    status: proposed",
+    "    related_nodes: [lm-impuls]",
+    "    requires_teacher_approval: true"
+  ].join("\n") + "\n");
+}
 afterEach(async () => {
   await fs.rm(tempRoot, { recursive: true, force: true });
 });
@@ -75,8 +105,10 @@ describe("ServiceRequestWorkflow", () => {
   });
 
   it("binds a material request to a board card and at least one pedagogical reference", async () => {
+    await seedBoardMaterialContext();
     const request = await workflow.proposeBoardMaterial(space.id, {
       boardItemId: "pb-1",
+      targetGroup: space.targetGroup,
       title: "Arbeitsblatt zum Impuls",
       relatedMoments: ["lm-impuls"],
       expectedResult: "Ein differenziertes Arbeitsblatt als Entwurf.",
@@ -86,11 +118,14 @@ describe("ServiceRequestWorkflow", () => {
     expect(request.relatedMoments).toEqual(["lm-impuls"]);
     expect(request.reviewRequired).toBe(true);
     expect(request.expectedOutput.location).toBe("materials/pb-1.md");
+    expect(request.input).toMatchObject({ expectedResult: "Ein differenziertes Arbeitsblatt als Entwurf." });
+    expect(request.input.relatedMoments).toMatchObject([{ id: "lm-impuls", title: "Bildimpuls" }]);
   });
 
   it("refuses a material request without a pedagogical reference", async () => {
     await expect(workflow.proposeBoardMaterial(space.id, {
       boardItemId: "pb-1",
+      targetGroup: space.targetGroup,
       title: "Arbeitsblatt",
       relatedMoments: [],
       expectedResult: "",
@@ -99,8 +134,10 @@ describe("ServiceRequestWorkflow", () => {
   });
 
   it("returns a bound worker result as a reviewable draft, not as classroom-ready material", async () => {
+    await seedBoardMaterialContext();
     const request = await workflow.proposeBoardMaterial(space.id, {
       boardItemId: "pb-1",
+      targetGroup: space.targetGroup,
       title: "Arbeitsblatt zum Impuls",
       relatedMoments: ["lm-impuls"],
       expectedResult: "Ein Entwurf.",

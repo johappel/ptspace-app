@@ -98,14 +98,67 @@ export const ServiceRequestSchema = z.object({
 });
 export type ServiceRequest = z.infer<typeof ServiceRequestSchema>;
 
+export const MaterialStatusSchema = z.enum(["draft", "in_review", "approved", "ready_for_class", "discarded"]);
+export type MaterialStatus = z.infer<typeof MaterialStatusSchema>;
+
 export const MaterialSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
-  kind: z.enum(["lesson_plan", "worksheet", "prompt", "presentation", "source_overview", "teacher_notes", "audio_script"]),
-  status: z.enum(["draft", "review_needed", "ready_for_class", "shared_proposed"]),
-  createdAt: ISODateString
+  // The kernel deliberately leaves the material kind open for capabilities
+  // such as worksheets, source overviews or audio scripts.
+  kind: z.string().min(1),
+  status: MaterialStatusSchema,
+  relatedMoments: z.array(z.string().min(1)).default([]),
+  relatedWindows: z.array(z.string().min(1)).default([]),
+  relatedBoardItems: z.array(z.string().min(1)).default([]),
+  relatedDecisions: z.array(z.string().min(1)).default([]),
+  sourceRequest: z.string().min(1),
+  createdAt: ISODateString,
+  reviewedAt: ISODateString.nullable()
+}).superRefine((material, ctx) => {
+  const hasPedagogicalRelation = [
+    material.relatedMoments,
+    material.relatedWindows,
+    material.relatedBoardItems,
+    material.relatedDecisions
+  ].some((relation) => relation.length > 0);
+  if (!hasPedagogicalRelation) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "material_needs_pedagogical_reference" });
+  }
+  if (material.status === "ready_for_class" && material.reviewedAt === null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "ready_material_needs_review_timestamp" });
+  }
 });
 export type Material = z.infer<typeof MaterialSchema>;
+
+export const BoardMaterialWorkerMomentContextSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  didacticPurpose: z.string(),
+  learningActivity: z.string(),
+  expectedExperience: z.string(),
+  materialNeeds: z.array(z.string()),
+  openQuestions: z.array(z.string())
+});
+export type BoardMaterialWorkerMomentContext = z.infer<typeof BoardMaterialWorkerMomentContextSchema>;
+
+/**
+ * App-side projection of the active kernel capability
+ * capabilities/workers/CREATE_BOARD_MATERIAL.md.
+ *
+ * The worker receives the approved planning context, never a free-form path
+ * or an unbound material command.
+ */
+export const BoardMaterialWorkerInputSchema = z.object({
+  learningDesign: z.literal("learning-design.md"),
+  boardItemId: z.string().min(1),
+  title: z.string().min(1),
+  expectedResult: z.string().min(1),
+  relatedMoments: z.array(BoardMaterialWorkerMomentContextSchema).min(1),
+  targetGroup: z.string().min(1),
+  language: z.string().min(1)
+});
+export type BoardMaterialWorkerInput = z.infer<typeof BoardMaterialWorkerInputSchema>;
 
 export const PlanningSpaceSchema = z.object({
   id: z.string().min(1),

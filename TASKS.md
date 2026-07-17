@@ -38,7 +38,7 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 ## L0 — Voraussetzung: Kernel-Verträge
 
 - [ ] Kernel-Verträge synchronisieren und den noch unversionierten Board-Material-Worker-Vertrag prüfen.
-- [ ] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind noch unvollständig.
+- [x] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind noch unvollständig.
 - [x] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
 - [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Jetzt wichtig“ wird daraus nur als eine priorisierte Projektion abgeleitet.
 - [x] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
@@ -143,7 +143,7 @@ Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte 
 
 Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflow-tasks.md`.
 
-- [ ] Frontend-Typecheck reparieren: `WorkerMaterial.review` wird in `frontend/src/routes/+page.svelte` verwendet, fehlt aber in `frontend/src/lib/api.ts`.
+- [x] Frontend-Typecheck reparieren: `WorkerMaterial.review` wird in `frontend/src/routes/+page.svelte` verwendet, fehlt aber in `frontend/src/lib/api.ts`.
 - [ ] Genau eine Entscheidung unter „Jetzt wichtig“ anzeigen.
 - [ ] Gesprächsvorschlag als nicht-kanonisches, strukturiertes Proposal speichern.
 - [ ] Ein Häkchen erzeugt atomar Board-Karte, Service Request und Hintergrundauftrag.

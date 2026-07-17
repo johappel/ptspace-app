@@ -47,6 +47,11 @@ beforeEach(async () => {
     "# Worker Capability\n",
     "utf8"
   );
+  await fs.writeFile(
+    path.join(kernelDir, "capabilities", "workers", "CREATE_BOARD_MATERIAL.md"),
+    "# Board Material Capability\n",
+    "utf8"
+  );
 });
 
 afterEach(async () => {

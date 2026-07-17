@@ -231,6 +231,7 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
       await fs.access(path.join(this.options.kernelDir, "LEARNING_DESIGN.de.md"));
       await fs.access(path.join(this.options.kernelDir, "ORCHESTRATION.md"));
       await fs.access(path.join(this.options.kernelDir, "capabilities", "workers", "CREATE_STUDENT_INSTRUCTION.md"));
+      await fs.access(path.join(this.options.kernelDir, "capabilities", "workers", "CREATE_BOARD_MATERIAL.md"));
     } catch {
       return {
         status: "requires_setup",
@@ -320,6 +321,7 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
       `Zieltyp: ${input.expectedOutput.type}`,
       `Schreibe ausschließlich nach: ${input.expectedOutput.relativePath}`,
       `Constraints: ${JSON.stringify(input.constraints)}`,
+      "Worker-Eingabe (vertragsgebunden): " + JSON.stringify(input.input),
       capabilityHint,
       "Wenn Lernanliegen oder erforderliche Entscheidung nicht ausreichend geklärt sind, erzeuge keine Datei und antworte nur BLOCKED.",
       "Andernfalls erstelle die Datei exakt nach dem Capability-Vertrag. Markiere sie als Entwurf.",

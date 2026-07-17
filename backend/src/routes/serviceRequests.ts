@@ -13,7 +13,7 @@ const BoardMaterialSchema = z.object({
   boardItemId: z.string().min(1),
   title: z.string().min(2),
   relatedMoments: z.array(z.string().min(1)).min(1, "Ein Materialauftrag braucht mindestens einen pädagogischen Bezug."),
-  expectedResult: z.string().default(""),
+  expectedResult: z.string().min(1, "Ein Materialauftrag braucht ein erwartetes Ergebnis."),
   reason: z.string().min(10).default("Für dieses Arbeitsvorhaben soll ein erster, ausdrücklich noch zu prüfender Materialentwurf vorbereitet werden.")
 });
 
@@ -131,7 +131,7 @@ export async function serviceRequestRoutes(
     if (!parsed.success) return reply.code(400).send({ message: "Ein Materialauftrag braucht ein Arbeitsvorhaben und mindestens einen pädagogischen Bezug." });
     await deps.workspace.ensureWorkspace(space);
     try {
-      const serviceRequest = await deps.workflow.proposeBoardMaterial(id, parsed.data);
+      const serviceRequest = await deps.workflow.proposeBoardMaterial(id, { ...parsed.data, targetGroup: space.targetGroup });
       const version = await deps.git.saveVersion(deps.workspace.getWorkspaceRoot(id), "Materialauftrag an Arbeitsvorhaben gebunden");
       return reply.code(201).send({
         serviceRequest,
@@ -142,7 +142,10 @@ export async function serviceRequestRoutes(
       const reason = error instanceof Error ? error.message : "unknown";
       const messages: Record<string, string> = {
         service_request_needs_board_item: "Ein Materialauftrag braucht ein Arbeitsvorhaben.",
-        service_request_needs_pedagogical_reference: "Ein Materialauftrag braucht mindestens einen pädagogischen Bezug."
+        service_request_needs_pedagogical_reference: "Ein Materialauftrag braucht mindestens einen pädagogischen Bezug.",
+        service_request_needs_expected_result: "Ein Materialauftrag braucht ein erwartetes Ergebnis.",
+        service_request_needs_existing_board_item: "Das Arbeitsvorhaben ist in diesem Planungsraum nicht mehr vorhanden.",
+        service_request_needs_existing_learning_moment: "Der Bezug zu einem Lernmoment ist in diesem Planungsraum nicht mehr gültig."
       };
       return reply.code(422).send({ message: messages[reason] ?? "Der Materialauftrag konnte nicht angelegt werden." });
     }

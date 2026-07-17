@@ -46,7 +46,13 @@ describe("shared domain schemas", () => {
       id: "material-impuls",
       title: "Bildimpuls mit Leitfragen",
       kind: "worksheet",
-      status: "review_needed",
+      status: "in_review",
+      relatedMoments: ["lm-impuls"],
+      relatedWindows: [],
+      relatedBoardItems: ["pb-impuls"],
+      relatedDecisions: [],
+      sourceRequest: "sr-impuls",
+      reviewedAt: null,
       createdAt: new Date().toISOString()
     });
     const roundtrip = MaterialSchema.parse(JSON.parse(JSON.stringify(material)));
@@ -54,8 +60,10 @@ describe("shared domain schemas", () => {
   });
 
   it("rejects material metadata with an unknown status or kind", () => {
-    const base = { id: "m1", title: "Titel", kind: "worksheet", status: "draft", createdAt: new Date().toISOString() };
+    const base = { id: "m1", title: "Titel", kind: "student_material", status: "draft", relatedMoments: ["lm-1"], relatedWindows: [], relatedBoardItems: [], relatedDecisions: [], sourceRequest: "sr-1", createdAt: new Date().toISOString(), reviewedAt: null };
     expect(() => MaterialSchema.parse({ ...base, status: "ready" })).toThrow();
-    expect(() => MaterialSchema.parse({ ...base, kind: "video" })).toThrow();
+    expect(() => MaterialSchema.parse({ ...base, kind: "" })).toThrow();
+    expect(() => MaterialSchema.parse({ ...base, relatedMoments: [], sourceRequest: "sr-1" })).toThrow("material_needs_pedagogical_reference");
+    expect(() => MaterialSchema.parse({ ...base, status: "ready_for_class", reviewedAt: null })).toThrow("ready_material_needs_review_timestamp");
   });
 });

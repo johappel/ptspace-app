@@ -4,6 +4,26 @@ Dieses Protokoll dokumentiert die Bearbeitung von `REFACTOR-TASKS.md`. Der
 pädagogische Kernel bleibt die fachliche Quelle; Änderungen in der App werden
 erst aus seinen Verträgen abgeleitet.
 
+## 2026-07-17 – L0-Vertragsabgleich und Worker-Grenze
+
+### Umsetzung
+
+- `MaterialSchema` bildet jetzt die Kernel-Materialmetadaten ab: pädagogische Referenzen, `sourceRequest`, Reviewzeitpunkt und die Kernel-Statuswerte.
+- Der Board-Material-Worker erhält validiert das Arbeitsvorhaben, erwartete Ergebnis, Zielgruppe und die Beschreibungen der verknüpften Lernmomente.
+- Board-Karten und Lernmomente werden vor dem Anlegen eines Materialauftrags im selben Planungsraum geprüft.
+- Der Real-Harness prüft den Capability-Vertrag `CREATE_BOARD_MATERIAL.md`; der Frontend-Typ für die automatische Vorprüfung ist ergänzt.
+
+### Tests
+
+- Shared-Domain: 6 Tests bestanden.
+- Backend gezielt: 23 Tests bestanden.
+- Backend vollständig: 25 Testdateien / 117 Tests bestanden.
+- Shared-, Backend- und Frontend-Typecheck bestanden.
+
+### Offene Einschränkung und nächster Task
+
+- `F:\code\pedagogical-thinking-space\capabilities\workers\CREATE_BOARD_MATERIAL.md` liegt im gekoppelten Kernel-Repository als unversionierte Fremdänderung vor und wurde nicht verändert.
+- Nach Klärung und Versionierung des Kernel-Vertrags folgt als nächster L0-Schritt die verlustfreie Abbildung bestehender `service-requests/` als Board-Karten; danach werden ungültige Landschafts-, Kanten- und Materialreferenzen serverseitig abgelehnt.
 ## Phase 0 – Bestand sichern
 
 ### T-000 Repository-Zustand prüfen

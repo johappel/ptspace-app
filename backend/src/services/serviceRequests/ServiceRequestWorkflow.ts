@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
-import { PlanningSpace } from "@ptspace/shared";
+import { BoardMaterialWorkerInputSchema, PlanningSpace } from "@ptspace/shared";
 import { HarnessAdapter } from "../harness/HarnessAdapter.js";
+import { parseLearningLandscape, parsePlanningBoard } from "../planning/PlanningArtifactCodec.js";
 
 export type ServiceKind = "memory" | "knowledge" | "worker" | "renderer" | "review";
 export type ServiceRequestStatus = "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
@@ -93,27 +94,49 @@ export class ServiceRequestWorkflow {
   }
 
   // T-900: Ein Materialauftrag ist immer an eine Board-Karte und mindestens einen
-  // pädagogischen Bezug gebunden. Ohne diese Bindung entsteht kein Auftrag.
+  // pädagogischen Bezug gebunden. Der Worker erhält die dazugehörigen
+  // Lernmomentbeschreibungen statt nur unprüfbarer IDs.
   async proposeBoardMaterial(
     planningSpaceId: string,
-    input: { boardItemId: string; reason: string; relatedMoments: string[]; expectedResult: string; title: string; constraints?: Record<string, unknown> }
+    input: { boardItemId: string; reason: string; relatedMoments: string[]; expectedResult: string; title: string; targetGroup: string; constraints?: Record<string, unknown> }
   ): Promise<AppServiceRequest> {
     if (!input.boardItemId) throw new Error("service_request_needs_board_item");
     if (input.relatedMoments.length === 0) throw new Error("service_request_needs_pedagogical_reference");
+    if (!input.expectedResult.trim()) throw new Error("service_request_needs_expected_result");
+
+    const board = parsePlanningBoard(await this.workspace.readProjectFile(planningSpaceId, "planning-board.yml"));
+    if (!board.items.some((item) => item.id === input.boardItemId)) {
+      throw new Error("service_request_needs_existing_board_item");
+    }
+    const landscape = parseLearningLandscape(await this.workspace.readProjectFile(planningSpaceId, "learning-landscape.md"));
+    const relatedMomentContexts = input.relatedMoments.map((momentId) => landscape.moments.find((moment) => moment.id === momentId));
+    if (relatedMomentContexts.some((moment) => !moment)) {
+      throw new Error("service_request_needs_existing_learning_moment");
+    }
+
+    const workerInput = BoardMaterialWorkerInputSchema.parse({
+      learningDesign: "learning-design.md",
+      boardItemId: input.boardItemId,
+      title: input.title,
+      expectedResult: input.expectedResult.trim(),
+      relatedMoments: relatedMomentContexts,
+      targetGroup: input.targetGroup.trim(),
+      language: "de"
+    });
+
     return this.propose(planningSpaceId, {
       service: "worker",
       mode: "draft",
       capability: "create_board_material",
       reason: input.reason,
-      input: { learningDesign: "learning-design.md", title: input.title },
-      constraints: { language: "de", ...(input.constraints ?? {}) },
+      input: workerInput,
+      constraints: { language: workerInput.language, ...(input.constraints ?? {}) },
       boardItemId: input.boardItemId,
       relatedMoments: input.relatedMoments,
-      expectedResult: input.expectedResult,
-      locationOverride: `materials/${input.boardItemId}.md`
+      expectedResult: workerInput.expectedResult,
+      locationOverride: "materials/" + input.boardItemId + ".md"
     });
   }
-
   async propose(
     planningSpaceId: string,
     input: {
@@ -187,7 +210,9 @@ export class ServiceRequestWorkflow {
         service: "worker",
         capability: request.capability,
         reason: request.reason,
-        input: request.input,
+        input: request.capability === "create_board_material"
+          ? BoardMaterialWorkerInputSchema.parse(request.input)
+          : request.input,
         expectedOutput: { type: request.expectedOutput.type, relativePath: request.expectedOutput.location },
         constraints: request.constraints
       });
