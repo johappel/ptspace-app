@@ -37,7 +37,7 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 
 ## L0 — Voraussetzung: Kernel-Verträge
 
-- [ ] Kernel-Verträge synchronisieren und den noch unversionierten Board-Material-Worker-Vertrag prüfen.
+- [x] Kernel-Verträge synchronisieren und den noch unversionierten Board-Material-Worker-Vertrag prüfen.
 - [x] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind noch unvollständig.
 - [x] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
 - [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Jetzt wichtig“ wird daraus nur als eine priorisierte Projektion abgeleitet.

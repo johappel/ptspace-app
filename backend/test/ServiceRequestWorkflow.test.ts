@@ -79,8 +79,11 @@ describe("ServiceRequestWorkflow", () => {
     const request = await workflow.proposeStudentInstruction(space.id, "Die pädagogischen Entscheidungen reichen für einen ersten Entwurf.");
     const kernel = workflow.toKernelContract(request);
     expect(kernel.task).toBe("create_student_instruction");
+    expect(kernel.capability).toBe("capabilities/workers/CREATE_STUDENT_INSTRUCTION.md");
     expect(kernel.return_to).toBe("critical_friend");
     expect(kernel.requires_approval).toBe(true);
+    expect(kernel.input.learning_design).toBe("workspace/hoffnung-trotz-krise-religion/learning-design.md");
+    expect(kernel.input).not.toHaveProperty("learningDesign");
     expect(kernel.expected_output.location).toContain("/hoffnung-trotz-krise-religion/drafts/student-instruction.md");
   });
 
@@ -120,6 +123,39 @@ describe("ServiceRequestWorkflow", () => {
     expect(request.expectedOutput.location).toBe("materials/pb-1.md");
     expect(request.input).toMatchObject({ expectedResult: "Ein differenziertes Arbeitsblatt als Entwurf." });
     expect(request.input.relatedMoments).toMatchObject([{ id: "lm-impuls", title: "Bildimpuls" }]);
+  });
+
+  it("maps a board material request to the complete kernel traceability contract", async () => {
+    await seedBoardMaterialContext();
+    const request = await workflow.proposeBoardMaterial(space.id, {
+      boardItemId: "pb-1",
+      targetGroup: space.targetGroup,
+      title: "Arbeitsblatt zum Impuls",
+      relatedMoments: ["lm-impuls"],
+      expectedResult: "Ein differenziertes Arbeitsblatt als Entwurf.",
+      reason: "Fuer dieses Arbeitsvorhaben soll ein erster Entwurf entstehen."
+    });
+    const kernel = workflow.toKernelContract(request);
+    expect(kernel).toMatchObject({
+      task: "create_board_material",
+      capability: "capabilities/workers/CREATE_BOARD_MATERIAL.md",
+      input: {
+        board_item_id: "pb-1",
+        expected_result: "Ein differenziertes Arbeitsblatt als Entwurf.",
+        related_nodes: ["lm-impuls"],
+        related_windows: [],
+        target_group: "Klasse 9",
+        language: "de"
+      },
+      expected_output: {
+        type: "material_draft",
+        material_id: "material-pb-1"
+      }
+    });
+    expect(kernel.input).not.toHaveProperty("boardItemId");
+    expect(kernel.input).not.toHaveProperty("relatedMoments");
+    expect(kernel.input.related_moments).toMatchObject([{ id: "lm-impuls", title: "Bildimpuls" }]);
+    expect(kernel.expected_output.location).toContain("/hoffnung-trotz-krise-religion/materials/pb-1.md");
   });
 
   it("refuses a material request without a pedagogical reference", async () => {

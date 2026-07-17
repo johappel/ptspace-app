@@ -26,6 +26,7 @@ export type AppServiceRequest = {
   // pädagogischen Bezug gebunden. Es gibt keinen ungebundenen Materialauftrag.
   boardItemId?: string;
   relatedMoments?: string[];
+  relatedWindows?: string[];
   expectedResult?: string;
   reviewRequired: boolean;
   createdAt: string;
@@ -39,9 +40,10 @@ export type KernelServiceRequest = {
   service: ServiceKind;
   mode: string;
   task: string;
+  capability: string;
   reason: string;
   input: Record<string, unknown>;
-  expected_output: { type: string; location: string };
+  expected_output: { type: string; location: string; material_id?: string };
   constraints: Record<string, unknown>;
   return_to: "critical_friend";
   requires_approval: boolean;
@@ -75,6 +77,11 @@ const capabilities: Record<string, CapabilityContract> = {
   }
 };
 
+const capabilityPaths: Record<string, string> = {
+  create_student_instruction: "capabilities/workers/CREATE_STUDENT_INSTRUCTION.md",
+  create_board_material: "capabilities/workers/CREATE_BOARD_MATERIAL.md"
+};
+
 export class ServiceRequestWorkflow {
   constructor(private readonly workspace: WorkspaceManager, private readonly harness: HarnessAdapter) {}
 
@@ -105,7 +112,8 @@ export class ServiceRequestWorkflow {
     if (!input.expectedResult.trim()) throw new Error("service_request_needs_expected_result");
 
     const board = parsePlanningBoard(await this.workspace.readProjectFile(planningSpaceId, "planning-board.yml"));
-    if (!board.items.some((item) => item.id === input.boardItemId)) {
+    const boardItem = board.items.find((item) => item.id === input.boardItemId);
+    if (!boardItem) {
       throw new Error("service_request_needs_existing_board_item");
     }
     const landscape = parseLearningLandscape(await this.workspace.readProjectFile(planningSpaceId, "learning-landscape.md"));
@@ -133,6 +141,7 @@ export class ServiceRequestWorkflow {
       constraints: { language: workerInput.language, ...(input.constraints ?? {}) },
       boardItemId: input.boardItemId,
       relatedMoments: input.relatedMoments,
+      relatedWindows: boardItem.relatedWindows,
       expectedResult: workerInput.expectedResult,
       locationOverride: "materials/" + input.boardItemId + ".md"
     });
@@ -148,6 +157,7 @@ export class ServiceRequestWorkflow {
       constraints?: Record<string, unknown>;
       boardItemId?: string;
       relatedMoments?: string[];
+      relatedWindows?: string[];
       expectedResult?: string;
       locationOverride?: string;
     }
@@ -172,6 +182,7 @@ export class ServiceRequestWorkflow {
       requiresApproval: true,
       boardItemId: input.boardItemId,
       relatedMoments: input.relatedMoments,
+      relatedWindows: input.relatedWindows,
       expectedResult: input.expectedResult,
       reviewRequired: true,
       createdAt: now,
@@ -238,18 +249,61 @@ export class ServiceRequestWorkflow {
 
   toKernelContract(request: AppServiceRequest): KernelServiceRequest {
     const workspaceName = path.basename(this.workspace.getWorkspaceRoot(request.planningSpaceId));
+    const capability = capabilityPaths[request.capability];
+    if (!capability) throw new Error("capability_not_approved");
+
+    const { learningDesign: _learningDesign, ...rest } = request.input;
+    const input: Record<string, unknown> = {
+      ...rest,
+      learning_design: "workspace/" + workspaceName + "/learning-design.md"
+    };
+    if (request.capability === "create_board_material") {
+      const { learningDesign: _learningDesignSnapshot, boardItemId: _boardItemId, expectedResult: _expectedResult, relatedMoments: _relatedMoments, targetGroup: _targetGroup, ...boardInput } = request.input;
+      const relatedMomentSnapshots = Array.isArray(request.input.relatedMoments)
+        ? request.input.relatedMoments.map((moment) => {
+            const snapshot = moment as Record<string, unknown>;
+            return {
+              id: snapshot.id,
+              title: snapshot.title,
+              didactic_purpose: snapshot.didacticPurpose,
+              learning_activity: snapshot.learningActivity,
+              expected_experience: snapshot.expectedExperience,
+              material_needs: snapshot.materialNeeds,
+              open_questions: snapshot.openQuestions
+            };
+          })
+        : [];
+      Object.assign(input, {
+        ...boardInput,
+        board_item_id: request.boardItemId,
+        title: request.input.title,
+        expected_result: request.expectedResult,
+        related_nodes: request.relatedMoments ?? [],
+        related_moments: relatedMomentSnapshots,
+        related_windows: request.relatedWindows ?? [],
+        target_group: request.input.targetGroup
+      });
+      delete input.boardItemId;
+      delete input.expectedResult;
+      delete input.relatedMoments;
+      delete input.targetGroup;
+    }
+
+    const expectedOutput: KernelServiceRequest["expected_output"] = {
+      type: request.expectedOutput.type,
+      location: "workspace/" + workspaceName + "/" + request.expectedOutput.location
+    };
+    if (request.boardItemId) expectedOutput.material_id = "material-" + request.boardItemId;
     return {
       id: request.id,
       status: request.status,
       service: request.service,
       mode: request.mode,
       task: request.capability,
+      capability,
       reason: request.reason,
-      input: { ...request.input, learning_design: `workspace/${workspaceName}/learning-design.md` },
-      expected_output: {
-        type: request.expectedOutput.type,
-        location: `workspace/${workspaceName}/${request.expectedOutput.location}`
-      },
+      input,
+      expected_output: expectedOutput,
       constraints: request.constraints,
       return_to: request.returnTo,
       requires_approval: request.requiresApproval
@@ -267,7 +321,7 @@ export class ServiceRequestWorkflow {
     const hasBasicStructure = 
       (result.includes("#") || result.includes("*")) && // Irgendein Markdown
       result.length > 50; // Mindestens etwas Inhalt
-    
+
     if (!hasBasicStructure) {
       throw new Error("review_failed");
     }

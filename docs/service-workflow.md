@@ -10,10 +10,13 @@ The app uses camelCase internally. At the kernel boundary it maps explicitly to 
 
 | App | Kernel |
 | --- | --- |
-| `capability` | `task` |
+| Capability-ID `capability` | `task` |
+| Capability-Datei | `capability` |
 | `expectedOutput` | `expected_output` |
 | `returnTo` | `return_to` |
 | `requiresApproval` | `requires_approval` |
+| `input.learningDesign` | `input.learning_design` |
+| Board-/Materialfelder | `input.board_item_id`, `input.related_nodes`, `input.related_windows`, `input.expected_result`, `expected_output.material_id` |
 
 This translation must remain covered by contract tests.
 
@@ -47,3 +50,5 @@ It deliberately produces a draft rather than a classroom-ready artefact.
 - **Capabilities:** define allowed inputs, outputs, constraints, review rules and fallbacks. Unknown capabilities fail closed.
 
 These services should extend the same lifecycle rather than adding parallel orchestration paths.
+
+For `create_board_material`, the boundary contract also carries the matching Capability path, the approved Board item, stable Learning-Landscape node ids, an optional snapshot of the linked learning moments, the expected result and a stable material id. The output remains a draft and returns to the Critical Friend for review.
