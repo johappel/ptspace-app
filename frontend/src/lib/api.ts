@@ -1,3 +1,5 @@
+import type { ConversationMarker as SharedConversationMarker, Material as SharedMaterial } from "@ptspace/shared";
+
 const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:3000";
 
 
@@ -20,6 +22,24 @@ export type LearningLandscape = {
   structure: "linear" | "branching" | "stations" | "buffet" | "project" | "spatial" | "hybrid";
   moments: LearningMoment[];
   transitions: Array<{ id: string; from: string; to: string; kind: "required" | "choice" | "parallel" | "return" | "meeting_point" | "prerequisite"; rationale: string }>;
+};
+
+export type LearningLandscapeLayoutGroup = {
+  id: string;
+  title: string;
+  kind: "phase" | "room" | "station";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  memberIds: string[];
+};
+
+export type LearningLandscapeViewport = { x: number; y: number; zoom: number };
+export type LearningLandscapeLayout = {
+  nodes: Array<{ id: string; x: number; y: number }>;
+  groups: LearningLandscapeLayoutGroup[];
+  viewport?: LearningLandscapeViewport;
 };
 
 export type TeachingWindow = { id: string; title: string; kind: "lesson" | "double_lesson" | "project_block" | "open_learning_time"; durationMinutes: number; note: string };
@@ -61,6 +81,23 @@ export type PlanningBoardItem = {
 export type PlanningBoard = { schema: "ptspace.planning-board/v1"; items: PlanningBoardItem[] };
 
 
+export type MaterialMetadata = SharedMaterial;
+export type ConversationMarker = SharedConversationMarker;
+export type ConversationMarkerInput = {
+  sourceMessageId: string;
+  kind: ConversationMarker["kind"];
+  targetType: ConversationMarker["targetType"];
+  targetId: string;
+  label: string;
+  targetPlanningSpaceId?: string;
+};
+export type MaterialAssignmentTarget = {
+  targetType: "learning_moment" | "board_item";
+  targetId: string;
+  targetPlanningSpaceId?: string;
+};
+export type VersionSnapshot = { label: string; committed: boolean; hash?: string };
+
 export type PedagogicalFocus = { kind: "learning_moment" | "transition" | "teaching_window" | "placement" | "planning_item" | "material"; id: string; label: string };
 
 export type ProposalKind = "learning_moment" | "transition" | "temporal_placement" | "board_item";
@@ -77,7 +114,12 @@ export type Proposal = {
   placementWindowLabel?: string;
   boardItem?: PlanningBoardItem;
 };
-export type RoomOverview = { progress: Array<{ id: string; label: string; complete: boolean }>; activity: Array<{ id: string; label: string; createdAt: string }>; versions: Array<{ label: string; hash: string; createdAt: string }> };
+export type RoomOverview = {
+  progress: Array<{ id: string; label: string; complete: boolean }>;
+  activity: Array<{ id: string; label: string; createdAt: string }>;
+  versions: Array<{ label: string; hash: string; createdAt: string }>;
+  conversationMarkers: ConversationMarker[];
+};
 export type PlanningSpace = {
   id: string;
   title: string;
@@ -219,12 +261,37 @@ export const api = {
     request<{ cards: ThinkingCard[]; summary: string }>(`/planning-spaces/${spaceId}/thinking-state`),
   getPlanningArtifacts: (spaceId: string) =>
     request<{ learningLandscape: LearningLandscape; planningBoard: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`),
+  listMaterials: (spaceId: string) =>
+    request<{ materials: MaterialMetadata[] }>("/planning-spaces/" + spaceId + "/materials"),
+  assignMaterial: (spaceId: string, materialId: string, target: MaterialAssignmentTarget) =>
+    request<{
+      material: MaterialMetadata;
+      learningLandscape: LearningLandscape;
+      planningBoard: PlanningBoard;
+      changed: boolean;
+      version: VersionSnapshot;
+    }>("/planning-spaces/" + spaceId + "/materials/" + materialId + "/assignments", {
+      method: "POST",
+      body: JSON.stringify(target)
+    }),
+  listConversationMarkers: (spaceId: string) =>
+    request<{ markers: ConversationMarker[] }>("/planning-spaces/" + spaceId + "/conversation-markers"),
+  createConversationMarker: (spaceId: string, input: ConversationMarkerInput) =>
+    request<{ marker: ConversationMarker }>("/planning-spaces/" + spaceId + "/conversation-markers", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
+  supersedeConversationMarker: (spaceId: string, markerId: string, reason?: string) =>
+    request<{ marker: ConversationMarker }>("/planning-spaces/" + spaceId + "/conversation-markers/" + markerId + "/supersede", {
+      method: "POST",
+      body: JSON.stringify(reason ? { reason } : {})
+    }),
   getTemporalPlan: (spaceId: string) =>
     request<TemporalPlan>(`/planning-spaces/${spaceId}/temporal-plan`),
   saveTemporalPlan: (spaceId: string, temporalPlan: TemporalPlan) =>
     request<{ temporalPlan: TemporalPlan; version: unknown }>(`/planning-spaces/${spaceId}/temporal-plan`, { method: "PUT", body: JSON.stringify(temporalPlan) }),
-  getLearningLandscapeLayout: (spaceId: string) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`),
-  saveLearningLandscapeLayout: (spaceId: string, layout: { nodes: Array<{ id: string; x: number; y: number }> }) => request<{ nodes: Array<{ id: string; x: number; y: number }> }>(`/planning-spaces/${spaceId}/learning-landscape-layout`, { method: "PUT", body: JSON.stringify(layout) }),
+  getLearningLandscapeLayout: (spaceId: string) => request<LearningLandscapeLayout>(`/planning-spaces/${spaceId}/learning-landscape-layout`),
+  saveLearningLandscapeLayout: (spaceId: string, layout: LearningLandscapeLayout) => request<LearningLandscapeLayout>(`/planning-spaces/${spaceId}/learning-landscape-layout`, { method: "PUT", body: JSON.stringify(layout) }),
   savePlanningArtifacts: (spaceId: string, input: { learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }) =>
     request<{ learningLandscape?: LearningLandscape; planningBoard?: PlanningBoard }>(`/planning-spaces/${spaceId}/planning-artifacts`, {
       method: "PUT", body: JSON.stringify(input)

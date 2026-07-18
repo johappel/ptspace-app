@@ -115,6 +115,28 @@ describe("planning artifact resource API", () => {
     }
   });
 
+  it("round-trips groups and viewport as presentation layout", async () => {
+    const app = await buildApp();
+    try {
+      const id = await createSpace(app);
+      const layout = {
+        nodes: [{ id: "lm-impuls", x: 10, y: 20 }],
+        groups: [{ id: "group-phase", title: "Gemeinsamer Einstieg", kind: "phase", x: 30, y: 40, width: 450, height: 250, memberIds: ["lm-impuls"] }],
+        viewport: { x: -12, y: 8, zoom: 0.85 }
+      };
+      const put = await app.inject({ method: "PUT", url: `/api/planning-spaces/${id}/learning-landscape-layout`, payload: layout });
+      expect(put.statusCode).toBe(200);
+      const get = await app.inject({ method: "GET", url: `/api/planning-spaces/${id}/learning-landscape-layout` });
+      expect(get.statusCode).toBe(200);
+      expect(get.json()).toEqual(layout);
+
+      const invalid = await app.inject({ method: "PUT", url: `/api/planning-spaces/${id}/learning-landscape-layout`, payload: { ...layout, groups: [{ ...layout.groups[0], width: 0 }] } });
+      expect(invalid.statusCode).toBe(400);
+    } finally {
+      await app.close();
+    }
+  });
+
   it("records a git version for a semantic planning-board change (T-1102)", async () => {
     const app = await buildApp();
     try {

@@ -130,6 +130,12 @@ export const MaterialSchema = z.object({
   }
 });
 export type Material = z.infer<typeof MaterialSchema>;
+/** App-side manifest for metadata accompanying files in `materials/`. */
+export const MaterialManifestSchema = z.object({
+  schema: z.literal("ptspace.material-manifest/v1"),
+  materials: z.array(MaterialSchema).default([])
+});
+export type MaterialManifest = z.infer<typeof MaterialManifestSchema>;
 
 export const BoardMaterialWorkerMomentContextSchema = z.object({
   id: z.string().min(1),
@@ -196,12 +202,54 @@ export const ConversationMessageSchema = z.object({
   text: z.string().min(1),
   createdAt: ISODateString,
   focus: z.object({
-    kind: z.enum(["learning_moment", "teaching_window", "planning_item", "material"]),
+    kind: z.enum(["learning_moment", "transition", "teaching_window", "placement", "planning_item", "material"]),
     id: z.string().min(1),
     label: z.string().min(1)
   }).optional()
 });
 export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
+export const ConversationMarkerKindSchema = z.enum([
+  "captured_note",
+  "open_decision",
+  "work_started",
+  "result_returned",
+  "ready_for_class"
+]);
+export type ConversationMarkerKind = z.infer<typeof ConversationMarkerKindSchema>;
+
+export const ConversationMarkerTargetTypeSchema = z.enum([
+  "thinking_state",
+  "decision",
+  "board_item",
+  "service_request",
+  "material"
+]);
+export type ConversationMarkerTargetType = z.infer<typeof ConversationMarkerTargetTypeSchema>;
+
+export const ConversationMarkerStatusSchema = z.enum(["active", "superseded", "discarded", "orphaned"]);
+export type ConversationMarkerStatus = z.infer<typeof ConversationMarkerStatusSchema>;
+
+/** Persistent app projection linking a message to an existing planning target. */
+export const ConversationMarkerSchema = z.object({
+  id: z.string().min(1),
+  planningSpaceId: z.string().min(1),
+  sourceMessageId: z.string().min(1),
+  kind: ConversationMarkerKindSchema,
+  targetType: ConversationMarkerTargetTypeSchema,
+  targetId: z.string().min(1),
+  label: z.string().min(1),
+  createdAt: ISODateString,
+  status: ConversationMarkerStatusSchema.default("active"),
+  invalidatedAt: ISODateString.nullable().default(null),
+  invalidatedReason: z.string().optional()
+});
+export type ConversationMarker = z.infer<typeof ConversationMarkerSchema>;
+
+export const ConversationMarkerCollectionSchema = z.object({
+  schema: z.literal("ptspace.conversation-markers/v1"),
+  markers: z.array(ConversationMarkerSchema).default([])
+});
+export type ConversationMarkerCollection = z.infer<typeof ConversationMarkerCollectionSchema>;
 
 export const TeacherFacingStatusSchema = z.enum([
   "bereit",

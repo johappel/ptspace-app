@@ -1,14 +1,28 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Lightbulb, ListChecks, Map, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ExportApproval, type LearningLandscape, type LearningMoment, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
-  import { Background, Controls, MiniMap, SvelteFlow } from "@xyflow/svelte";
+  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
+  import { api, type ExportApproval, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
+  import { Background, Controls, MiniMap, SvelteFlow, type Connection, type Edge, type Node, type NodeTypes } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
+  import LearningMomentNode from "$lib/LearningMomentNode.svelte";
+  import LearningGroupNode from "$lib/LearningGroupNode.svelte";
   import { uuid } from "$lib/uuid";
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
 
   type UiMessage = { id: string; author: "teacher" | "critical_friend"; text: string };
+  type LandscapeTransitionKind = LearningLandscape["transitions"][number]["kind"];
+  type LandscapeGroupKind = LearningLandscapeLayoutGroup["kind"];
+  type LandscapeGroupForm = {
+    id: string | null;
+    title: string;
+    kind: LandscapeGroupKind;
+    memberIds: string[];
+  };
+
+  const landscapeGroupKindLabels: Record<LandscapeGroupKind, string> = {
+    phase: "Phase", room: "Raum", station: "Stationenbereich"
+  };
 
   let spaces: PlanningSpace[] = [];
   let activeSpace: PlanningSpace | null = null;
@@ -49,14 +63,21 @@ let messagesElement: HTMLDivElement | null = null;
   let createRoomModal = false;
   let roomView: "conversation" | "landscape" | "timeline" | "board" | "materials" = "conversation";
   let planningTab: "landscape" | "board" = "landscape";
+  let landscapeMode: "canvas" | "linear" = "canvas";
   let learningLandscape: LearningLandscape | null = null;
   let planningBoard: PlanningBoard | null = null;
   let temporalPlan: TemporalPlan | null = null;
   let planningError = "";
   let planningLoading = false;
-  let canvasNodes: any[] = [];
-  let canvasEdges: any[] = [];
+  let canvasNodes: Node[] = [];
+  let canvasEdges: Edge[] = [];
   let landscapeLayout: Record<string, { x: number; y: number }> = {};
+  let landscapeGroups: LearningLandscapeLayoutGroup[] = [];
+  let landscapeViewport: LearningLandscapeViewport | undefined;
+  let pendingConnection: Connection | null = null;
+  let connectionKind: LandscapeTransitionKind = "required";
+  let connectionRationale = "";
+  let groupForm: LandscapeGroupForm | null = null;
   let draggedBoardItem: string | null = null;
   const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
@@ -65,6 +86,8 @@ let messagesElement: HTMLDivElement | null = null;
     { id: "review", label: "Zur Prüfung", hint: "Ergebnisse gemeinsam ansehen" },
     { id: "ready", label: "Bereit", hint: "fachlich freigegeben" }
   ];
+  const canvasNodeTypes: NodeTypes = { learningMoment: LearningMomentNode, learningGroup: LearningGroupNode };
+
 
   onMount(async () => {
     await refreshSpaces();
@@ -231,37 +254,95 @@ async function sendMessage() {
 
   function makeCanvas() {
     if (!learningLandscape) return;
-    canvasNodes = learningLandscape.moments.map((moment, index) => ({
-      id: moment.id,
-      position: landscapeLayout[moment.id] ?? { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 },
-      data: { label: `${moment.title}\n${moment.didacticPurpose || moment.learningActivity || "Lernmoment"}` }
+    const groupNodes: Node[] = landscapeGroups.map((group) => ({
+      id: group.id,
+      type: "learningGroup",
+      position: { x: group.x, y: group.y },
+      data: { title: group.title, kind: group.kind, kindLabel: landscapeGroupKindLabels[group.kind], memberCount: group.memberIds.length },
+      style: `width: ${group.width}px; height: ${group.height}px;`,
+      selectable: false,
+      draggable: false,
+      focusable: false,
+      zIndex: -1
     }));
+    const momentNodes: Node[] = learningLandscape.moments.map((moment, index) => ({
+      id: moment.id,
+      type: "learningMoment",
+      position: landscapeLayout[moment.id] ?? { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 },
+      data: {
+        title: moment.title,
+        kind: moment.kind,
+        kindLabel: momentKindLabels[moment.kind] ?? moment.kind,
+        didacticPurpose: moment.didacticPurpose,
+        learningActivity: moment.learningActivity,
+        expectedExperience: moment.expectedExperience,
+        statusLabel: momentStatusLabels[moment.status] ?? moment.status
+      }
+    }));
+    canvasNodes = [...groupNodes, ...momentNodes];
     canvasEdges = learningLandscape.transitions.map((transition) => ({
       id: transition.id,
       source: transition.from,
       target: transition.to,
       type: "smoothstep",
-      label: transition.kind === "required" ? "gemeinsamer Weg" : transition.kind,
+      label: transitionKindLabels[transition.kind] ?? transition.kind,
       animated: transition.kind === "choice"
     }));
   }
 
   async function saveLandscapeLayout() {
     if (!activeSpace) return;
-    const nodes = canvasNodes.map((node) => ({ id: node.id, x: node.position.x, y: node.position.y }));
+    const nodes = canvasNodes.filter((node) => node.type === "learningMoment").map((node) => ({ id: node.id, x: node.position.x, y: node.position.y }));
+    const groupNodes = new Map(canvasNodes.filter((node) => node.type === "learningGroup").map((node) => [node.id, node]));
+    const groups = landscapeGroups.map((group) => {
+      const node = groupNodes.get(group.id);
+      return node ? { ...group, x: node.position.x, y: node.position.y } : group;
+    });
     landscapeLayout = Object.fromEntries(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
-    try { await api.saveLearningLandscapeLayout(activeSpace.id, { nodes }); } catch (err) { error = err instanceof Error ? err.message : "Die Ansicht konnte nicht gespeichert werden."; }
+    landscapeGroups = groups;
+    const layout = { nodes, groups, ...(landscapeViewport ? { viewport: landscapeViewport } : {}) };
+    try {
+      const saved = await api.saveLearningLandscapeLayout(activeSpace.id, layout);
+      landscapeGroups = saved.groups ?? [];
+      landscapeViewport = saved.viewport;
+    } catch (err) { error = err instanceof Error ? err.message : "Die Ansicht konnte noch nicht gespeichert werden."; }
+  }
+
+  function applyLandscapeLayout(layout: LearningLandscapeLayout) {
+    landscapeLayout = Object.fromEntries(layout.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+    landscapeGroups = layout.groups ?? [];
+    landscapeViewport = layout.viewport;
+  }
+
+  async function saveLandscapeViewport(_event: unknown, viewport: LearningLandscapeViewport) {
+    landscapeViewport = viewport;
+    await saveLandscapeLayout();
+  }
+
+  function defaultMomentPosition(index: number) {
+    return { x: 80 + (index % 3) * 280, y: 70 + Math.floor(index / 3) * 180 };
+  }
+
+  async function resetLandscapeLayout() {
+    if (!learningLandscape) return;
+    landscapeLayout = Object.fromEntries(learningLandscape.moments.map((moment, index) => [moment.id, defaultMomentPosition(index)]));
+    landscapeGroups = landscapeGroups.map((group, index) => ({ ...group, x: 30 + (index % 2) * 520, y: 25 + Math.floor(index / 2) * 300 }));
+    landscapeViewport = undefined;
+    makeCanvas();
+    await saveLandscapeLayout();
   }
 
   async function openPlanning() {
     if (!activeSpace) return;
+    roomView = "conversation";
     planningLoading = true;
     planningError = "";
     try {
-      const artifacts = await api.getPlanningArtifacts(activeSpace.id);
+      const [artifacts, layout, plan] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id), api.getTemporalPlan(activeSpace.id)]);
       learningLandscape = artifacts.learningLandscape;
       planningBoard = artifacts.planningBoard;
-      temporalPlan = await api.getTemporalPlan(activeSpace.id);
+      applyLandscapeLayout(layout);
+      temporalPlan = plan;
       makeCanvas();
       planningModal = true;
     } catch (err) {
@@ -320,7 +401,7 @@ async function sendMessage() {
     roomView = view;
     if (view === "conversation" || !activeSpace) return;
     planningLoading = true; planningError = "";
-    try { const [artifacts, layout, plan] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id), api.getTemporalPlan(activeSpace.id)]); landscapeLayout = Object.fromEntries(layout.nodes.map((node) => [node.id, { x: node.x, y: node.y }])); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; temporalPlan = plan; makeCanvas(); }
+    try { const [artifacts, layout, plan] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id), api.getTemporalPlan(activeSpace.id)]); applyLandscapeLayout(layout); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; temporalPlan = plan; makeCanvas(); }
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
     finally { planningLoading = false; }
   }
@@ -391,6 +472,117 @@ async function sendMessage() {
   let transitionDraft: LearningLandscape["transitions"][number] | null = null;
   let boardDetail: PlanningBoardItem | null = null;
   let boardProposal: { title: string; kind: PlanningBoardItem["kind"]; momentId: string; windowId: string; expectedResult: string; materialNeed: string } | null = null;
+  function handleCanvasConnect(connection: Connection) {
+    if (!connection.source || !connection.target || connection.source === connection.target) return;
+    const exists = learningLandscape?.transitions.some((transition) => transition.from === connection.source && transition.to === connection.target);
+    if (exists) {
+      planningError = "Diese Verbindung ist bereits vorhanden.";
+      return;
+    }
+    pendingConnection = connection;
+    connectionKind = "required";
+    connectionRationale = "";
+  }
+
+  function closeConnectionForm() {
+    pendingConnection = null;
+    connectionRationale = "";
+  }
+
+  async function confirmCanvasConnection() {
+    if (!learningLandscape || !pendingConnection) return;
+    const { source, target } = pendingConnection;
+    learningLandscape = {
+      ...learningLandscape,
+      transitions: [...learningLandscape.transitions, {
+        id: `tr-${uuid().slice(0, 8)}`,
+        from: source,
+        to: target,
+        kind: connectionKind,
+        rationale: connectionRationale.trim()
+      }]
+    };
+    closeConnectionForm();
+    await persistLandscape();
+  }
+
+  function openGroupForm(group?: LearningLandscapeLayoutGroup) {
+    groupForm = group
+      ? { id: group.id, title: group.title, kind: group.kind, memberIds: [...group.memberIds] }
+      : { id: null, title: "", kind: "phase", memberIds: [] };
+  }
+
+  function toggleGroupMember(momentId: string) {
+    if (!groupForm) return;
+    groupForm = {
+      ...groupForm,
+      memberIds: groupForm.memberIds.includes(momentId)
+        ? groupForm.memberIds.filter((id) => id !== momentId)
+        : [...groupForm.memberIds, momentId]
+    };
+  }
+
+  async function saveGroupForm() {
+    if (!groupForm || groupForm.title.trim().length < 2) return;
+    const existing = groupForm.id ? landscapeGroups.find((group) => group.id === groupForm?.id) : undefined;
+    const group: LearningLandscapeLayoutGroup = {
+      id: groupForm.id ?? `group-${uuid().slice(0, 8)}`,
+      title: groupForm.title.trim(),
+      kind: groupForm.kind,
+      x: existing?.x ?? 30 + (landscapeGroups.length % 2) * 520,
+      y: existing?.y ?? 25 + Math.floor(landscapeGroups.length / 2) * 300,
+      width: existing?.width ?? 450,
+      height: existing?.height ?? 250,
+      memberIds: [...groupForm.memberIds]
+    };
+    landscapeGroups = existing
+      ? landscapeGroups.map((entry) => entry.id === group.id ? group : entry)
+      : [...landscapeGroups, group];
+    groupForm = null;
+    makeCanvas();
+    await saveLandscapeLayout();
+  }
+
+  async function removeGroupForm() {
+    if (!groupForm?.id) return;
+    landscapeGroups = landscapeGroups.filter((group) => group.id !== groupForm?.id);
+    groupForm = null;
+    makeCanvas();
+    await saveLandscapeLayout();
+  }
+
+  function linearMoments(): LearningMoment[] {
+    if (!learningLandscape) return [];
+    const outgoing = new Map<string, string[]>();
+    const incoming = new Set<string>();
+    for (const transition of learningLandscape.transitions) {
+      outgoing.set(transition.from, [...(outgoing.get(transition.from) ?? []), transition.to]);
+      incoming.add(transition.to);
+    }
+    const byId = new Map(learningLandscape.moments.map((moment) => [moment.id, moment]));
+    const result: LearningMoment[] = [];
+    const visited = new Set<string>();
+    const visit = (id: string) => {
+      if (visited.has(id)) return;
+      const moment = byId.get(id);
+      if (!moment) return;
+      visited.add(id);
+      result.push(moment);
+      for (const nextId of outgoing.get(id) ?? []) visit(nextId);
+    };
+    learningLandscape.moments.filter((moment) => !incoming.has(moment.id)).forEach((moment) => visit(moment.id));
+    learningLandscape.moments.forEach((moment) => visit(moment.id));
+    return result;
+  }
+
+  function transitionsFrom(momentId: string) {
+    return learningLandscape?.transitions.filter((transition) => transition.from === momentId) ?? [];
+  }
+  function handleCanvasNodeClick(node: Node) {
+    if (node.type === "learningMoment") openMomentDetail(node.id);
+    else openGroupForm(landscapeGroups.find((group) => group.id === node.id));
+  }
+
 
   function momentTitle(id: string): string {
     return learningLandscape?.moments.find((moment) => moment.id === id)?.title ?? id;
@@ -949,7 +1141,7 @@ async function sendMessage() {
   <main class="planning-room">
     <header class="topbar">
       <div><span>Gemeinsam nachdenken</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
-      <div class="topbar-actions"><button class="settings-button" on:click={async () => { settingsOpen = true; try { runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage; } catch { runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden."; } }}><Settings size={16} /> Einstellungen</button>
+      <div class="topbar-actions"><button class="planning-open" on:click={openPlanning}><MapIcon size={16} /> Unterrichtsplanung</button><button class="settings-button" on:click={async () => { settingsOpen = true; try { runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage; } catch { runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden."; } }}><Settings size={16} /> Einstellungen</button>
         {#if activeSpace}<nav class="room-nav" aria-label="Perspektiven"><button class:active={roomView === "conversation"} on:click={() => selectPerspective("conversation")}>Gespräch & Denkstand</button><button class:active={roomView === "landscape"} on:click={() => selectPerspective("landscape")}>Lernlandschaft</button><button class:active={roomView === "timeline"} on:click={() => selectPerspective("timeline")}>Zeit & Dramaturgie</button><button class:active={roomView === "board"} on:click={() => selectPerspective("board")}>Planungsboard</button><button class:active={roomView === "materials"} on:click={() => selectPerspective("materials")}>Materialien</button></nav>{/if}
         <button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-expanded={statusDetailsOpen}>
           <span>{roomOverview?.progress.filter((phase) => phase.complete).length ?? 0}/{roomOverview?.progress.length ?? 0} Etappen</span><span>{sending ? "Ich denke kurz mit" : "Gespräch bereit"}</span><span>{cards.find((card) => card.id === "offene-entscheidungen")?.previewItems.length ?? 0} offen</span><span>{markdownApproval ? "freigegeben" : "noch nicht freigegeben"}</span>
@@ -987,7 +1179,44 @@ async function sendMessage() {
             </div>
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
-          {:else if roomView === "landscape" && learningLandscape}<div class="perspective-title"><span>Lernlandschaft</span><h2>{learningLandscape.title}</h2><p>Wähle einen Lernmoment oder einen Übergang, um ihn zu öffnen.</p><div class="title-actions"><button class="add-moment-button" on:click={openAddMoment}><Plus size={15} /> Lernmoment hinzufügen</button><button class="add-moment-button ghost-action" on:click={() => requestProposal("learning_moment")} disabled={proposalLoading}><Lightbulb size={15} /> Lernmoment vorschlagen lassen</button>{#if learningLandscape.moments.length >= 2}<button class="add-moment-button ghost-action" on:click={() => requestProposal("transition")} disabled={proposalLoading}><Lightbulb size={15} /> Übergang vorschlagen lassen</button>{/if}</div></div><div class="landscape-view inline"><div class="flow-canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} fitView nodesDraggable={true} nodesConnectable={false} elementsSelectable={true} onnodedragstop={saveLandscapeLayout} onnodeclick={(event) => openMomentDetail(event.node.id)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div></div>
+          {:else if roomView === "landscape" && learningLandscape}
+            <div class="perspective-title landscape-heading">
+              <span>Lernlandschaft</span>
+              <h2>{learningLandscape.title}</h2>
+              <p>Ordne Lernmomente als didaktische Reise. Die lineare Lesansicht nutzt dieselben Lernmomente und Übergänge.</p>
+              <div class="landscape-toolbar" aria-label="Werkzeuge der Lernlandschaft">
+                <div class="view-switch" role="group" aria-label="Darstellung wählen">
+                  <button class:active={landscapeMode === "canvas"} on:click={() => (landscapeMode = "canvas")}><MapIcon size={14} /> Raumansicht</button>
+                  <button class:active={landscapeMode === "linear"} on:click={() => (landscapeMode = "linear")}><List size={14} /> Lineare Lesansicht</button>
+                </div>
+                <button class="add-moment-button" on:click={openAddMoment}><Plus size={15} /> Lernmoment hinzufügen</button>
+                <button class="add-moment-button ghost-action" on:click={() => openGroupForm()}><Layers size={15} /> Fläche hinzufügen</button>
+                <button class="add-moment-button ghost-action" on:click={resetLandscapeLayout}><RotateCcw size={15} /> Layout zurücksetzen</button>
+                <button class="add-moment-button ghost-action" on:click={() => requestProposal("learning_moment")} disabled={proposalLoading}><Lightbulb size={15} /> Vorschlag anfragen</button>
+              </div>
+            </div>
+            {#if landscapeMode === "canvas"}
+              <div class="landscape-view inline landscape-canvas-layout">
+                <div class="flow-canvas" role="application" aria-label="Didaktische Lernlandschaft. Lernmomente sind per Tastatur fokussierbar; Verbindungen entstehen erst nach Auswahl ihrer didaktischen Bedeutung.">
+                  <SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} elementsSelectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow>
+                </div>
+                <aside class="landscape-groups" aria-label="Lernflächen">
+                  <div class="landscape-groups-heading"><strong>Lernflächen</strong><span>nur Darstellung und Orientierung</span></div>
+                  {#if landscapeGroups.length === 0}<p class="muted">Noch keine Fläche. Phasen, Räume und Stationen können hier sichtbar zusammengefasst werden.</p>{:else}{#each landscapeGroups as group}<button class="landscape-group-entry" on:click={() => openGroupForm(group)}><span>{landscapeGroupKindLabels[group.kind]}</span><strong>{group.title}</strong><small>{group.memberIds.length} Lernmomente · bearbeiten</small></button>{/each}{/if}
+                </aside>
+              </div>
+              <p class="canvas-accessibility-hint">Tastatur: Mit Tab zwischen Lernmomenten wechseln, Enter auswählen, Pfeiltasten bewegen. Eine Verbindung wird erst nach der Wahl von Weg, Wahl, Parallelität, Rückkehr, Treffpunkt oder Voraussetzung gespeichert.</p>
+            {:else}
+              <div class="linear-landscape" aria-label="Lineare Lesansicht der Lernlandschaft">
+                <p class="linear-landscape-intro">Diese Lesansicht ist aus derselben Landschaft abgeleitet und macht auch Wahl- und Parallelwege ausdrücklich sichtbar.</p>
+                {#each linearMoments() as moment, index}
+                  <article class="linear-moment">
+                    <div class="linear-moment-index" aria-hidden="true">{index + 1}</div>
+                    <div class="linear-moment-content"><span class="learning-moment-kind">{momentKindLabels[moment.kind] ?? moment.kind}</span><h3>{moment.title}</h3><p>{moment.didacticPurpose || "Didaktische Funktion noch offen"}</p>{#if moment.learningActivity}<small><strong>Lernaktivität:</strong> {moment.learningActivity}</small>{/if}{#if landscapeGroups.some((group) => group.memberIds.includes(moment.id))}<div class="linear-groups">{#each landscapeGroups.filter((group) => group.memberIds.includes(moment.id)) as group}<span>{landscapeGroupKindLabels[group.kind]}: {group.title}</span>{/each}</div>{/if}<div class="linear-moment-actions"><button on:click={() => openMomentDetail(moment.id)}>Lernmoment öffnen</button>{#each transitionsFrom(moment.id) as transition}<span class="linear-transition"><strong>{transitionKindLabels[transition.kind]}</strong> → {momentTitle(transition.to)}</span>{/each}</div></div>
+                  </article>
+                {/each}
+              </div>
+            {/if}
           {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Ziehe Lernmomente aus der Ablage in ein Unterrichtsfenster. Erst deine Bestätigung legt eine zeitliche Platzierung an.</p><div class="title-actions"><button class="add-moment-button" on:click={() => openWindowForm()}><Plus size={15} /> Unterrichtsfenster hinzufügen</button>{#if temporalPlan.windows.length > 0 && unplacedMoments().length > 0}<button class="add-moment-button ghost-action" on:click={() => requestProposal("temporal_placement")} disabled={proposalLoading}><Lightbulb size={15} /> Platzierung vorschlagen lassen</button>{/if}</div></header>
             {#each timelineNotices() as notice}<p class="timeline-notice"><TriangleAlert size={14} /> {notice}</p>{/each}
             <section class="unplaced-tray" aria-label="Noch nicht eingeplante Lernmomente"><h3>Ablage · noch nicht eingeplant</h3>{#if unplacedMoments().length === 0}<p class="muted">Alle Lernmomente sind mindestens einmal eingeplant.</p>{:else}<div class="tray-moments">{#each unplacedMoments() as moment}<button class="tray-moment" draggable="true" on:dragstart={() => (draggedMomentId = moment.id)} on:click={() => openMomentDetail(moment.id)}><strong>{moment.title}</strong><small>{momentKindLabels[moment.kind] ?? moment.kind}</small></button>{/each}</div>{/if}</section>
@@ -1241,6 +1470,49 @@ async function sendMessage() {
     </div>
   {/if}
 
+  {#if pendingConnection && learningLandscape}
+    <div class="planning-overlay" role="presentation" on:click={closeConnectionForm}>
+      <dialog class="start-modal" open aria-label="Didaktische Bedeutung des Übergangs" on:click|stopPropagation>
+        <header><div><span>Neue Verbindung</span><h2>Was bedeutet dieser Übergang?</h2></div><button class="icon-button" on:click={closeConnectionForm} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={confirmCanvasConnection}>
+          <p class="muted">{momentTitle(pendingConnection.source)} → {momentTitle(pendingConnection.target)}</p>
+          <label>Didaktische Bedeutung<select bind:value={connectionKind}>{#each Object.entries(transitionKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <label>Begründung <small>optional</small><textarea bind:value={connectionRationale} rows="3" placeholder="Wozu führt dieser Übergang für die Lernenden?"></textarea></label>
+          <p class="privacy-hint">Erst nach deiner Auswahl wird der Übergang in der Lernlandschaft festgehalten.</p>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={closeConnectionForm}>Abbrechen</button><button type="submit">Verbindung festhalten</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+
+  {#if groupForm}
+    <div class="planning-overlay" role="presentation" on:click={() => (groupForm = null)}>
+      <dialog class="start-modal" open aria-label="Lernfläche bearbeiten" on:click|stopPropagation>
+        <header><div><span>{groupForm.id ? "Lernfläche bearbeiten" : "Neue Lernfläche"}</span><h2>Was soll zusammen sichtbar sein?</h2></div><button class="icon-button" on:click={() => (groupForm = null)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={saveGroupForm}>
+          <label>Bezeichnung<input bind:value={groupForm.title} placeholder="z. B. Gemeinsamer Einstieg" /></label>
+          <label>Art<select bind:value={groupForm.kind}>{#each Object.entries(landscapeGroupKindLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
+          <fieldset class="group-members"><legend>Lernmomente in dieser Fläche</legend>{#each learningLandscape?.moments ?? [] as moment}<label><input type="checkbox" checked={groupForm.memberIds.includes(moment.id)} on:change={() => toggleGroupMember(moment.id)} /> {moment.title}</label>{/each}</fieldset>
+          <p class="privacy-hint"><Layers size={15} /> Die Fläche unterstützt Orientierung. Sie verändert weder die Lernlandschaft noch die Übergänge.</p>
+          <div class="pad-actions">{#if groupForm.id}<button type="button" class="danger" on:click={removeGroupForm}>Fläche entfernen</button>{/if}<button type="button" class="ghost" on:click={() => (groupForm = null)}>Abbrechen</button><button type="submit" disabled={groupForm.title.trim().length < 2}>Fläche speichern</button></div>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+  {#if planningModal && learningLandscape}
+    <div class="planning-overlay" role="presentation" on:click={() => (planningModal = false)}>
+      <dialog class="planning-modal" open aria-label="Unterrichtsplanung" on:click|stopPropagation>
+        <header class="planning-modal-header"><div><span>Unterrichtsplanung</span><h2>{learningLandscape.title}</h2></div><button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schließen"><X size={20} /></button></header>
+        <nav class="planning-tabs" aria-label="Planungsansichten"><button role="tab" aria-selected={planningTab === "landscape"} class:active={planningTab === "landscape"} on:click={() => (planningTab = "landscape")}>Lernlandschaft</button><button role="tab" aria-selected={planningTab === "board"} class:active={planningTab === "board"} on:click={() => (planningTab = "board")}>Planungsboard</button></nav>
+        <section class="planning-modal-content">
+          {#if planningTab === "landscape"}
+            <div class="modal-landscape-toolbar"><div><strong>Lernlandschaft</strong><span>Canvas und lineare Lesansicht greifen auf dieselbe Landschaft zu.</span></div><div class="title-actions"><button class="add-moment-button" on:click={() => (landscapeMode = "canvas")}><MapIcon size={14} /> Raumansicht</button><button class="add-moment-button" on:click={() => (landscapeMode = "linear")}><List size={14} /> Linear lesen</button><button class="add-moment-button ghost-action" on:click={() => openGroupForm()}><Layers size={14} /> Fläche hinzufügen</button><button class="add-moment-button ghost-action" on:click={resetLandscapeLayout}><RotateCcw size={14} /> Layout zurücksetzen</button></div></div>
+            {#if landscapeMode === "canvas"}<div class="modal-flow-canvas flow-canvas" role="application" aria-label="Lernlandschaft im Canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div>{:else}<div class="modal-linear-note"><List size={24} /><h3>Lineare Lesansicht</h3><p>Die vollständige lineare Darstellung ist im Planungsraum verfügbar. Sie bleibt aus derselben Lernlandschaft abgeleitet und zeigt Wahl- und Parallelwege ausdrücklich.</p><button on:click={() => { planningModal = false; roomView = "landscape"; }}>Lineare Lesansicht öffnen</button></div>{/if}
+          {:else}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard?.items.filter((item) => item.column === column.id) ?? [] as item}<button class="board-card" on:click={() => { planningModal = false; boardDetail = item; }}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>{/if}
+        </section>
+      </dialog>
+    </div>
+  {/if}
   {#if proposal}
     {@const current = proposal}
     <div class="planning-overlay" role="presentation" on:click={() => (proposal = null)}>

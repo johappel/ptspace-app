@@ -5,6 +5,7 @@ import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
 import { BoardMaterialWorkerInputSchema, PlanningSpace } from "@ptspace/shared";
 import { HarnessAdapter } from "../harness/HarnessAdapter.js";
 import { parseLearningLandscape, parsePlanningBoard } from "../planning/PlanningArtifactCodec.js";
+import { MaterialAssignmentService } from "../materials/MaterialAssignmentService.js";
 
 export type ServiceKind = "memory" | "knowledge" | "worker" | "renderer" | "review";
 export type ServiceRequestStatus = "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
@@ -83,7 +84,7 @@ const capabilityPaths: Record<string, string> = {
 };
 
 export class ServiceRequestWorkflow {
-  constructor(private readonly workspace: WorkspaceManager, private readonly harness: HarnessAdapter) {}
+  constructor(private readonly workspace: WorkspaceManager, private readonly harness: HarnessAdapter, private readonly materialAssignment?: MaterialAssignmentService) {}
 
   listCapabilities(): CapabilityContract[] {
     return Object.values(capabilities);
@@ -230,8 +231,24 @@ export class ServiceRequestWorkflow {
       if (result.events.some((event) => event.type === "status" && event.status === "failed")) {
         throw new Error("worker_execution_failed");
       }
-      for (const update of result.workspaceUpdates) {
-        await this.workspace.writeProjectFile(planningSpaceId, update.relativePath, update.content);
+      if (request.boardItemId && request.capability === "create_board_material" && this.materialAssignment) {
+        await this.materialAssignment.returnMaterial(planningSpaceId, {
+          id: `material-${request.boardItemId}`,
+          title: typeof request.input.title === "string" ? request.input.title : "Materialentwurf",
+          kind: "board_material",
+          status: "in_review",
+          relatedMoments: request.relatedMoments ?? [],
+          relatedWindows: request.relatedWindows ?? [],
+          relatedBoardItems: [request.boardItemId],
+          relatedDecisions: [],
+          sourceRequest: request.id,
+          createdAt: request.createdAt,
+          reviewedAt: null
+        }, result.workspaceUpdates);
+      } else {
+        for (const update of result.workspaceUpdates) {
+          await this.workspace.writeProjectFile(planningSpaceId, update.relativePath, update.content);
+        }
       }
       request.status = "returned";
       request.updatedAt = new Date().toISOString();

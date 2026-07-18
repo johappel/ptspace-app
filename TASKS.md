@@ -38,7 +38,7 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 ## L0 — Voraussetzung: Kernel-Verträge
 
 - [x] Kernel-Verträge synchronisieren und den noch unversionierten Board-Material-Worker-Vertrag prüfen.
-- [x] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind noch unvollständig.
+- [x] Zod-Schemas mit den Kernel-Verträgen abgleichen; insbesondere Materialmetadaten und Fokus-Typen sind vollständig synchronisiert.
 - [x] Parser und Serializer für `learning-landscape.md` und `planning-board.yml` implementieren.
 - [ ] Bestehende `service-requests/` verlustfrei als Planungsboard-Karten abbilden; „Jetzt wichtig“ wird daraus nur als eine priorisierte Projektion abgeleitet.
 - [x] Bestehende Planungsräume ohne Lernlandschaft verlustfrei migrieren.
@@ -59,12 +59,12 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [x] API: Lernlandschaft lesen und speichern.
 - [x] API: Unterrichtsfenster und Platzierungen lesen und speichern.
 - [x] API: Planungsboard lesen und Board-Karten verschieben.
-- [ ] API: Material einem Lernmoment oder Board-Item zuordnen; offen bis Kernel-Materialmetadaten und atomare Backend-Rückführung vollständig vorliegen.
+- [x] API: Material einem Lernmoment oder Board-Item zuordnen; Materialmetadaten und atomare Backend-Rückführung sind umgesetzt.
 - [x] Jede semantische Änderung als verständliche Git-Version speichern.
 - [x] Layoutdaten getrennt von semantischen Daten speichern.
-- [ ] Gesprächsmarker als App-Read-Model mit `sourceMessageId`, Art und Zielreferenz implementieren.
-- [ ] Zielreferenzen serverseitig auf denselben Planungsraum begrenzen.
-- [ ] Marker bei verworfenen, ersetzten oder gelöschten Zielen konsistent behandeln.
+- [x] Gesprächsmarker als App-Read-Model mit `sourceMessageId`, Art und Zielreferenz implementieren.
+- [x] Zielreferenzen serverseitig auf denselben Planungsraum begrenzen.
+- [x] Marker bei verworfenen, ersetzten oder gelöschten Zielen konsistent behandeln.
 
 **Done when:** alle UI-Operationen serverseitig validiert und versioniert sind und Herkunftsbezüge keine parallele pädagogische Semantik erzeugen.
 
@@ -73,12 +73,12 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [x] großes Modal „Unterrichtsplanung“ implementieren.
 - [x] Tab „Lernlandschaft“ implementieren.
 - [x] `@xyflow/svelte` integrieren.
-- [ ] Custom Nodes für die vereinbarten Lernmoment-Typen bauen.
+- [x] Custom Nodes für die vereinbarten Lernmoment-Typen bauen.
 - [x] Knoten-Detailkarte implementieren.
-- [ ] Verbindung nur über Auswahl einer didaktischen Bedeutung erzeugen.
-- [ ] Gruppenflächen für Phasen, Räume und Stationen implementieren.
+- [x] Verbindung nur über Auswahl einer didaktischen Bedeutung erzeugen.
+- [x] Gruppenflächen für Phasen, Räume und Stationen implementieren.
 - [x] Zoom und MiniMap implementieren; Tastaturbedienung und Rücksetzen des Layouts ergänzen.
-- [ ] Canvas- und lineare Lesansicht aus derselben Landschaft anbieten.
+- [x] Canvas- und lineare Lesansicht aus derselben Landschaft anbieten.
 
 **Done when:** eine Lehrkraft eine lineare, stationäre und hybride Lernlandschaft ohne technische Begriffe anlegen kann.
 

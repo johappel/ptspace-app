@@ -478,3 +478,53 @@ h1 { margin: 2px 0 0; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .ghost-action:disabled { opacity:.55; cursor:progress; }
 .review-check { display:flex; align-items:flex-start; gap:.5rem; padding:.6rem; border:1px solid #cbdbd5; border-radius:.5rem; background:#f7fbf9; color:#274642; font-size:.82rem; line-height:1.4; }
 .review-check input { margin-top:.15rem; }
+/* L2: Lernlandschaft als lesbarer Canvas mit linearer, tastaturfreundlicher Alternative. */
+.landscape-heading { padding-bottom: .55rem; }
+.landscape-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .65rem; }
+.view-switch { display: inline-flex; gap: .15rem; padding: .18rem; border: 1px solid #d4e1dc; border-radius: .5rem; background: #f5faf7; }
+.view-switch button { display: inline-flex; align-items: center; gap: .3rem; border: 0; border-radius: .35rem; padding: .4rem .5rem; background: transparent; color: #55706a; font-size: .72rem; font-weight: 750; }
+.view-switch button.active { background: #dcebe6; color: #123d3b; }
+.landscape-canvas-layout { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: .7rem; min-height: 480px; }
+.landscape-canvas-layout .flow-canvas { min-height: 480px; }
+.flow-canvas :global(.svelte-flow__node) { max-width: none; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; white-space: normal; }
+.flow-canvas :global(.svelte-flow__node.learningGroup) { pointer-events: none; }
+.flow-canvas :global(.svelte-flow__handle) { width: 10px; height: 10px; border: 2px solid #fff; background: #2d7668; }
+.flow-canvas :global(.svelte-flow__edge-text) { fill: #315c54; font-size: 10px; font-weight: 700; }
+.landscape-groups { min-width: 0; padding: .7rem; border: 1px solid #dce8e2; border-radius: .65rem; background: #f6faf8; overflow: auto; }
+.landscape-groups-heading { display: grid; gap: .15rem; margin-bottom: .65rem; }
+.landscape-groups-heading strong { color: #183f3b; font-size: .8rem; }
+.landscape-groups-heading span { color: #71837f; font-size: .66rem; line-height: 1.3; }
+.landscape-group-entry { display: grid; gap: .2rem; width: 100%; margin-top: .45rem; padding: .55rem; border: 1px solid #cbdcd5; border-radius: .45rem; background: #fff; color: #21463f; text-align: left; }
+.landscape-group-entry span { color: #5e7c74; font-size: .64rem; font-weight: 800; text-transform: uppercase; }
+.landscape-group-entry strong { font-size: .78rem; line-height: 1.25; }
+.landscape-group-entry small { color: #748983; font-size: .66rem; }
+.canvas-accessibility-hint { margin: .5rem .35rem 0; color: #667d78; font-size: .72rem; line-height: 1.4; }
+.linear-landscape { min-height: 0; overflow: auto; padding: .3rem .35rem 1rem; }
+.linear-landscape-intro { margin: .25rem 0 .8rem; color: #617774; font-size: .78rem; line-height: 1.4; }
+.linear-moment { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .7rem; padding: .75rem 0; border-top: 1px solid #e1ebe6; }
+.linear-moment-index { display: grid; place-items: center; width: 1.65rem; height: 1.65rem; border-radius: 50%; background: #dcebe6; color: #24564c; font-size: .72rem; font-weight: 800; }
+.linear-moment-content { min-width: 0; }
+.learning-moment-kind { color: #52756c; font-size: .65rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.linear-moment h3 { margin: .18rem 0 .25rem; color: #173f3b; font-size: .95rem; }
+.linear-moment p { margin: 0; color: #3f5d57; font-size: .78rem; line-height: 1.4; }
+.linear-moment small { display: block; margin-top: .35rem; color: #657b76; font-size: .72rem; line-height: 1.35; }
+.linear-groups { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .45rem; }
+.linear-groups span, .linear-transition { display: inline-flex; align-items: center; padding: .18rem .35rem; border-radius: .25rem; background: #eef5f1; color: #55726b; font-size: .67rem; }
+.linear-moment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .55rem; }
+.linear-moment-actions button { border: 1px solid #bfd4cb; border-radius: .4rem; padding: .32rem .45rem; background: #fff; color: #1b554b; font-size: .7rem; font-weight: 750; }
+.linear-transition { background: #f4eee4; color: #765b35; }
+.modal-landscape-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .7rem; padding: .8rem 1rem; border-bottom: 1px solid #dce7e3; background: #fff; }
+.modal-landscape-toolbar > div:first-child { display: grid; gap: .15rem; }
+.modal-landscape-toolbar strong { color: #173f3b; font-size: .88rem; }
+.modal-landscape-toolbar span { color: #657b76; font-size: .72rem; }
+.planning-modal-content { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: auto; }
+.modal-flow-canvas { flex: 1; min-height: 520px; }
+.modal-linear-note { display: grid; justify-items: center; gap: .45rem; max-width: 32rem; margin: auto; padding: 2rem; color: #4b6660; text-align: center; }
+.modal-linear-note h3 { margin: .2rem 0; color: #173f3b; }
+.modal-linear-note p { margin: 0; font-size: .82rem; line-height: 1.45; }
+.modal-linear-note button { margin-top: .45rem; border: 1px solid #afcac0; border-radius: .45rem; padding: .55rem .7rem; background: #fff; color: #164940; font-size: .75rem; font-weight: 750; }
+.group-members { display: grid; gap: .35rem; margin: 0; padding: .7rem; border: 1px solid #dbe6e1; border-radius: .5rem; background: #f7fbf9; }
+.group-members legend { padding: 0 .25rem; color: #183c37; font-size: .78rem; font-weight: 750; }
+.group-members label { display: flex; gap: .45rem; align-items: flex-start; color: #36564f; font-size: .78rem; font-weight: 500; line-height: 1.3; }
+.group-members input { margin-top: .1rem; }
+@media (max-width: 720px) { .landscape-canvas-layout { grid-template-columns: 1fr; }.landscape-groups { max-height: 180px; }.modal-landscape-toolbar { align-items: flex-start; }.planning-modal { height: calc(100vh - 1rem); }.modal-flow-canvas { min-height: 420px; } }

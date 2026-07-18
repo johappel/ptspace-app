@@ -7,6 +7,23 @@ import { parseTemporalPlan, serializeTemporalPlan, assertTemporalPlanReferences,
 import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 
+const LearningLandscapeLayoutGroupSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  kind: z.enum(["phase", "room", "station"]),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  memberIds: z.array(z.string().min(1)).default([])
+});
+
+const LearningLandscapeLayoutSchema = z.object({
+  nodes: z.array(z.object({ id: z.string().min(1), x: z.number(), y: z.number() })).default([]),
+  groups: z.array(LearningLandscapeLayoutGroupSchema).default([]),
+  viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number().positive() }).optional()
+});
+
 const UpdateArtifactsSchema = z.object({
   learningLandscape: LearningLandscapeSchema.optional(),
   planningBoard: PlanningBoardSchema.optional()
@@ -76,9 +93,10 @@ export async function planningArtifactRoutes(
     if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     await deps.workspace.ensureWorkspace(space);
     try {
-      return JSON.parse(await deps.workspace.readProjectFile(id, "learning-landscape.layout.json"));
+      const parsed = LearningLandscapeLayoutSchema.safeParse(JSON.parse(await deps.workspace.readProjectFile(id, "learning-landscape.layout.json")));
+      return parsed.success ? parsed.data : { nodes: [], groups: [] };
     } catch {
-      return { nodes: [] };
+      return { nodes: [], groups: [] };
     }
   });
 
@@ -86,7 +104,7 @@ export async function planningArtifactRoutes(
     const { id } = request.params as { id: string };
     const space = await deps.store.get(id);
     if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
-    const layout = z.object({ nodes: z.array(z.object({ id: z.string().min(1), x: z.number(), y: z.number() })) }).safeParse(request.body);
+    const layout = LearningLandscapeLayoutSchema.safeParse(request.body);
     if (!layout.success) return reply.code(400).send({ message: "Die Ansicht konnte nicht gespeichert werden." });
     await deps.workspace.ensureWorkspace(space);
     await deps.workspace.writeProjectFile(id, "learning-landscape.layout.json", `${JSON.stringify(layout.data, null, 2)}\n`);
