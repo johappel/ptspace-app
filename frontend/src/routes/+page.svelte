@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ConversationMarker, type ExportApproval, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
+  import { api, type ConversationMarker, type ConversationMessage, type ExportApproval, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow, type Connection, type Edge, type Node, type NodeTypes } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import LearningMomentNode from "$lib/LearningMomentNode.svelte";
@@ -101,6 +101,8 @@ let messagesElement: HTMLDivElement | null = null;
   let markerSaving = false;
   let soundsEnabled = false;
   let reducedMotion = false;
+  let spaceLoadVersion = 0;
+  let workflowRefreshInFlight = false;
   const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
     { id: "clarify", label: "Noch klären", hint: "Entscheidungen und Recherche" },
@@ -124,8 +126,9 @@ let messagesElement: HTMLDivElement | null = null;
       }
     })();
     const workflowTimer = window.setInterval(() => {
-      if (activeSpace && !sending) void refreshWorkflowProjection(activeSpace.id);
-    }, 2500);
+      if (document.hidden || !activeSpace || sending || !hasActiveBackgroundWork()) return;
+      void refreshWorkflowProjection(activeSpace.id, spaceLoadVersion);
+    }, 5000);
     return () => window.clearInterval(workflowTimer);
   });
 
@@ -162,6 +165,7 @@ let messagesElement: HTMLDivElement | null = null;
   }
 
   async function openSpace(space: PlanningSpace) {
+    const loadVersion = ++spaceLoadVersion;
     activeSpace = space;
     localStorage.setItem(lastOpenedSpaceKey, space.id);
     roomView = "conversation";
@@ -182,63 +186,94 @@ let messagesElement: HTMLDivElement | null = null;
     approvalConfirm = null;
     proposal = null;
     materials = [];
+    error = "";
     messages = [{ id: "welcome", author: "critical_friend", text: `Hallo, ich habe Zeit für dich. Woran möchtest du in "${space.title}" heute weiterdenken?` }];
-    
+
     try {
-    // Load messages from backend
-    try {
-      const result = await api.getMessages(space.id);
-      if (result.messages.length > 0) {
-        messages = result.messages;
-      }
-    } catch (err) {
-      error = err instanceof Error
-        ? err.message
-        : "Der Gesprächsverlauf konnte noch nicht geladen werden.";
-    }
-    
-    const state = await api.getThinkingState(space.id);
-    const notes = await api.getDesignNotes(space.id);
-    designNotes = notes.content;
-    cards = state.cards;
-    const exportStatus = await api.getExportStatus(space.id);
-    markdownApproval = exportStatus.markdown;
-    okfApproval = exportStatus.okfMarkdown;
-    serviceRequests = (await api.getServiceRequests(space.id)).requests;
-    const hasReviewedStudentInstruction = serviceRequests.some((item) => item.status === "reviewed");
-    if (hasReviewedStudentInstruction) {
       try {
-        workerMaterial = await api.getStudentInstruction(space.id);
-      } catch {
+        const result = await api.getMessages(space.id);
+        if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+        if (result.messages.length > 0) messages = result.messages;
+      } catch (err) {
+        if (isCurrentSpaceLoad(space.id, loadVersion)) {
+          error = err instanceof Error ? err.message : "Der Gesprächsverlauf konnte noch nicht geladen werden.";
+        }
+      }
+
+      const state = await api.getThinkingState(space.id);
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      const notes = await api.getDesignNotes(space.id);
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      designNotes = notes.content;
+      cards = state.cards;
+      const exportStatus = await api.getExportStatus(space.id);
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      markdownApproval = exportStatus.markdown;
+      okfApproval = exportStatus.okfMarkdown;
+      const loadedServiceRequests = (await api.getServiceRequests(space.id)).requests;
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      serviceRequests = loadedServiceRequests;
+      const hasReviewedStudentInstruction = serviceRequests.some((item) => item.status === "reviewed");
+      if (hasReviewedStudentInstruction) {
+        try {
+          workerMaterial = await api.getStudentInstruction(space.id);
+        } catch {
+          workerMaterial = null;
+        }
+      } else {
         workerMaterial = null;
       }
-    } else {
-      workerMaterial = null;
-    }
-    showWorkerMaterial = false;
-    serviceMessage = "";
-    findings = [];
-    roomOverview = await api.getRoomOverview(space.id);
-    await loadMaterials(space.id);
-    roomAccessOpen = false;
-    pinnwandOpen = false;
-    messageFilter = "all";
-    highlightedMessageId = "";
-    markerReturnMessageId = "";
-    expandedMaterialId = "";
-    materialContents = {};
-    materialContentLoading = {};
-    await scrollConversationToEnd("auto");
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      showWorkerMaterial = false;
+      serviceMessage = "";
+      findings = [];
+      roomOverview = await api.getRoomOverview(space.id);
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      await loadMaterials(space.id, loadVersion);
+      if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
+      roomAccessOpen = false;
+      pinnwandOpen = false;
+      messageFilter = "all";
+      highlightedMessageId = "";
+      markerReturnMessageId = "";
+      expandedMaterialId = "";
+      materialContents = {};
+      materialContentLoading = {};
+      await scrollConversationToEnd("auto");
     } catch (err) {
-      error = err instanceof Error ? err.message : "Der Planungsraum konnte noch nicht vollstaendig geladen werden.";
+      if (isCurrentSpaceLoad(space.id, loadVersion)) {
+        error = err instanceof Error ? err.message : "Der Planungsraum konnte noch nicht vollständig geladen werden.";
+      }
     }
   }
 
-  async function loadMaterials(spaceId: string) {
+  function isCurrentSpaceLoad(spaceId: string, loadVersion = spaceLoadVersion) {
+    return activeSpace?.id === spaceId && spaceLoadVersion === loadVersion;
+  }
+
+  function hasActiveBackgroundWork() {
+    return roomOverview?.backgroundWork.some((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet") ?? false;
+  }
+
+  function mergePersistedMessages(persisted: ConversationMessage[]): UiMessage[] {
+    const merged: UiMessage[] = [...persisted];
+    for (const message of messages) {
+      if (message.id === "welcome" || merged.some((entry) => entry.id === message.id)) continue;
+      // A stream can close before the server response is read by the client. In
+      // that case the persisted teacher message has a different id than the
+      // optimistic one; avoid displaying the same turn twice.
+      if (message.id.startsWith("optimistic-") && merged.some((entry) => entry.author === message.author && entry.text === message.text)) continue;
+      merged.push(message);
+    }
+    return merged;
+  }
+
+  async function loadMaterials(spaceId: string, loadVersion = spaceLoadVersion) {
     materialsLoading = true;
     materialMessage = "";
     try {
       const result = await api.listMaterials(spaceId);
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       materials = result.materials;
       materialTargetSelection = Object.fromEntries(result.materials.map((material) => [material.id, materialTargetSelection[material.id] ?? ""]));
     } catch (err) {
@@ -248,15 +283,19 @@ let messagesElement: HTMLDivElement | null = null;
     }
   }
 
-  async function refreshWorkflowProjection(spaceId: string) {
+  async function refreshWorkflowProjection(spaceId: string, loadVersion = spaceLoadVersion) {
+    if (!isCurrentSpaceLoad(spaceId, loadVersion) || workflowRefreshInFlight) return;
+    workflowRefreshInFlight = true;
     try {
       const [requests, overview] = await Promise.all([api.getServiceRequests(spaceId), api.getRoomOverview(spaceId)]);
-      if (activeSpace?.id !== spaceId) return;
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       serviceRequests = requests.requests;
       roomOverview = overview;
-      if (overview.attentionCard.kind === "result_review") await loadMaterials(spaceId);
+      if (overview.attentionCard.kind === "result_review") await loadMaterials(spaceId, loadVersion);
     } catch {
       // The closed status bar remains usable if a transient poll fails.
+    } finally {
+      workflowRefreshInFlight = false;
     }
   }
 
@@ -558,25 +597,29 @@ let messagesElement: HTMLDivElement | null = null;
 
 async function sendMessage() {
     if (!activeSpace || !draftMessage.trim() || sending) return;
+    const spaceId = activeSpace.id;
+    const loadVersion = spaceLoadVersion;
+    const focus = activeFocus;
     const text = draftMessage.trim();
     draftMessage = "";
     sending = true;
     thinkingStatus = "Ich bereite den Kontext vor …";
     error = "";
-    const optimisticTeacherMessageId = uuid();
+    const optimisticTeacherMessageId = `optimistic-${uuid()}`;
     messages = [...messages, { id: optimisticTeacherMessageId, author: "teacher", text }];
     await scrollConversationToEnd();
     try {
       await scanText(text);
       let streamError = "";
-      await api.sendMessageStream(
-        activeSpace.id,
+      const streamResult = await api.sendMessageStream(
+        spaceId,
         text,
         {
           onStatus: (status) => {
             thinkingStatus = thinkingStatusLabel(status);
           },
           onComplete: (reply, teacherMessageId) => {
+            if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
             messages = [
               ...messages.map((message) => message.id === optimisticTeacherMessageId
                 ? { ...message, id: teacherMessageId ?? optimisticTeacherMessageId, createdAt: message.createdAt ?? new Date().toISOString() }
@@ -588,15 +631,19 @@ async function sendMessage() {
             streamError = message;
           }
         },
-        activeFocus ?? undefined
+        focus ?? undefined
       );
       if (streamError) throw new Error(streamError);
-      const persisted = await api.getMessages(activeSpace.id);
-      messages = persisted.messages;
+      if (!streamResult.completed) throw new Error("Der Gesprächsabschluss wurde nicht empfangen. Bitte prüfe den Verlauf erneut.");
+      const persisted = await api.getMessages(spaceId);
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
+      messages = mergePersistedMessages(persisted.messages);
       await scrollConversationToEnd();
-      const state = await api.getThinkingState(activeSpace.id);
+      const state = await api.getThinkingState(spaceId);
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       cards = state.cards;
-      roomOverview = await api.getRoomOverview(activeSpace.id);
+      roomOverview = await api.getRoomOverview(spaceId);
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
     } finally {
