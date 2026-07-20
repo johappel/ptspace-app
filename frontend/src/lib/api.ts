@@ -1,7 +1,12 @@
 import type { AttentionCard, BackgroundWorkItem, ConversationMarker as SharedConversationMarker, GuidedWorkerProposal, Material as SharedMaterial } from "@ptspace/shared";
 
 const configuredBackendUrl = import.meta.env.PUBLIC_BACKEND_URL?.trim();
-const backendUrl = (configuredBackendUrl || "http://127.0.0.1:5174").replace(/\/+$/, "");
+// During local development Vite proxies /api and /health to the backend.
+// Keeping browser requests same-origin avoids a fragile CORS dependency while
+// the backend remains independently configurable for preview/production.
+const backendUrl = import.meta.env.DEV
+  ? ""
+  : (configuredBackendUrl || "http://127.0.0.1:5174").replace(/\/+$/, "");
 
 
 export type LearningMoment = {

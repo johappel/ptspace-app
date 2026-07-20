@@ -40,6 +40,8 @@
   let sending = false;
   let thinkingStatus = "";
   let error = "";
+  let conversationLoading = false;
+  let conversationLoadError = "";
   let draftMessage = "";
   let activeFocus: PedagogicalFocus | null = null;
   let designNotes = "";
@@ -189,6 +191,10 @@ let messagesElement: HTMLDivElement | null = null;
     error = "";
     messages = [{ id: "welcome", author: "critical_friend", text: `Hallo, ich habe Zeit für dich. Woran möchtest du in "${space.title}" heute weiterdenken?` }];
 
+    messageFilter = "all";
+    conversationLoading = true;
+    conversationLoadError = "";
+
     try {
       try {
         const result = await api.getMessages(space.id);
@@ -196,8 +202,11 @@ let messagesElement: HTMLDivElement | null = null;
         if (result.messages.length > 0) messages = result.messages;
       } catch (err) {
         if (isCurrentSpaceLoad(space.id, loadVersion)) {
-          error = err instanceof Error ? err.message : "Der Gesprächsverlauf konnte noch nicht geladen werden.";
+          conversationLoadError = err instanceof Error ? err.message : "Der Gesprächsverlauf konnte noch nicht geladen werden.";
+          error = conversationLoadError;
         }
+      } finally {
+        if (isCurrentSpaceLoad(space.id, loadVersion)) conversationLoading = false;
       }
 
       const state = await api.getThinkingState(space.id);
@@ -1653,6 +1662,8 @@ async function sendMessage() {
             </div>
           </div>
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
+            {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
+            {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
             {#if visibleMessages().length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
             {#each visibleMessages() as message}
               {@const messageMarkers = markersForMessage(message.id)}

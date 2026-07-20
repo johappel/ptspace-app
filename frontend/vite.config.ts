@@ -32,6 +32,12 @@ export default defineConfig(({ mode }) => {
     define: {
       "import.meta.env.PUBLIC_BACKEND_URL": JSON.stringify(backendUrl)
     },
-    server: { port: Number(rootEnv.FRONTEND_PORT ?? 5173) }
+    server: {
+      port: Number(rootEnv.FRONTEND_PORT ?? 5173),
+      proxy: {
+        "/api": { target: backendUrl || "http://127.0.0.1:5174", changeOrigin: true },
+        "/health": { target: backendUrl || "http://127.0.0.1:5174", changeOrigin: true }
+      }
+    }
   };
 });

@@ -575,6 +575,8 @@ h1, h2, h3, .message-body { font-family: Georgia, "Times New Roman", ui-serif, s
 .message:hover .message-actions, .message:focus-within .message-actions { opacity:1; }
 .message-action { border-color:transparent; background:transparent; color:#668078; font-weight:650; }
 .conversation-empty { margin:auto; max-width:28rem; color:#6f827b; text-align:center; line-height:1.5; }
+.conversation-status { margin:0 auto; max-width:28rem; color:#5f766e; text-align:center; font-size:.78rem; line-height:1.45; }
+.conversation-status.error { color:#8a4439; }
 .pinnwand-projection { margin:0 0 .7rem; padding:.75rem; border:1px solid #dce8df; border-radius:.75rem; background:linear-gradient(135deg,#f5faf4,#fbfbf6); box-shadow:0 8px 25px rgba(50,81,68,.05); }
 .pinnwand-heading { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
 .pinnwand-heading span { display:block; color:#6d827a; font-size:.68rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
