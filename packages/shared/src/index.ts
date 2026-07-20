@@ -251,6 +251,90 @@ export const ConversationMarkerCollectionSchema = z.object({
 });
 export type ConversationMarkerCollection = z.infer<typeof ConversationMarkerCollectionSchema>;
 
+export const GuidedProposalStatusSchema = z.enum(["pending", "accepting", "accepted", "superseded", "discarded"]);
+export type GuidedProposalStatus = z.infer<typeof GuidedProposalStatusSchema>;
+
+export const GuidedProposalCapabilitySchema = z.enum(["create_board_material", "create_student_instruction"]);
+export type GuidedProposalCapability = z.infer<typeof GuidedProposalCapabilitySchema>;
+
+/** App-only proposal projection. It is not a canonical pedagogical artifact until accepted. */
+export const GuidedWorkerProposalSchema = z.object({
+  id: z.string().min(1),
+  planningSpaceId: z.string().min(1),
+  kind: z.literal("worker_draft"),
+  status: GuidedProposalStatusSchema,
+  sourceMessageId: z.string().min(1),
+  title: z.string().min(1),
+  rationale: z.string().min(1),
+  expectedResult: z.string().min(1),
+  capability: GuidedProposalCapabilitySchema,
+  relatedMomentIds: z.array(z.string().min(1)).default([]),
+  materialNeed: z.string().optional(),
+  acceptance: z.object({ boardItemId: z.string().min(1), serviceRequestId: z.string().min(1) }).optional(),
+  createdAt: ISODateString,
+  updatedAt: ISODateString
+});
+export type GuidedWorkerProposal = z.infer<typeof GuidedWorkerProposalSchema>;
+
+export const AutomaticCheckSchema = z.object({
+  status: z.enum(["pending", "passed", "failed"]),
+  note: z.string(),
+  checkedAt: ISODateString.optional()
+});
+export type AutomaticCheck = z.infer<typeof AutomaticCheckSchema>;
+
+export const CriticalFriendCheckSchema = z.object({
+  status: z.enum(["pending", "passed", "concerns", "blocked"]),
+  note: z.string(),
+  checkedAt: ISODateString.optional()
+});
+export type CriticalFriendCheck = z.infer<typeof CriticalFriendCheckSchema>;
+
+export const TeacherReviewSchema = z.object({
+  status: z.literal("accepted"),
+  reviewedBy: z.string().min(1),
+  reviewedAt: ISODateString,
+  note: z.string().optional()
+});
+export type TeacherReview = z.infer<typeof TeacherReviewSchema>;
+
+export type AttentionCardKind =
+  | "safety_block"
+  | "result_review"
+  | "worker_proposal"
+  | "pedagogical_proposal"
+  | "open_decision"
+  | "planning_item"
+  | "continue_conversation";
+
+export type PedagogicalFocus = {
+  kind: "learning_moment" | "transition" | "teaching_window" | "placement" | "planning_item" | "material";
+  id: string;
+  label: string;
+};
+
+export type AttentionCard = {
+  id: string;
+  kind: AttentionCardKind;
+  title: string;
+  rationale: string;
+  sourceMessageId?: string;
+  preview?: { format: "text" | "markdown"; content: string; truncated: boolean };
+  automaticCheck?: AutomaticCheck;
+  criticalFriendCheck?: CriticalFriendCheck;
+  primaryAction?: { kind: "accept_proposal" | "accept_result"; label: string; targetId: string };
+  discussAction: { label: "Weiterreden"; focus: PedagogicalFocus };
+};
+
+export type BackgroundWorkItem = {
+  id: string;
+  title: string;
+  status: "wartet_kurz" | "wird_vorbereitet" | "liegt_zur_pruefung_bereit" | "konnte_noch_nicht_erstellt_werden" | "bereit";
+  createdAt: string;
+  updatedAt: string;
+  resultAvailable: boolean;
+};
+
 export const TeacherFacingStatusSchema = z.enum([
   "bereit",
   "wartet_kurz",

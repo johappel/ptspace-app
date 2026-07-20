@@ -4,9 +4,10 @@ import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 import { GitManager } from "../services/git/GitManager.js";
 import { ConversationStore } from "../storage/ConversationStore.js";
 import { ConversationMarkerService } from "../services/conversation/ConversationMarkerService.js";
+import { GuidedWorkflowService } from "../services/guided/GuidedWorkflowService.js";
 import { parseLearningLandscape, parsePlanningBoard } from "../services/planning/PlanningArtifactCodec.js";
 
-export async function roomOverviewRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager; conversation: ConversationStore; markers: ConversationMarkerService }) {
+export async function roomOverviewRoutes(app: FastifyInstance, deps: { store: PlanningSpaceStore; workspace: WorkspaceManager; git: GitManager; conversation: ConversationStore; markers: ConversationMarkerService; guided: GuidedWorkflowService }) {
   app.get("/planning-spaces/:id/room-overview", async (request, reply) => {
     const { id } = request.params as { id: string };
     const space = await deps.store.get(id);
@@ -17,7 +18,8 @@ export async function roomOverviewRoutes(app: FastifyInstance, deps: { store: Pl
     const board = parsePlanningBoard(boardSource);
     const progress = [{ id: "clarify", label: "Denkstand klären", complete: messages.length > 0 || !/Noch zu klären/i.test(design) }, { id: "journey", label: "Lernreise gestalten", complete: landscape.moments.length > 0 }, { id: "plan", label: "Unterricht planen", complete: board.items.length > 0 }, { id: "review", label: "Materialien prüfen", complete: board.items.some((item) => item.status === "review") }, { id: "ready", label: "Bereitstellen", complete: board.items.some((item) => item.status === "ready") }];
     const activity = [...messages.slice(-5).reverse().map((message) => ({ id: message.id, label: message.author === "teacher" ? "Gedanke festgehalten" : "Critical Friend hat geantwortet", createdAt: message.createdAt })), ...versions.slice(0, 7).map((version) => ({ id: `v-${version.hash}`, label: version.label, createdAt: version.createdAt }))].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return { progress, activity, versions, conversationMarkers };
+    const projection = await deps.guided.projection(id);
+    return { progress, activity, versions, conversationMarkers, decisions: space.decisions.map((decision) => ({ id: decision.id, title: decision.title })), ...projection };
   });
 
   app.get("/planning-spaces/:id/search", async (request, reply) => {

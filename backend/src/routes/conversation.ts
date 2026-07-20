@@ -8,6 +8,7 @@ import { ConversationStore } from "../storage/ConversationStore.js";
 import { ConversationMetricsCollector } from "../services/conversation/ConversationMetrics.js";
 import { ConversationMetricsStore } from "../services/conversation/ConversationMetricsStore.js";
 import { ConversationOrchestrator } from "../services/conversation/ConversationOrchestrator.js";
+import { GuidedWorkflowService } from "../services/guided/GuidedWorkflowService.js";
 
 const FocusSchema = z.object({
   kind: z.enum(["learning_moment", "transition", "teaching_window", "placement", "planning_item", "material"]),
@@ -26,6 +27,7 @@ export async function conversationRoutes(
     conversation: ConversationStore;
     orchestrator: ConversationOrchestrator;
     metrics: ConversationMetricsStore;
+    guided: GuidedWorkflowService;
     devMode?: boolean;
   }
 ) {
@@ -70,10 +72,15 @@ export async function conversationRoutes(
           `\n${ConversationMetricsCollector.formatLog(outcome.metrics)}`
         );
       }
+      const guidedProposal = outcome.suggestedAction
+        ? await deps.guided.createFromSuggestedAction(id, outcome.reply.id, outcome.suggestedAction)
+        : undefined;
       return {
         status: outcome.status,
+        teacherMessageId: outcome.teacherMessageId,
         reply: outcome.reply,
         events: outcome.events,
+        ...(guidedProposal ? { guidedProposal } : {}),
         ...(devMode ? { metrics: outcome.metrics, profile: outcome.profile } : {})
       };
     } catch (error) {
@@ -122,9 +129,14 @@ export async function conversationRoutes(
         return reply;
       }
       send("status", { status: "saving_state" });
+      const guidedProposal = outcome.suggestedAction
+        ? await deps.guided.createFromSuggestedAction(id, outcome.reply.id, outcome.suggestedAction)
+        : undefined;
       send("complete", {
         messageId: outcome.reply.id,
+        teacherMessageId: outcome.teacherMessageId,
         reply: outcome.reply,
+        ...(guidedProposal ? { guidedProposal } : {}),
         ...(devMode ? { metrics: outcome.metrics } : {})
       });
       reply.raw.end();

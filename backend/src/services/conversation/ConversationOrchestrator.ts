@@ -3,7 +3,7 @@ import { PlanningSpaceStore } from "../../storage/PlanningSpaceStore.js";
 import { ConversationStore } from "../../storage/ConversationStore.js";
 import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
 import { GitManager } from "../git/GitManager.js";
-import { HarnessAdapter, HarnessAvailability } from "../harness/HarnessAdapter.js";
+import { HarnessAdapter, HarnessAvailability, SuggestedAction } from "../harness/HarnessAdapter.js";
 import { ConversationMetrics, ConversationMetricsCollector } from "./ConversationMetrics.js";
 import { TtlCache } from "./TtlCache.js";
 import { SessionManager } from "./SessionManager.js";
@@ -44,9 +44,11 @@ export type TurnFocus = CurrentFocus;
 export type TurnOutcome =
   | {
       ok: true;
+      teacherMessageId: string;
       reply: { id: string; author: string; text: string; createdAt: string };
       status: string;
       events: unknown[];
+      suggestedAction?: SuggestedAction;
       metrics: ConversationMetrics;
       profile: PromptProfile;
     }
@@ -217,7 +219,7 @@ export class ConversationOrchestrator {
     }
 
     // Persist CF message + workspace updates (TASK 1 persistence)
-    const cfMessageId = `msg-${Date.now()}-cf`;
+      const cfMessageId = result.reply.id;
     await metrics.measure("persistence", async () => {
       await this.deps.conversation.addMessage(spaceId, {
         id: cfMessageId,
@@ -243,9 +245,11 @@ export class ConversationOrchestrator {
 
     return {
       ok: true,
+      teacherMessageId,
       reply: result.reply,
       status: "wird_vorbereitet",
       events: result.events,
+      ...(result.suggestedAction ? { suggestedAction: result.suggestedAction } : {}),
       metrics: metrics.finish(),
       profile: contextPackage.profile
     };

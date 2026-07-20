@@ -224,7 +224,68 @@ describe("OpenCodeDockerAdapter", () => {
     expect(result.events).toContainEqual({ type: "workspace_update", relativePath: "drafts/student-instruction.md" });
   });
 
+  it("runs a read-only structured Critical-Friend review", async () => {
+    await fs.mkdir(path.join(projectDir, "drafts"), { recursive: true });
+    await fs.writeFile(path.join(projectDir, "drafts", "student-instruction.md"), "# Entwurf\n\nEin prüfbarer Auftrag.", "utf8");
+    const adapter = new OpenCodeDockerAdapter({
+      enabled: true,
+      policy: new PermissionPolicy(),
+      runner: "local",
+      kernelDir,
+      command: "opencode",
+      allowNetwork: false,
+      timeoutMs: 10000,
+      runProcess: async (_command, args) => {
+        if (args.includes("--version")) return { exitCode: 0, stdout: "opencode", stderr: "" };
+        expect(args.at(-1)).toContain("STATUS: PASSED");
+        return { exitCode: 0, stdout: "STATUS: PASSED\nNOTE: Der Entwurf passt zum Arbeitsvorhaben.", stderr: "" };
+      }
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    await expect(adapter.reviewTask({
+      session,
+      space: testSpace(),
+      capability: "create_student_instruction",
+      expectedOutput: { type: "student_instruction", relativePath: "drafts/student-instruction.md" },
+      context: { expectedResult: "Ein prüfbarer Auftrag." }
+    })).resolves.toEqual({
+      status: "passed",
+      note: "Der Entwurf passt zum Arbeitsvorhaben."
+    });
+  });
 
+  it("keeps the real workspace unchanged when review code writes", async () => {
+    const outputPath = path.join(projectDir, "drafts", "student-instruction.md");
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, "# Entwurf\n\nEin pruefbarer Auftrag.", "utf8");
+    const original = await fs.readFile(outputPath, "utf8");
+    const adapter = new OpenCodeDockerAdapter({
+      enabled: true,
+      policy: new PermissionPolicy(),
+      runner: "local",
+      kernelDir,
+      command: "opencode",
+      allowNetwork: false,
+      timeoutMs: 10000,
+      runProcess: async (_command, args, options) => {
+        if (args.includes("--version")) return { exitCode: 0, stdout: "opencode", stderr: "" };
+        await fs.appendFile(path.join(options.cwd, 'drafts', 'student-instruction.md'), "\nUnexpected write.", "utf8");
+        return { exitCode: 0, stdout: "STATUS: PASSED\nNOTE: Der Entwurf passt.", stderr: "" };
+      }
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    await expect(adapter.reviewTask({
+      session,
+      space: testSpace(),
+      capability: "create_student_instruction",
+      expectedOutput: { type: "student_instruction", relativePath: "drafts/student-instruction.md" },
+      context: { expectedResult: "Ein pruefbarer Auftrag." }
+    })).resolves.toEqual({
+      status: "blocked",
+      note: expect.any(String),
+    });
+    await expect(fs.readFile(outputPath, "utf8")).resolves.toBe(original);
+  });
   it("does not expose the full kernel to external providers without explicit admin approval", async () => {
     const adapter = new OpenCodeDockerAdapter({
       enabled: true,

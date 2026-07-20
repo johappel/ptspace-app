@@ -1,4 +1,5 @@
 import { HarnessAdapter, HarnessAvailability, HarnessEvent, HarnessMessageResult, HarnessSession, HarnessTaskRequest, HarnessTaskResult, SendHarnessMessageInput } from "./HarnessAdapter.js";
+import type { PlanningSpace } from "@ptspace/shared";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -44,7 +45,16 @@ export class MockHarnessAdapter implements HarnessAdapter {
     return {
       reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: replyText, createdAt: nowIso() },
       workspaceUpdates,
-      events: workspaceUpdates.map((update) => ({ type: "workspace_update", relativePath: update.relativePath }))
+      events: workspaceUpdates.map((update) => ({ type: "workspace_update", relativePath: update.relativePath })),
+      ...( /material|entwurf|arbeitsauftrag|vorbereiten|vorbereitung/i.test(text) ? {
+        suggestedAction: {
+          kind: "worker_draft" as const,
+          title: "Ersten Arbeitsauftrag als Entwurf vorbereiten",
+          rationale: "Der aktuelle Denkstand ist weit genug, um einen kleinen, sichtbaren Entwurf zur gemeinsamen Prüfung vorzubereiten.",
+          expectedResult: "Ein klarer Arbeitsauftrag, der den aktuellen Denkstand aufgreift und ausdrücklich als Entwurf zurückkehrt.",
+          capability: "create_student_instruction" as const
+        }
+      } : {})
     };
   }
 
@@ -120,6 +130,13 @@ export class MockHarnessAdapter implements HarnessAdapter {
       summary: "Der Worker hat einen differenzierten Entwurf vorbereitet.",
       workspaceUpdates: [{ relativePath: input.expectedOutput.relativePath, content }],
       events: [{ type: "workspace_update", relativePath: input.expectedOutput.relativePath }]
+    };
+  }
+
+  async reviewTask(_input: { session: HarnessSession; space: PlanningSpace; capability: string; expectedOutput: { type: string; relativePath: string }; context: Record<string, unknown> }) {
+    return {
+      status: "passed" as const,
+      note: "Der Critical Friend erkennt im Entwurf keine blockierende Abweichung vom erwarteten Arbeitsvorhaben."
     };
   }
 

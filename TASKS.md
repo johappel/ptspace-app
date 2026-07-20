@@ -1,6 +1,6 @@
 # ptspace-app – Umsetzungsliste
 
-Stand: 2026-07-16
+Stand: 2026-07-20
 
 Diese Liste ist das operative Arbeitsdokument für Agenten. Pädagogische Semantik kommt aus dem Kernel:
 
@@ -30,10 +30,10 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [x] Lernlandschaft und Planungsboard: lesen, validieren, speichern und im Modal zeigen.
 - [ ] Fokusübergabe für Platzierungen vervollständigen; Lernmoment, Übergang, Unterrichtsfenster, Board-Karte und Material funktionieren bereits kontextbezogen.
 - [x] Zeit & Dramaturgie mit bearbeitbaren Unterrichtsfenstern und Lernlandschaft-Platzierungen.
-- [ ] vollständige Materialmetadaten und Ergebnisbereich als Projektion von Lernmoment und Board-Karte.
-- [ ] Hauptansicht vom Dashboard-Layout zu einem fokussierten gemeinsamen Denkraum weiterentwickeln.
-- [ ] Gesprächsereignisse bidirektional mit Denkstand, offenen Entscheidungen, Vorbereitungen und Ergebnissen verknüpfen.
-- [ ] Ruhige Hintergrundarbeitsanzeige als kompakte Werkstattleiste umsetzen.
+- [x] vollständige Materialmetadaten und Ergebnisbereich als Projektion von Lernmoment und Board-Karte.
+- [x] Hauptansicht vom Dashboard-Layout zu einem fokussierten gemeinsamen Denkraum weiterentwickeln.
+- [x] Gesprächsereignisse bidirektional mit Denkstand, offenen Entscheidungen, Vorbereitungen und Ergebnissen verknüpfen.
+- [x] Ruhige Hintergrundarbeitsanzeige als kompakte Werkstattleiste umsetzen.
 
 ## L0 — Voraussetzung: Kernel-Verträge
 
@@ -98,7 +98,7 @@ Der verbindliche, agentenübergreifende Umsetzungsplan für den geführten Arbei
 - [x] Tab „Planungsboard“ implementieren.
 - [x] Spalten: Noch klären, Vorbereiten, Zur Prüfung, Bereit.
 - [x] Board-Karten mit Lernmomenten verknüpfen; Unterrichtsfenster und Materialien ergänzen.
-- [ ] Materialtab mit vollständigen Metadaten und atomarer Zuordnung zu Lernmomenten und Board-Items implementieren.
+- [x] Materialtab mit vollständigen Metadaten und atomarer Zuordnung zu Lernmomenten und Board-Items implementieren.
 
 Der frühere Mehrschritt „Nächste Schritte → Board-Karte → Auftrag“ entfällt. Die geführte Entscheidung läuft ausschließlich über „Jetzt wichtig“ und ist in L5a/GW-140 bis GW-230 beschrieben. Das Board bleibt Übersicht, der Materialbereich Ergebnis- und Nachweisbereich.
 
@@ -109,31 +109,33 @@ Der frühere Mehrschritt „Nächste Schritte → Board-Karte → Auftrag“ ent
 Das verbindliche UX-Zielbild steht in `REFACTOR-UX.md`.  
 Die konkrete Umsetzung ist in `docs/guided-workflow-tasks.md`, GW-200 bis GW-230, beschrieben.
 
-- [ ] Gespräch als visuelles und funktionales Zentrum gestalten.
-- [ ] Gleichgewichtige Dashboard-Spalten und Haupttabs zugunsten einer fokussierten Raumstruktur reduzieren.
-- [ ] Ruhige gemeinsame Arbeitsszene umsetzen; keine detaillierten Avatare oder simulierte Emotionalität.
-- [ ] Pinnwand als kompakte Projektion von Denkstand, offener Entscheidung und aktuellem Ergebnis umsetzen.
-- [ ] Lernlandschaft, Zeitplanung, Vorbereitungen, Knowledge und Materialien über verständliche Raumzugänge und eine lineare Navigation erreichbar machen.
-- [ ] Gesprächsmarker für festgehaltene Gedanken, Entscheidungen, Arbeitsvorhaben und Ergebnisse implementieren.
-- [ ] Bidirektionale Navigation zwischen Gesprächsstelle und Zielartefakt.
-- [ ] Chatfilter für markierte Ereignistypen.
-- [ ] Kurze Zustandsübergänge mit Reduced-Motion-Alternative.
-- [ ] Optionale, abschaltbare akustische Rückmeldung.
-- [ ] Hintergrundarbeit in einer kleinen, nicht technischen Werkstattleiste anzeigen.
+- [x] Gespräch als visuelles und funktionales Zentrum gestalten.
+- [x] Gleichgewichtige Dashboard-Spalten und Haupttabs zugunsten einer fokussierten Raumstruktur reduzieren.
+- [x] Ruhige gemeinsame Arbeitsszene umsetzen; keine detaillierten Avatare oder simulierte Emotionalität.
+- [x] Pinnwand als kompakte Projektion von Denkstand, offener Entscheidung und aktuellem Ergebnis umsetzen.
+- [x] Lernlandschaft, Zeitplanung, Vorbereitungen, Knowledge und Materialien über verständliche Raumzugänge und eine lineare Navigation erreichbar machen.
+- [x] Gesprächsmarker für festgehaltene Gedanken, Entscheidungen, Arbeitsvorhaben und Ergebnisse implementieren.
+- [x] Bidirektionale Navigation zwischen Gesprächsstelle und Zielartefakt.
+- [x] Chatfilter für markierte Ereignistypen.
+- [x] Kurze Zustandsübergänge mit Reduced-Motion-Alternative.
+- [x] Optionale, abschaltbare akustische Rückmeldung.
+- [x] Hintergrundarbeit in einer kleinen, nicht technischen Werkstattleiste anzeigen.
 - [ ] Visuelle Regression, Tastaturbedienung und Screenreader-Zugänge testen.
-- [ ] Funktionsgleiche Darstellung ohne Illustration, Animation und Ton sicherstellen.
+- [x] Funktionsgleiche Darstellung ohne Illustration, Animation und Ton sicherstellen.
+
+**Implementierungsstand 2026-07-18:** L4 und die L4a-Implementierungspunkte sind umgesetzt. Die sichtbare Browser-, Tastatur- und Screenreader-Abnahme bleibt offen, weil in der Arbeitsumgebung keine Browser-Instanz verfügbar war. L5/L5a wird dadurch nicht vorgezogen.
 
 **Done when:** Der Planungsraum wirkt als gemeinsamer pädagogischer Denkraum und nicht als Verwaltungsdashboard; alle räumlichen Funktionen bleiben auch ohne Animation, Illustration oder Maus vollständig zugänglich.
 
 ## L5 — AI-Vorschläge und Review
 
-- [ ] Fokus aus einer Platzierung an den bestehenden Planungsraum-Chat übergeben; die übrigen Fokustypen funktionieren bereits.
+- [x] Fokus aus einer Platzierung an den bestehenden Planungsraum-Chat übergeben; die übrigen Fokustypen funktionieren bereits.
 - [ ] `LandscapeChangeProposal` als eigenes Artefakt implementieren.
 - [ ] Canvas-Diff für neue, geänderte und entfernte Knoten/Kanten implementieren.
 - [ ] Für strukturelle Landschaftsänderungen Vorschau, Übernehmen, im Gespräch ändern und Verwerfen anbieten.
 - [x] KI darf ohne Zustimmung keine kanonische Lernlandschaft oder Zeitplanung ändern.
-- [ ] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren (siehe L5a/GW-100).
-- [ ] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden (siehe L5a/GW-100/GW-140).
+- [x] modellgestützte Critical-Friend-Review nach Worker-Ausführung implementieren (siehe L5a/GW-100).
+- [x] Review-Ergebnis sichtbar von automatischer Vorprüfung unterscheiden (siehe L5a/GW-100/GW-140).
 
 Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte separate Board-Proposal-Schritt entfällt.
 
@@ -144,21 +146,23 @@ Die Übernahme von Worker-Vorschlägen erfolgt atomar nach L5a/GW-120; der alte 
 Die detaillierte Reihenfolge und Agenten-Zuordnung steht in `docs/guided-workflow-tasks.md`.
 
 - [x] Frontend-Typecheck reparieren: `WorkerMaterial.review` wird in `frontend/src/routes/+page.svelte` verwendet, fehlt aber in `frontend/src/lib/api.ts`.
-- [ ] Genau eine Entscheidung unter „Jetzt wichtig“ anzeigen.
-- [ ] Gesprächsvorschlag als nicht-kanonisches, strukturiertes Proposal speichern.
-- [ ] Ein Häkchen erzeugt atomar Board-Karte, Service Request und Hintergrundauftrag.
-- [ ] Keine zusätzlichen Pflichtklicks für Board-Aufnahme, Beauftragung oder Startbestätigung.
-- [ ] Laufende Arbeit persistent und nicht unterbrechend anzeigen.
-- [ ] Fertiges Material direkt in „Jetzt wichtig“ zur Prüfung anzeigen.
-- [ ] Ein zweites Häkchen gibt das sichtbare Ergebnis fachlich frei.
-- [ ] Der Stift führt immer in den bestehenden fokussierten Chat und speichert nichts kanonisch.
-- [ ] AutomaticCheck und Lehrkraftfreigabe getrennt speichern und anzeigen.
-- [ ] Gesprächsvorschlag, gestartete Vorbereitung und zurückgekehrtes Ergebnis im Chat mit dem zugehörigen Ziel verknüpfen.
-- [ ] Laufende Arbeit als kompakte, persistent sichtbare Hintergrundaktivität darstellen.
-- [ ] Abschluss einer Arbeit sichtbar, aber ohne automatischen Fokuswechsel melden.
+- [x] Genau eine Entscheidung unter „Jetzt wichtig“ anzeigen.
+- [x] Gesprächsvorschlag als nicht-kanonisches, strukturiertes Proposal speichern.
+- [x] Ein Häkchen erzeugt atomar Board-Karte, Service Request und Hintergrundauftrag.
+- [x] Keine zusätzlichen Pflichtklicks für Board-Aufnahme, Beauftragung oder Startbestätigung.
+- [x] Laufende Arbeit persistent und nicht unterbrechend anzeigen.
+- [x] Fertiges Material direkt in „Jetzt wichtig“ zur Prüfung anzeigen.
+- [x] Ein zweites Häkchen gibt das sichtbare Ergebnis fachlich frei.
+- [x] Der Stift führt immer in den bestehenden fokussierten Chat und speichert nichts kanonisch.
+- [x] AutomaticCheck und Lehrkraftfreigabe getrennt speichern und anzeigen.
+- [x] Gesprächsvorschlag, gestartete Vorbereitung und zurückgekehrtes Ergebnis im Chat mit dem zugehörigen Ziel verknüpfen.
+- [x] Laufende Arbeit als kompakte, persistent sichtbare Hintergrundaktivität darstellen.
+- [x] Abschluss einer Arbeit sichtbar, aber ohne automatischen Fokuswechsel melden.
 - [ ] Lokalen Real-Harness-Fluss mit einem synthetischen Planungsraum verifizieren.
 
 **Done when:** Vom Gespräch bis zur laufenden Vorbereitung und vom sichtbaren Ergebnis bis `ready_for_class` ist jeweils genau ein bewusster Klick nötig; Planungsboard und Materialbereich sind keine Pflichtstationen; die Herkunft im Gespräch bleibt nachvollziehbar.
+
+**Implementierungsstand 2026-07-20:** Der geführte Zwei-Häkchen-Workflow ist serverseitig und in der primären Gesprächsansicht umgesetzt. Proposal, atomarer Start, persistente Hintergrundarbeit, getrennte Prüfstatus, Ergebnisfreigabe und Herkunftsmarker sind verifiziert. Der lokale Real-Harness-Smoke-Test mit echtem Runtime-Prozess sowie Browser-, Tastatur- und Screenreader-Abnahme bleiben offen.
 
 ## L6 — Knowledge und Qualität
 

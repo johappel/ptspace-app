@@ -35,6 +35,17 @@ export type HarnessMessageResult = {
   reply: ConversationMessage;
   workspaceUpdates: HarnessWorkspaceUpdate[];
   events: HarnessEvent[];
+  suggestedAction?: SuggestedAction;
+};
+
+export type SuggestedAction = {
+  kind: "worker_draft";
+  title: string;
+  rationale: string;
+  expectedResult: string;
+  capability: "create_board_material" | "create_student_instruction";
+  relatedMomentIds?: string[];
+  materialNeed?: string;
 };
 
 export type HarnessTaskRequest = {
@@ -54,6 +65,11 @@ export type HarnessTaskResult = {
   events: HarnessEvent[];
 };
 
+export type HarnessReviewResult = {
+  status: "passed" | "concerns" | "blocked";
+  note: string;
+};
+
 export type HarnessPolicySimulationResult = {
   decisions: Array<{ request: HarnessPermissionRequest; decision: PolicyDecision }>;
 };
@@ -66,6 +82,7 @@ export interface HarnessAdapter {
   createSession(input: { planningSpaceId: string; workspaceRoot: string }): Promise<HarnessSession>;
   sendMessage(input: SendHarnessMessageInput): Promise<HarnessMessageResult>;
   requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult>;
+  reviewTask?(input: { session: HarnessSession; space: PlanningSpace; capability: string; expectedOutput: { type: string; relativePath: string }; context: Record<string, unknown> }): Promise<HarnessReviewResult>;
   getEvents(session: HarnessSession): AsyncIterable<HarnessEvent>;
   simulatePolicy?(workspaceRoot: string): Promise<HarnessPolicySimulationResult>;
   stopSession(session: HarnessSession): Promise<void>;

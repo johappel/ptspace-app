@@ -3,12 +3,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
 import { BoardMaterialWorkerInputSchema, PlanningSpace } from "@ptspace/shared";
-import { HarnessAdapter } from "../harness/HarnessAdapter.js";
+import { HarnessAdapter, HarnessReviewResult } from "../harness/HarnessAdapter.js";
 import { parseLearningLandscape, parsePlanningBoard } from "../planning/PlanningArtifactCodec.js";
 import { MaterialAssignmentService } from "../materials/MaterialAssignmentService.js";
 
 export type ServiceKind = "memory" | "knowledge" | "worker" | "renderer" | "review";
-export type ServiceRequestStatus = "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
+export type ServiceRequestStatus = "proposed" | "approved" | "queued" | "in_progress" | "returned" | "reviewed" | "failed" | "discarded";
 
 export type AppServiceRequest = {
   id: string;
@@ -33,6 +33,9 @@ export type AppServiceRequest = {
   createdAt: string;
   updatedAt: string;
   review?: { status: "passed" | "failed"; note: string; reviewedAt: string };
+  automaticCheck?: { status: "pending" | "passed" | "failed"; note: string; checkedAt?: string };
+  criticalFriendCheck?: { status: "pending" | "passed" | "concerns" | "blocked"; note: string; checkedAt?: string };
+  teacherReview?: { status: "accepted"; reviewedBy: string; reviewedAt: string; note?: string };
 };
 
 export type KernelServiceRequest = {
@@ -84,7 +87,14 @@ const capabilityPaths: Record<string, string> = {
 };
 
 export class ServiceRequestWorkflow {
+  private readonly runningSpaces = new Set<string>();
+  private returnedHook?: (planningSpaceId: string, request: AppServiceRequest) => Promise<void>;
+
   constructor(private readonly workspace: WorkspaceManager, private readonly harness: HarnessAdapter, private readonly materialAssignment?: MaterialAssignmentService) {}
+
+  setReturnedHook(hook: (planningSpaceId: string, request: AppServiceRequest) => Promise<void>): void {
+    this.returnedHook = hook;
+  }
 
   listCapabilities(): CapabilityContract[] {
     return Object.values(capabilities);
@@ -193,6 +203,48 @@ export class ServiceRequestWorkflow {
     return request;
   }
 
+  async proposeGuidedWorker(
+    planningSpaceId: string,
+    input: {
+      capability: "create_board_material" | "create_student_instruction";
+      boardItemId: string;
+      title: string;
+      reason: string;
+      expectedResult: string;
+      relatedMoments: string[];
+      targetGroup: string;
+    }
+  ): Promise<AppServiceRequest> {
+    if (input.capability === "create_board_material") {
+      return this.proposeBoardMaterial(planningSpaceId, {
+        boardItemId: input.boardItemId,
+        title: input.title,
+        reason: input.reason,
+        expectedResult: input.expectedResult,
+        relatedMoments: input.relatedMoments,
+        targetGroup: input.targetGroup
+      });
+    }
+    return this.propose(planningSpaceId, {
+      service: "worker",
+      mode: "draft",
+      capability: "create_student_instruction",
+      reason: input.reason,
+      input: {
+        learningDesign: "learning-design.md",
+        title: input.title,
+        expectedResult: input.expectedResult,
+        boardItemId: input.boardItemId,
+        targetGroup: input.targetGroup
+      },
+      constraints: { language: "de" },
+      boardItemId: input.boardItemId,
+      relatedMoments: input.relatedMoments,
+      expectedResult: input.expectedResult,
+      locationOverride: "materials/" + input.boardItemId + ".md"
+    });
+  }
+
   async list(planningSpaceId: string): Promise<AppServiceRequest[]> {
     const directory = this.requestsDirectory(planningSpaceId);
     try {
@@ -202,6 +254,135 @@ export class ServiceRequestWorkflow {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw error;
     }
+  }
+
+  async get(planningSpaceId: string, requestId: string): Promise<AppServiceRequest | undefined> {
+    try {
+      return await this.read(planningSpaceId, requestId);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+  }
+
+  async saveRequest(request: AppServiceRequest): Promise<void> {
+    await this.save(request);
+  }
+
+  async remove(planningSpaceId: string, requestId: string): Promise<void> {
+    const safeId = path.basename(requestId);
+    if (safeId !== requestId) throw new Error("invalid_service_request_id");
+    await fs.rm(path.join(this.requestsDirectory(planningSpaceId), `${safeId}.json`), { force: true });
+  }
+
+  /**
+   * Starts a queued request without keeping the HTTP request open. The request
+   * state is persisted before and after every harness call so reload/recovery
+   * can show the last trustworthy teacher-facing state.
+   */
+  async runQueued(planningSpaceId: string, requestId: string, space: PlanningSpace): Promise<void> {
+    if (this.runningSpaces.has(planningSpaceId)) return;
+    this.runningSpaces.add(planningSpaceId);
+    try {
+      const request = await this.read(planningSpaceId, requestId);
+      if (request.status !== "queued" && request.status !== "in_progress") return;
+      request.status = "in_progress";
+      request.updatedAt = new Date().toISOString();
+      await this.save(request);
+      try {
+        const workspaceRoot = await this.workspace.ensureWorkspace(space);
+        const session = await this.harness.createSession({ planningSpaceId, workspaceRoot });
+        const result = await this.harness.requestTask({
+          session,
+          space,
+          service: "worker",
+          capability: request.capability,
+          input: request.capability === "create_board_material"
+            ? BoardMaterialWorkerInputSchema.parse(request.input)
+            : request.input,
+          reason: request.reason,
+          expectedOutput: { type: request.expectedOutput.type, relativePath: request.expectedOutput.location },
+          constraints: request.constraints
+        });
+        if (result.events.some((event) => event.type === "status" && event.status === "failed")) {
+          throw new Error("worker_execution_failed");
+        }
+        if (request.boardItemId && this.materialAssignment) {
+          await this.materialAssignment.returnMaterial(planningSpaceId, {
+            id: `material-${request.boardItemId}`,
+            title: typeof request.input.title === "string" ? request.input.title : "Materialentwurf",
+            kind: "board_material",
+            status: "in_review",
+            relatedMoments: request.relatedMoments ?? [],
+            relatedWindows: request.relatedWindows ?? [],
+            relatedBoardItems: [request.boardItemId],
+            relatedDecisions: [],
+            sourceRequest: request.id,
+            createdAt: request.createdAt,
+            reviewedAt: null
+          }, result.workspaceUpdates, { column: "review", status: "review" });
+        } else {
+          for (const update of result.workspaceUpdates) {
+            await this.workspace.writeProjectFile(planningSpaceId, update.relativePath, update.content);
+          }
+        }
+        request.status = "returned";
+        request.updatedAt = new Date().toISOString();
+        request.automaticCheck = await this.automaticCheck(planningSpaceId, request);
+        request.review = {
+          status: request.automaticCheck.status === "passed" ? "passed" : "failed",
+          note: request.automaticCheck.note,
+          reviewedAt: request.automaticCheck.checkedAt ?? request.updatedAt
+        };
+        request.criticalFriendCheck = await this.criticalFriendCheck(planningSpaceId, request, space, session);
+        await this.save(request);
+        try {
+          await this.returnedHook?.(planningSpaceId, request);
+        } catch {
+          // The marker is a read-model projection. A transient marker failure
+          // must not turn an already returned material into a failed request.
+        }
+      } catch (error) {
+        request.status = "failed";
+        request.updatedAt = new Date().toISOString();
+        request.automaticCheck = {
+          status: "failed",
+          note: "Die Vorbereitung konnte noch nicht sicher abgeschlossen werden.",
+          checkedAt: request.updatedAt
+        };
+        request.review = { status: "failed", note: error instanceof Error ? error.message : "Ausführung fehlgeschlagen.", reviewedAt: request.updatedAt };
+        await this.save(request);
+      }
+    } finally {
+      this.runningSpaces.delete(planningSpaceId);
+    }
+  }
+
+  async queue(planningSpaceId: string, requestId: string, space: PlanningSpace): Promise<AppServiceRequest> {
+    const request = await this.read(planningSpaceId, requestId);
+    if (request.status === "proposed" || request.status === "approved") {
+      request.status = "queued";
+      request.updatedAt = new Date().toISOString();
+      await this.save(request);
+    }
+    void this.runQueued(planningSpaceId, requestId, space);
+    return request;
+  }
+
+  async acceptTeacherReview(planningSpaceId: string, requestId: string, reviewedBy = "Lehrkraft", note?: string): Promise<AppServiceRequest> {
+    const request = await this.read(planningSpaceId, requestId);
+    if (request.status === "reviewed" && request.teacherReview) {
+      return request;
+    }
+    if (request.status !== "returned") throw new Error("service_request_not_returned");
+    if (request.automaticCheck?.status !== "passed") throw new Error("automatic_check_failed");
+    if (request.criticalFriendCheck?.status === "blocked") throw new Error("critical_friend_review_blocked");
+    const reviewedAt = new Date().toISOString();
+    request.status = "reviewed";
+    request.updatedAt = reviewedAt;
+    request.teacherReview = { status: "accepted", reviewedBy, reviewedAt, ...(note ? { note } : {}) };
+    await this.save(request);
+    return request;
   }
 
   async approveAndRun(planningSpaceId: string, requestId: string, space: PlanningSpace): Promise<AppServiceRequest> {
@@ -325,6 +506,43 @@ export class ServiceRequestWorkflow {
       return_to: request.returnTo,
       requires_approval: request.requiresApproval
     };
+  }
+
+  private async automaticCheck(planningSpaceId: string, request: AppServiceRequest): Promise<{ status: "passed" | "failed"; note: string; checkedAt: string }> {
+    const checkedAt = new Date().toISOString();
+    try {
+      const result = await this.workspace.readProjectFile(planningSpaceId, request.expectedOutput.location);
+      if (!result || result.trim().length < 10 || !result.includes("#")) {
+        return { status: "failed", note: "Der zurückgekehrte Entwurf enthält noch keinen prüfbaren Inhalt.", checkedAt };
+      }
+      return { status: "passed", note: "Die Datei ist vorhanden und enthält eine lesbare Entwurfsstruktur.", checkedAt };
+    } catch {
+      return { status: "failed", note: "Der zurückgekehrte Entwurf konnte noch nicht gelesen werden.", checkedAt };
+    }
+  }
+
+  private async criticalFriendCheck(
+    planningSpaceId: string,
+    request: AppServiceRequest,
+    space: PlanningSpace,
+    session: { id: string; planningSpaceId: string; workspaceRoot: string }
+  ): Promise<{ status: "passed" | "concerns" | "blocked"; note: string; checkedAt: string }> {
+    const checkedAt = new Date().toISOString();
+    if (!this.harness.reviewTask) {
+      return { status: "passed", note: "Für diesen geschützten Modus liegt keine zusätzliche blockierende Critical-Friend-Rückmeldung vor.", checkedAt };
+    }
+    const result: HarnessReviewResult = await this.harness.reviewTask({
+      session,
+      space,
+      capability: request.capability,
+      expectedOutput: { type: request.expectedOutput.type, relativePath: request.expectedOutput.location },
+      context: {
+        reason: request.reason,
+        expectedResult: request.expectedResult ?? "",
+        relatedMoments: request.relatedMoments ?? []
+      }
+    });
+    return { ...result, checkedAt };
   }
 
   private async reviewReturnedResult(planningSpaceId: string, request: AppServiceRequest): Promise<void> {

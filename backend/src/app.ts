@@ -7,6 +7,7 @@ import { PlanningSpaceStore } from "./storage/PlanningSpaceStore.js";
 import { ExportApprovalStore } from "./storage/ExportApprovalStore.js";
 import { ConversationStore } from "./storage/ConversationStore.js";
 import { ConversationMarkerStore } from "./storage/ConversationMarkerStore.js";
+import { GuidedProposalStore } from "./storage/GuidedProposalStore.js";
 import { MaterialManifestStore } from "./storage/MaterialManifestStore.js";
 import { WorkspaceManager } from "./services/workspace/WorkspaceManager.js";
 import { HarnessAdapter } from "./services/harness/HarnessAdapter.js";
@@ -21,6 +22,7 @@ import { ServiceRequestWorkflow } from "./services/serviceRequests/ServiceReques
 import { ProposalService } from "./services/proposals/ProposalService.js";
 import { ConversationOrchestrator } from "./services/conversation/ConversationOrchestrator.js";
 import { ConversationMarkerService } from "./services/conversation/ConversationMarkerService.js";
+import { GuidedWorkflowService } from "./services/guided/GuidedWorkflowService.js";
 import { MaterialAssignmentService } from "./services/materials/MaterialAssignmentService.js";
 import { ConversationMetricsStore } from "./services/conversation/ConversationMetricsStore.js";
 import { planningSpaceRoutes } from "./routes/planningSpaces.js";
@@ -34,6 +36,7 @@ import { proposalRoutes } from "./routes/proposals.js";
 import { roomOverviewRoutes } from "./routes/roomOverview.js";
 import { materialRoutes } from "./routes/materials.js";
 import { conversationMarkerRoutes } from "./routes/conversationMarkers.js";
+import { guidedWorkflowRoutes } from "./routes/guidedWorkflow.js";
 
 function createHarness(config: ReturnType<typeof loadConfig>, policy: PermissionPolicy): HarnessAdapter {
   if (config.harness === "opencode-docker") {
@@ -72,6 +75,7 @@ export async function buildApp() {
   const approvals = new ExportApprovalStore(config.dataDir);
   const conversation = new ConversationStore(config.workspacesDir);
   const markerStore = new ConversationMarkerStore(config.workspacesDir);
+  const guidedProposalStore = new GuidedProposalStore(config.workspacesDir);
   const workspace = new WorkspaceManager(config.planningWorkspacesDir);
   const materials = new MaterialManifestStore(workspace);
   const assignments = new MaterialAssignmentService(workspace, materials);
@@ -95,6 +99,8 @@ export async function buildApp() {
     materials,
     async (spaceId) => (await serviceWorkflow.list(spaceId)).map((request) => ({ id: request.id, status: request.status }))
   );
+  const guidedWorkflow = new GuidedWorkflowService(store, workspace, guidedProposalStore, serviceWorkflow, materials, markerService, git);
+  serviceWorkflow.setReturnedHook((spaceId, request) => guidedWorkflow.onRequestReturned(spaceId, request));
   const conversationMetrics = new ConversationMetricsStore();
   app.addHook("onClose", async () => {
     await orchestrator.flush();
@@ -108,15 +114,16 @@ export async function buildApp() {
   }));
 
   await app.register(planningSpaceRoutes, { prefix: "/api", store, workspace, git });
-  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation, orchestrator, metrics: conversationMetrics, devMode: process.env.NODE_ENV !== "production" });
+  await app.register(conversationRoutes, { prefix: "/api", store, workspace, git, harness, conversation, orchestrator, metrics: conversationMetrics, guided: guidedWorkflow, devMode: process.env.NODE_ENV !== "production" });
   await app.register(thinkingStateRoutes, { prefix: "/api", store, workspace, git });
-  await app.register(roomOverviewRoutes, { prefix: "/api", store, workspace, git, conversation, markers: markerService });
+  await app.register(roomOverviewRoutes, { prefix: "/api", store, workspace, git, conversation, markers: markerService, guided: guidedWorkflow });
   await app.register(planningArtifactRoutes, { prefix: "/api", store, workspace, git });
   await app.register(planningArtifactResourceRoutes, { prefix: "/api", store, workspace, git });
   await app.register(proposalRoutes, { prefix: "/api", store, workspace, proposals });
   await app.register(serviceRequestRoutes, { prefix: "/api", store, workspace, git, workflow: serviceWorkflow });
   await app.register(materialRoutes, { prefix: "/api", store, workspace, git, materials, assignments });
   await app.register(conversationMarkerRoutes, { prefix: "/api", store, markers: markerService });
+  await app.register(guidedWorkflowRoutes, { prefix: "/api", store, guided: guidedWorkflow, workflow: serviceWorkflow });
   await app.register(exportRoutes, { prefix: "/api", store, approvals, workspace, exportFilter, okf, scanner });
   await app.register(sensitiveContentRoutes, { prefix: "/api", scanner });
 

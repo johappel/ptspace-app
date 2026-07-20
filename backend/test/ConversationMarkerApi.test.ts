@@ -92,4 +92,46 @@ describe("conversation marker API", () => {
       await app.close();
     }
   });
+
+  it("links a recorded decision to its originating conversation message", async () => {
+    const app = await buildApp();
+    try {
+      const space = await createSpace(app);
+      await seedConversation(space.id);
+
+      const recorded = await app.inject({
+        method: "POST",
+        url: `/api/planning-spaces/${space.id}/decisions`,
+        payload: { decision: "Wir beginnen mit einem Bildimpuls.", reason: "Der Einstieg oeffnet die Frage, ohne die Antwort vorwegzunehmen." }
+      });
+      expect(recorded.statusCode).toBe(200);
+      const decision = recorded.json<{ decision: { id: string; title: string } }>().decision;
+
+      const created = await app.inject({
+        method: "POST",
+        url: `/api/planning-spaces/${space.id}/conversation-markers`,
+        payload: {
+          sourceMessageId: "msg-source",
+          kind: "open_decision",
+          targetType: "decision",
+          targetId: decision.id,
+          label: decision.title
+        }
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json().marker).toMatchObject({
+        sourceMessageId: "msg-source",
+        kind: "open_decision",
+        targetType: "decision",
+        targetId: decision.id,
+        status: "active"
+      });
+
+      const overview = await app.inject({ method: "GET", url: `/api/planning-spaces/${space.id}/room-overview` });
+      expect(overview.json().decisions).toContainEqual({ id: decision.id, title: decision.title });
+      expect(overview.json().conversationMarkers).toHaveLength(1);
+    } finally {
+      await app.close();
+    }
+  });
 });

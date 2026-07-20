@@ -10,6 +10,7 @@ import {
   HarnessEvent,
   HarnessMessageResult,
   HarnessPolicySimulationResult,
+  HarnessReviewResult,
   HarnessSession,
   HarnessTaskRequest,
   HarnessTaskResult,
@@ -199,6 +200,49 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     };
   }
 
+  async reviewTask(input: { session: HarnessSession; space: import("@ptspace/shared").PlanningSpace; capability: string; expectedOutput: { type: string; relativePath: string }; context: Record<string, unknown> }): Promise<HarnessReviewResult> {
+    const projectDir = input.session.workspaceRoot;
+    await assertProjectDirectory(projectDir, input.session.workspaceRoot);
+    const temporaryParent = await fs.mkdtemp(path.join(os.tmpdir(), 'ptspace-review-workspace-'));
+    const reviewProjectDir = path.join(temporaryParent, 'workspace');
+    try {
+      await copyProjectForReview(projectDir, reviewProjectDir);
+      const expectedPath = safeRelativeOutputPath(reviewProjectDir, input.expectedOutput.relativePath);
+    try {
+      await fs.access(path.join(reviewProjectDir, expectedPath));
+    } catch {
+      return { status: "blocked", note: "Der zurückgekehrte Entwurf konnte für die fachliche Prüfung nicht geöffnet werden." };
+    }
+
+    // Die Prüfung darf nur lesen. Falls der Harness trotzdem schreibt, wird das
+    // Ergebnis blockiert und nicht als fachliche Freigabe weitergereicht.
+    const before = await snapshotProject(reviewProjectDir);
+    const secretMount = await this.prepareDockerSecretMount();
+    let result: ProcessResult;
+    try {
+      const prompt = this.reviewPrompt(input, expectedPath);
+      const { command, args, cwd } = this.buildRuntimeCommand(reviewProjectDir, prompt, secretMount);
+      result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
+    } finally {
+      if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
+    }
+
+    const changedFiles = diffSnapshots(before, await snapshotProject(reviewProjectDir));
+    if (changedFiles.length > 0) {
+      return { status: "blocked", note: "Die fachliche Prüfung hat den Planungsraum verändert und wurde deshalb nicht übernommen." };
+    }
+    if (result.exitCode !== 0) {
+      return { status: "blocked", note: "Die fachliche Prüfung konnte noch nicht sicher abgeschlossen werden." };
+    }
+    return parseReviewReply(normalizeOutput(result.stdout)) ?? {
+      status: "blocked",
+      note: "Die fachliche Prüfung hat kein prüfbares Ergebnis geliefert."
+    };
+    } finally {
+      await fs.rm(temporaryParent, { recursive: true, force: true });
+    }
+  }
+
   async *getEvents(_session: HarnessSession): AsyncIterable<HarnessEvent> {
     yield {
       type: "status",
@@ -329,6 +373,21 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
     ].join("\n");
   }
 
+  private reviewPrompt(input: { capability: string; expectedOutput: { type: string; relativePath: string }; context: Record<string, unknown> }, expectedPath: string): string {
+    return [
+      "Du bist der Critical Friend und prüfst einen zurückgekehrten Unterrichtsentwurf.",
+      "Lies ausschließlich den genannten Entwurf im aktuellen Planungsraum und verändere keine Datei.",
+      `Entwurf: ${expectedPath}`,
+      `Capability: ${input.capability}`,
+      `Erwarteter Ergebnistyp: ${input.expectedOutput.type}`,
+      `Prüfkontext: ${JSON.stringify(input.context)}`,
+      "Prüfe pädagogische Passung, erkennbare Widersprüche, unnötige technische oder personenbezogene Inhalte und ob der Entwurf als Entwurf gekennzeichnet bleibt.",
+      "Antworte exakt in zwei Zeilen und ohne weitere Ausgabe:",
+      "STATUS: PASSED | CONCERNS | BLOCKED",
+      "NOTE: eine kurze, lehrkraftfreundliche Begründung auf Deutsch"
+    ].join("\n");
+  }
+
   private buildRuntimeCommand(
     projectDir: string,
     prompt: string,
@@ -456,6 +515,16 @@ async function snapshotProject(projectDir: string): Promise<FileSnapshot> {
   const snapshot: FileSnapshot = new Map();
   await collectFiles(projectDir, projectDir, snapshot);
   return snapshot;
+}
+
+async function copyProjectForReview(sourceDir: string, targetDir: string): Promise<void> {
+  await fs.cp(sourceDir, targetDir, {
+    recursive: true,
+    filter: (entry) => {
+      const name = path.basename(entry);
+      return name !== '.git' && name !== 'node_modules';
+    }
+  });
 }
 
 async function collectFiles(root: string, current: string, snapshot: FileSnapshot): Promise<void> {
@@ -592,4 +661,15 @@ export function summarizeSimulation(result: HarnessPolicySimulationResult): Reco
     },
     { allow: 0, deny: 0, requires_admin_approval: 0, ask_critical_friend: 0 }
   );
+}
+
+
+function parseReviewReply(output: string): HarnessReviewResult | undefined {
+  const statusMatch = output.match(/(?:^|\n)\s*STATUS\s*:\s*(PASSED|CONCERNS|BLOCKED)\b/i);
+  if (!statusMatch) return undefined;
+  const noteMatch = output.match(/(?:^|\n)\s*NOTE\s*:\s*([^\n]+)/i);
+  const note = noteMatch?.[1]?.trim();
+  if (!note) return undefined;
+  const status = statusMatch[1].toLowerCase() as HarnessReviewResult["status"];
+  return { status, note: toTeacherFacingReply(note) };
 }

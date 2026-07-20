@@ -40,12 +40,23 @@ export async function serviceRequestRoutes(
     const space = await deps.store.get(id);
     if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     await deps.workspace.ensureWorkspace(space);
-    try {
-      const content = await deps.workspace.readProjectFile(id, "drafts/student-instruction.md");
-      return { title: "Arbeitsauftrag", status: "review_needed", format: "markdown", content };
-    } catch {
-      return reply.code(404).send({ message: "Für diesen Planungsraum liegt noch kein Arbeitsauftrag als Entwurf vor." });
+    const requests = await deps.workflow.list(id);
+    const latestInstruction = requests
+      .filter((entry) => entry.capability === "create_student_instruction" && entry.status !== "proposed" && entry.status !== "discarded" && entry.status !== "failed")
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    const paths = [
+      latestInstruction?.expectedOutput.location,
+      "drafts/student-instruction.md"
+    ].filter((value): value is string => Boolean(value));
+    for (const relativePath of paths) {
+      try {
+        const content = await deps.workspace.readProjectFile(id, relativePath);
+        return { title: "Arbeitsauftrag", status: "review_needed", format: "markdown", content, location: relativePath };
+      } catch {
+        // Legacy- und gefuehrte Materialpfade nacheinander pruefen.
+      }
     }
+    return reply.code(404).send({ message: "Fuer diesen Planungsraum liegt noch kein Arbeitsauftrag vor." });
   });
 
   // Generischer Material-Endpoint für beliebige Material-Dateien
@@ -67,11 +78,19 @@ export async function serviceRequestRoutes(
       }
 
       // Versuche verschiedene Material-Pfade
+      const requests = await deps.workflow.list(id);
+      const relatedRequest = requests
+        .filter((entry) => entry.boardItemId && (("material-" + entry.boardItemId) === materialId || entry.expectedOutput.location.endsWith("/" + materialId + ".md")))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      const boardMaterialId = normalizedId.replace(/^material-/, "");
       const possiblePaths = [
+        relatedRequest?.expectedOutput.location,
         `materials/${normalizedId}.md`,
+        `materials/${boardMaterialId}.md`,
         `drafts/${normalizedId}.md`,
+        `drafts/${boardMaterialId}.md`,
         `materials/${normalizedId}`,
-        `drafts/${normalizedId}`,
+        `drafts/${boardMaterialId}`,
         // Falls die originalId ein Pfad war, versuche auch den direkten Pfad
         ...(materialId !== normalizedId ? [materialId] : [])
       ];

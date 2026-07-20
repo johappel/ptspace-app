@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Material, MaterialSchema, LearningLandscape, PlanningBoard } from "@ptspace/shared";
+import { Material, MaterialSchema, LearningLandscape, PlanningBoard, PlanningBoardItem } from "@ptspace/shared";
 import { MaterialManifestStore, MATERIAL_MANIFEST_PATH } from "../../storage/MaterialManifestStore.js";
 import { parseLearningLandscape, parsePlanningBoard, serializeLearningLandscape, serializePlanningBoard } from "../planning/PlanningArtifactCodec.js";
 import { WorkspaceManager } from "../workspace/WorkspaceManager.js";
@@ -90,7 +90,8 @@ export class MaterialAssignmentService {
   async returnMaterial(
     planningSpaceId: string,
     material: Material,
-    updates: Array<{ relativePath: string; content: string }>
+    updates: Array<{ relativePath: string; content: string }>,
+    boardItemPatch?: Partial<PlanningBoardItem>
   ): Promise<MaterialAssignmentResult> {
     const parsedMaterial = MaterialSchema.parse(material);
     const landscape = parseLearningLandscape(await this.workspace.readProjectFile(planningSpaceId, "learning-landscape.md"));
@@ -107,6 +108,7 @@ export class MaterialAssignmentService {
       const item = board.items.find((entry) => entry.id === boardItemId);
       if (!item) throw new Error("board_item_not_found");
       if (!item.materialIds.includes(parsedMaterial.id)) item.materialIds = [...item.materialIds, parsedMaterial.id];
+      if (boardItemPatch) Object.assign(item, boardItemPatch);
     }
 
     const relativePaths = [...new Set([

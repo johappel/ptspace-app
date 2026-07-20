@@ -4,6 +4,70 @@ Dieses Protokoll dokumentiert die Bearbeitung von `REFACTOR-TASKS.md`. Der
 pädagogische Kernel bleibt die fachliche Quelle; Änderungen in der App werden
 erst aus seinen Verträgen abgeleitet.
 
+## 2026-07-18 - L4/L4a Materialbereich und Denkraum
+
+### Umsetzung
+
+- Der Materialbereich zeigt Materialart, Status, Entstehungs- und Prüfdatum,
+  Entstehungsgrund, pädagogische Bezüge und eine lesbare Vorschau.
+- Material kann aus derselben Ansicht atomar einem Lernmoment oder einem
+  Arbeitsvorhaben zugeordnet werden; die Zuordnung wird in Materialmanifest,
+  Lernlandschaft und Planungsboard gemeinsam gespeichert und bei Fehlern
+  zurückgerollt.
+- Die Hauptansicht priorisiert das Gespräch, bietet eingeklappte teacher-facing
+  Raumzugänge, eine kompakte Pinnwand, Marker mit Rücksprung und Filter sowie
+  eine nicht technische Hintergrundarbeitsleiste.
+- Permanente Wahlkanten-Animation wurde entfernt. Bewegung ist reduziert
+  abschaltbar; optionale Töne sind standardmäßig aus und die Funktionen bleiben
+  ohne Illustration, Animation und Ton erreichbar.
+
+### Geänderte Dateien
+
+- `frontend/src/routes/+page.svelte`
+- `frontend/src/routes/styles.css`
+- `frontend/src/lib/api.ts`
+- `backend/src/routes/thinkingState.ts`
+- `backend/src/routes/roomOverview.ts`
+- `backend/test/ConversationMarkerApi.test.ts`
+- `TASKS.md`
+
+Die bestehende Fremdänderung an `backend/learning-design.md` wurde nicht
+angefasst.
+
+### Tests und offene Abnahme
+
+- `pnpm -r --workspace-concurrency=1 check`
+- `pnpm -r --workspace-concurrency=1 build`
+- `pnpm -r --workspace-concurrency=1 test` - 27 Testdateien, 125 Tests
+- `git diff --check`
+- Der Browser-Test konnte nicht ausgeführt werden: Es war keine Browser-Instanz
+  verfügbar. Tastatur- und Screenreader-Abnahme bleiben deshalb offen.
+
+Nächster freigegebener Bereich ist L5/L5a; er wird in diesem Durchlauf nicht
+vorweggenommen.
+## 2026-07-20 - L5/L5a geführter Arbeitsfluss und Review
+
+### Umsetzung
+
+- Critical-Friend-Vorschläge werden als persistentes, nicht-kanonisches Proposal-Read-Model gespeichert; ältere offene Vorschläge werden nachvollziehbar abgelöst.
+- Das erste Häkchen erzeugt atomar Board-Karte, Service Request, Queue-Eintrag und Herkunftsmarker. Der Status bleibt über Reload und Polling sichtbar.
+- Automatische Vorprüfung, Critical-Friend-Prüfung und Lehrkraftfreigabe werden getrennt gespeichert und im einzigen `Jetzt wichtig`-Gegenstand angezeigt.
+- Das Ergebnis erscheint direkt zur fachlichen Prüfung; das zweite Häkchen setzt Material, Board und Request gemeinsam auf `ready_for_class` beziehungsweise `reviewed`.
+- Der Stift setzt nur den Fokus im bestehenden Gespräch. Direkte Board-/Startaktionen aus dem Gespräch wurden entfernt; das Board bleibt Übersicht.
+- Der Real-Harness-Review läuft in einer temporären Workspace-Kopie. Unerwartete Schreibversuche blockieren den Review und können den echten Denkraum nicht verändern.
+
+### Tests und offene Abnahme
+
+- `pnpm -r --workspace-concurrency=1 check` außerhalb der Sandbox: erfolgreich; Svelte-Check 0 Fehler und 0 Warnungen.
+- `pnpm -r --workspace-concurrency=1 test` außerhalb der Sandbox: Shared 6 Tests, Backend 28 Testdateien/127 Tests, Frontend-Skript ohne Tests erfolgreich.
+- `pnpm -r --workspace-concurrency=1 build` außerhalb der Sandbox: erfolgreich; nur bekannte generierte SvelteKit-/Chunkgrößen-Warnungen.
+- `backend/test/OpenCodeDockerAdapter.test.ts`: 14 Tests einschließlich Review-Isolation bestanden; `git diff --check` ist sauber.
+- Der lokale Real-Harness-Smoke-Test mit echtem Runtime-Prozess sowie Browser-, Tastatur- und Screenreader-Abnahme bleiben offen. Es ist keine Browserinstanz verfügbar.
+
+### Noch offen
+
+- L5 für strukturelle `LandscapeChangeProposal`-Vorschau und Canvas-Diff ist noch nicht abgeschlossen.
+- Ein echter lokaler Runtime-Smoke-Test darf erst mit einem synthetischen Planungsraum und freigegebener Harness-Konfiguration erfolgen.
 ## 2026-07-17 – L0-Vertragsabgleich und Worker-Grenze
 
 ### Umsetzung

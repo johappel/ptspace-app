@@ -1,6 +1,7 @@
-import type { ConversationMarker as SharedConversationMarker, Material as SharedMaterial } from "@ptspace/shared";
+import type { AttentionCard, BackgroundWorkItem, ConversationMarker as SharedConversationMarker, GuidedWorkerProposal, Material as SharedMaterial } from "@ptspace/shared";
 
-const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+const configuredBackendUrl = import.meta.env.PUBLIC_BACKEND_URL?.trim();
+const backendUrl = (configuredBackendUrl || "http://127.0.0.1:5174").replace(/\/+$/, "");
 
 
 export type LearningMoment = {
@@ -119,6 +120,9 @@ export type RoomOverview = {
   activity: Array<{ id: string; label: string; createdAt: string }>;
   versions: Array<{ label: string; hash: string; createdAt: string }>;
   conversationMarkers: ConversationMarker[];
+  decisions: Array<{ id: string; title: string }>;
+  attentionCard: AttentionCard;
+  backgroundWork: BackgroundWorkItem[];
 };
 export type PlanningSpace = {
   id: string;
@@ -155,10 +159,13 @@ export type ExportApproval = {
 
 export type ServiceRequest = {
   id: string;
-  status: "proposed" | "approved" | "in_progress" | "returned" | "reviewed" | "failed";
+  status: "proposed" | "approved" | "queued" | "in_progress" | "returned" | "reviewed" | "failed" | "discarded";
   capability: string;
   reason: string;
   review?: { status: "passed" | "failed"; note: string };
+  automaticCheck?: { status: "pending" | "passed" | "failed"; note: string; checkedAt?: string };
+  criticalFriendCheck?: { status: "pending" | "passed" | "concerns" | "blocked"; note: string; checkedAt?: string };
+  teacherReview?: { status: "accepted"; reviewedBy: string; reviewedAt: string; note?: string };
 };
 
 export type WorkerMaterial = {
@@ -170,6 +177,13 @@ export type WorkerMaterial = {
   boardItemId?: string | null;
   relatedMoments?: string[];
   review?: { status: "passed" | "failed"; note: string; reviewedAt?: string };
+};
+
+export type ConversationMessage = {
+  id: string;
+  author: "teacher" | "critical_friend" | "system";
+  text: string;
+  createdAt: string;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -195,17 +209,17 @@ export const api = {
   createPlanningSpace: (input: { title: string; subject?: string; targetGroup?: string; initialIdea?: string }) =>
     request<PlanningSpace>("/planning-spaces", { method: "POST", body: JSON.stringify(input) }),
   getMessages: (spaceId: string) =>
-    request<{ messages: Array<{ id: string; author: "teacher" | "critical_friend"; text: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/messages`),
+    request<{ messages: ConversationMessage[] }>(`/planning-spaces/${spaceId}/messages`),
   getDesignNotes: (spaceId: string) =>
     request<{ content: string; versions: Array<{ label: string; hash: string; createdAt: string }> }>(`/planning-spaces/${spaceId}/design-notes`),
   saveDesignNotes: (spaceId: string, content: string) =>
     request<{ content: string }>(`/planning-spaces/${spaceId}/design-notes`, { method: "PUT", body: JSON.stringify({ content }) }),
   recordDecision: (spaceId: string, decision: string, reason: string) =>
-    request<{ content: string }>(`/planning-spaces/${spaceId}/decisions`, { method: "POST", body: JSON.stringify({ decision, reason }) }),
+    request<{ content: string; decision: { id: string; title: string; decision: string; reason: string; createdAt: string } }>(`/planning-spaces/${spaceId}/decisions`, { method: "POST", body: JSON.stringify({ decision, reason }) }),
   getRoomOverview: (spaceId: string) => request<RoomOverview>(`/planning-spaces/${spaceId}/room-overview`),
   searchRoom: (spaceId: string, query: string) => request<{ hits: Array<{ id: string; label: string; excerpt: string }> }>(`/planning-spaces/${spaceId}/search?q=${encodeURIComponent(query)}`),
   sendMessage: (spaceId: string, message: string, focus?: PedagogicalFocus) =>
-    request<{ reply: { id: string; author: "critical_friend"; text: string; createdAt: string } }>(`/planning-spaces/${spaceId}/conversation`, {
+    request<{ teacherMessageId: string; reply: { id: string; author: "critical_friend"; text: string; createdAt: string } }>(`/planning-spaces/${spaceId}/conversation`, {
       method: "POST",
       body: JSON.stringify({ message, focus })
     }),
@@ -216,7 +230,7 @@ export const api = {
     message: string,
     handlers: {
       onStatus?: (status: string) => void;
-      onComplete: (reply: { id: string; author: "critical_friend"; text: string; createdAt: string }) => void;
+      onComplete: (reply: { id: string; author: "critical_friend"; text: string; createdAt: string }, teacherMessageId?: string) => void;
       onError?: (message: string) => void;
     },
     focus?: PedagogicalFocus
@@ -247,7 +261,7 @@ export const api = {
         const event = eventMatch[1].trim();
         const data = JSON.parse(dataMatch[1]);
         if (event === "status") handlers.onStatus?.(data.status);
-        else if (event === "complete") handlers.onComplete(data.reply);
+        else if (event === "complete") handlers.onComplete(data.reply, data.teacherMessageId);
         else if (event === "error") handlers.onError?.(data.message);
       }
     }
@@ -318,6 +332,18 @@ export const api = {
     request<{ serviceRequest: ServiceRequest; material: WorkerMaterial; teacherFacingMessage: string }>(
       `/planning-spaces/${spaceId}/service-requests/${requestId}/approve`,
       { method: "POST" }
+    ),
+  getGuidedProposals: (spaceId: string) =>
+    request<{ proposals: GuidedWorkerProposal[] }>(`/planning-spaces/${spaceId}/guided-proposals`),
+  acceptGuidedProposal: (spaceId: string, proposalId: string) =>
+    request<{ proposal: GuidedWorkerProposal; request: ServiceRequest; teacherFacingMessage: string }>(
+      `/planning-spaces/${spaceId}/guided-proposals/${proposalId}/accept`,
+      { method: "POST" }
+    ),
+  reviewServiceRequest: (spaceId: string, requestId: string, note?: string) =>
+    request<{ serviceRequest: ServiceRequest; planningBoard: PlanningBoard; teacherFacingMessage: string }>(
+      `/planning-spaces/${spaceId}/service-requests/${requestId}/review`,
+      { method: "POST", body: JSON.stringify({ reviewedBy: "Lehrkraft", ...(note ? { note } : {}) }) }
     ),
   scanSensitiveContent: (text: string) =>
     request<{ findings: SensitiveFinding[]; message: string }>("/sensitive-content/scan", {

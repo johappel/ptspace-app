@@ -4,6 +4,7 @@ import { PlanningSpaceStore } from "../storage/PlanningSpaceStore.js";
 import { WorkspaceManager } from "../services/workspace/WorkspaceManager.js";
 import { GitManager } from "../services/git/GitManager.js";
 import { parsePlanningBoard } from "../services/planning/PlanningArtifactCodec.js";
+import { newId, nowIso } from "../ids.js";
 
 function markdownItems(markdown: string): string[] { const result: string[] = []; let heading = ""; for (const raw of markdown.split("\n")) { const line = raw.trim(); if (line.startsWith("## ")) { heading = line.slice(3); continue; } if (!line || line.startsWith("#") || line.startsWith(">") || /^(noch |#)/i.test(line)) continue; const value = line.replace(/^[-*]\s+/, ""); result.push(heading && !line.startsWith("-") ? `${heading}: ${value}` : value); } return [...new Set(result)]; }
 const UpdateDesignSchema = z.object({ content: z.string().min(1).max(120_000) });
@@ -47,6 +48,8 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
     const space = await deps.store.get(id);
     if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     const root = await deps.workspace.ensureWorkspace(space);
+    const decision = { id: newId("decision"), title: parsed.data.decision.trim(), decision: parsed.data.decision.trim(), reason: parsed.data.reason.trim(), alternatives: [], uncertainties: [], decidedBy: ["Lehrkraft"], createdAt: nowIso() };
+    await deps.store.save({ ...space, decisions: [...space.decisions, decision] });
     const [existing, learningDesign, openQuestions] = await Promise.all([
       deps.workspace.readProjectFile(id, "decisions.md"),
       deps.workspace.readProjectFile(id, "learning-design.md"),
@@ -60,6 +63,6 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
       deps.workspace.writeProjectFile(id, "learning-design.md", `${learningDesign.trimEnd()}${learningEntry}`.trimEnd() + "\n"),
       deps.workspace.writeProjectFile(id, "open-questions.md", openQuestions.split("\n").filter((line) => line.replace(/^[-*]\s+/, "").trim() !== parsed.data.decision.trim()).join("\n").trimEnd() + "\n")
     ]);
-    return { content, version: await deps.git.saveVersion(root, "Entscheidung mit Begründung festgehalten") };
+    return { content, decision, version: await deps.git.saveVersion(root, "Entscheidung mit Begründung festgehalten") };
   });
 }

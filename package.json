@@ -9,7 +9,7 @@
     "test": "pnpm -r test",
     "check": "pnpm -r check"
   },
-  "packageManager": "pnpm@11.5.1",
+  "packageManager": "pnpm@11.15.1",
   "devDependencies": {
     "playwright": "^1.61.1",
     "typescript": "^5.5.4"
