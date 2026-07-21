@@ -89,7 +89,7 @@ export function loadConfig(): AppConfig {
   const kernelDir = path.resolve(root, process.env.PTSPACE_KERNEL_DIR ?? "../pedagogical-thinking-space");
   const runtimeRoot = path.resolve(root, process.env.PTSPACE_RUNTIME_ROOT ?? "../ptspace-data");
   return {
-    port: Number(process.env.PORT ?? 5174),
+    port: Number(process.env.BACKEND_PORT ?? process.env.PORT ?? 5174),
     runtimeRoot,
     dataDir: path.resolve(root, process.env.PTSPACE_DATA_DIR ?? runtimeRoot),
     workspacesDir: path.resolve(root, process.env.PTSPACE_WORKSPACES_DIR ?? path.join(runtimeRoot, "workspace")),

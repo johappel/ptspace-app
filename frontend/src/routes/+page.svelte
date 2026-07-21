@@ -7,6 +7,7 @@
   import LearningMomentNode from "$lib/LearningMomentNode.svelte";
   import LearningGroupNode from "$lib/LearningGroupNode.svelte";
   import { uuid } from "$lib/uuid";
+  import { markdownToHtml as markdownToHtmlShared, htmlToMarkdown as htmlToMarkdownShared } from "$lib/markdown";
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
 
@@ -48,7 +49,7 @@
   let designNotes = "";
   let editingDesign = false;
   let savingDesign = false;
-let messagesElement: HTMLDivElement | null = null;
+  let messagesElement: HTMLDivElement | null = null;
   let composerElement: HTMLTextAreaElement | null = null;
   let roomOverview: import("$lib/api").RoomOverview | null = null;
   let attentionBusy = false;
@@ -825,18 +826,11 @@ async function sendMessage() {
     }
   }
 
-  function escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
-  }
   function markdownToHtml(markdown: string): string {
-    return markdown.split("\n").map((line) => {
-      const safeLine = escapeHtml(line);
-      return safeLine.startsWith("## ") ? `<h2>${safeLine.slice(3)}</h2>` : safeLine.startsWith("# ") ? `<h1>${safeLine.slice(2)}</h1>` : safeLine.startsWith("- ") ? `<li>${safeLine.slice(2)}</li>` : safeLine ? `<p>${safeLine}</p>` : "";
-    }).join("").replace(/(<li>.*?<\/li>)+/g, (items) => `<ul>${items}</ul>`);
+    return markdownToHtmlShared(markdown);
   }
   function htmlToMarkdown(html: string): string {
-    const document = new DOMParser().parseFromString(html, "text/html");
-    return Array.from(document.body.children).map((node) => node.tagName === "H1" ? `# ${node.textContent}` : node.tagName === "H2" ? `## ${node.textContent}` : node.tagName === "UL" ? Array.from(node.querySelectorAll("li")).map((item) => `- ${item.textContent}`).join("\n") : node.textContent?.trim() || "").filter(Boolean).join("\n");
+    return htmlToMarkdownShared(html);
   }
   function tiptap(node: HTMLElement) {
     const editor = new Editor({ element: node, extensions: [StarterKit], content: markdownToHtml(designNotes), onUpdate: ({ editor: nextEditor }) => { designNotes = htmlToMarkdown(nextEditor.getHTML()); } });
