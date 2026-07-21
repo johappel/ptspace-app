@@ -42,6 +42,7 @@
   let error = "";
   let conversationLoading = false;
   let conversationLoadError = "";
+  let renderedMessages: UiMessage[] = [];
   let draftMessage = "";
   let activeFocus: PedagogicalFocus | null = null;
   let designNotes = "";
@@ -1579,6 +1580,9 @@ async function sendMessage() {
     focusConversation(`Ich möchte diesen Vorschlag gemeinsam anpassen: ${current.rationale} `);
   }
 
+  $: renderedMessages = messageFilter === "all"
+    ? messages
+    : roomOverview ? visibleMessages() : [];
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
 </script>
 
@@ -1664,8 +1668,8 @@ async function sendMessage() {
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
             {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
-            {#if visibleMessages().length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
-            {#each visibleMessages() as message}
+            {#if renderedMessages.length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
+            {#each renderedMessages as message}
               {@const messageMarkers = markersForMessage(message.id)}
               <article class:teacher={message.author === "teacher"} class:context-message={isContextMessage(message)} class:highlighted={highlightedMessageId === message.id} class="message" data-message-id={message.id}>
                 <div class="avatar" aria-hidden="true">{message.author === "teacher" ? "L" : "CF"}</div>
