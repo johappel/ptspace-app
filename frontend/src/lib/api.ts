@@ -209,7 +209,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   backendUrl,
-  getRuntimeStatus: () => fetch(`${backendUrl}/health`).then((response) => response.json() as Promise<{ harnessAvailability: { status: string; teacherFacingMessage: string } }>),
+  getRuntimeStatus: () => fetch(`${backendUrl}/health`).then((response) => response.json() as Promise<{ harness: string; harnessId: string; harnessAvailability: { status: string; teacherFacingMessage: string } }>),
   listPlanningSpaces: () => request<PlanningSpace[]>("/planning-spaces"),
   createPlanningSpace: (input: { title: string; subject?: string; targetGroup?: string; initialIdea?: string }) =>
     request<PlanningSpace>("/planning-spaces", { method: "POST", body: JSON.stringify(input) }),

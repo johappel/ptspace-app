@@ -61,6 +61,7 @@
   let decisionModalOpen = false;
   let settingsOpen = false;
   let runtimeStatus = "Runtime-Status wird geprüft …";
+  let simulatedMode = false;
   let workspaceElement: HTMLElement | null = null;
   let railCollapsed = true;
   let primaryWidth = 74;
@@ -127,6 +128,14 @@
         error = err instanceof Error ? err.message : "Die Planungsraeume konnten noch nicht geladen werden.";
       } finally {
         loading = false;
+      }
+    })();
+    void (async () => {
+      try {
+        const health = await api.getRuntimeStatus();
+        simulatedMode = health.harness === "mock";
+      } catch {
+        // If the health probe fails the composer still works; the banner stays hidden.
       }
     })();
     const workflowTimer = window.setInterval(() => {
@@ -1660,6 +1669,7 @@ async function sendMessage() {
             </div>
           </div>
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
+            {#if simulatedMode}<p class="conversation-status simulated" role="status">Simulierter Modus: Antworten sind feste Platzhalter, kein echtes Modell. Für echte Antworten den Harness in <code>.env</code> aktivieren (siehe <code>docs/analysis-2026-07-21.md</code>).</p>{/if}
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
             {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
             {#if renderedMessages.length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
@@ -2126,6 +2136,24 @@ async function sendMessage() {
   {/if}
   </main>
 </div>
+
+<style>
+  .conversation-status.simulated {
+    margin: 0.25rem 0 0.75rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d9b45f;
+    background: #fbf3df;
+    color: #6b5320;
+    font-size: 0.85rem;
+    line-height: 1.35;
+  }
+  .conversation-status.simulated code {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.25rem;
+  }
+</style>
 
 
 
