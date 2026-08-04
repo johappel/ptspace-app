@@ -5,20 +5,30 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       BACKEND_PORT: "5174"
-      PTSPACE_DATA_DIR: /app/.ptspace-data
-      PTSPACE_WORKSPACES_DIR: /app/workspaces
-      PTSPACE_PLANNING_WORKSPACES_DIR: /app/workspaces
-      PTSPACE_HARNESS: mock
-      PTSPACE_REAL_HARNESS_ENABLED: "false"
-      PTSPACE_OPENCODE_RUNNER: docker
-      PTSPACE_OPENCODE_DOCKER_IMAGE: ptspace/opencode-test:1.17.13
-      PTSPACE_OPENCODE_ALLOW_NETWORK: "false"
-      PTSPACE_OPENCODE_TIMEOUT_MS: "120000"
+      PTSPACE_DATA_DIR: /app/ptspace-data
+      PTSPACE_RUNTIME_ROOT: /app/ptspace-data
+      PTSPACE_WORKSPACES_DIR: /app/ptspace-data/workspace
+      PTSPACE_PLANNING_WORKSPACES_DIR: /app/ptspace-data/workspace
+      PTSPACE_HARNESS: ${PTSPACE_HARNESS}
+      PTSPACE_REAL_HARNESS_ENABLED: ${PTSPACE_REAL_HARNESS_ENABLED}
+      PTSPACE_KERNEL_DIR: /app/pedagogical-thinking-space
+      PTSPACE_KERNEL_WRITE_ENABLED: ${PTSPACE_KERNEL_WRITE_ENABLED}
+      PTSPACE_EXTERNAL_KERNEL_CONTEXT_ENABLED: ${PTSPACE_EXTERNAL_KERNEL_CONTEXT_ENABLED}
+      PTSPACE_KERNEL_WRITABLE_DIRS: ${PTSPACE_KERNEL_WRITABLE_DIRS}
+      PTSPACE_OPENCODE_RUNNER: ${PTSPACE_OPENCODE_RUNNER}
+      PTSPACE_OPENCODE_DOCKER_IMAGE: ${PTSPACE_OPENCODE_DOCKER_IMAGE}
+      PTSPACE_OPENCODE_MODEL: ${PTSPACE_OPENCODE_MODEL}
+      PTSPACE_OPENCODE_PROVIDER: openrouter
+      PTSPACE_OPENCODE_ALLOW_NETWORK: ${PTSPACE_OPENCODE_ALLOW_NETWORK}
+      PTSPACE_OPENCODE_TIMEOUT_MS: ${PTSPACE_OPENCODE_TIMEOUT_MS}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      DEBUG: "opencode*"
     ports:
       - "5174:5174"
     volumes:
-      - ptspace-data:/app/.ptspace-data
-      - ptspace-workspaces:/app/workspaces
+      - ${PTSPACE_DATA_DIR}:/app/ptspace-data
+      - ${PTSPACE_KERNEL_DIR}:/app/pedagogical-thinking-space
+      - /var/run/docker.sock:/var/run/docker.sock
 
   frontend:
     build:
@@ -34,7 +44,3 @@ services:
       - "5173:5173"
     depends_on:
       - backend
-
-volumes:
-  ptspace-data:
-  ptspace-workspaces:

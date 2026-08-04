@@ -184,12 +184,19 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
     let result: ProcessResult;
     try {
       const prompt = this.workerPrompt(input);
+      console.error(`WORKER PROMPT: ${JSON.stringify(prompt)}`);
       const { command, args, cwd } = this.buildRuntimeCommand(projectDir, prompt, secretMount);
+      console.error(`DOCKER COMMAND ARGS: ${JSON.stringify(args)}`);
       result = await this.runProcess(command, args, { cwd, timeoutMs: this.options.timeoutMs, env: process.env });
     } finally {
       if (secretMount) await fs.rm(secretMount.tempDir, { recursive: true, force: true });
     }
-    if (result.exitCode !== 0) throw new Error("worker_runtime_failed");
+    if (result.exitCode !== 0) {
+      console.error(`Worker task failed. Exit code: ${result.exitCode}`);
+      console.error(`STDOUT: ${result.stdout}`);
+      console.error(`STDERR: ${result.stderr}`);
+      throw new Error("worker_runtime_failed");
+    }
     const after = await snapshotProject(projectDir);
     const changedFiles = diffSnapshots(before, after);
     if (!changedFiles.includes(expectedPath)) throw new Error("worker_did_not_produce_expected_output");
