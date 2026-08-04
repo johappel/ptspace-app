@@ -12,3 +12,4 @@ workspaces/
 .ptspace-data/
 _tmp*
 *.patch
+tests/visual/runtime/
