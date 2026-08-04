@@ -64,7 +64,7 @@
   let simulatedMode = false;
   let workspaceElement: HTMLElement | null = null;
   let railCollapsed = true;
-  let primaryWidth = 74;
+  let primaryWidth = 78;
   let newRoom = { title: "", subject: "", targetGroup: "", initialIdea: "" };
   let planningModal = false;
   let createRoomModal = false;
@@ -1589,7 +1589,7 @@ async function sendMessage() {
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
 </script>
 
-<svelte:head><title>ptspace-app</title></svelte:head>
+<svelte:head><title>{activeSpace?.title ?? "Pädagogischer Denkraum"} · ptspace</title></svelte:head>
 
 <div class:rail-collapsed={railCollapsed} class:reduce-motion={reducedMotion} class="app-shell">
   <aside class="room-rail" aria-label="Planungsräume">
@@ -1659,17 +1659,17 @@ async function sendMessage() {
 
     {#if activeSpace}
       <section class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
-        <section class="conversation-panel" aria-label="Gespräch mit Critical Friend">
+        <section class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum">
           <div class="conversation-heading">
             <MessageSquareText size={18} />
-            <div><strong>Gespräch mit Critical Friend</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
+            <div><strong>Gespräch</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
             <div class="conversation-tools">
               <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
               {#if pinnwandOpen}<button class="quiet-button" on:click={() => (pinnwandOpen = false)}>Pinnwand schließen</button>{/if}
             </div>
           </div>
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
-            {#if simulatedMode}<p class="conversation-status simulated" role="status">Simulierter Modus: Antworten sind feste Platzhalter, kein echtes Modell. Für echte Antworten den Harness in <code>.env</code> aktivieren (siehe <code>docs/analysis-2026-07-21.md</code>).</p>{/if}
+            {#if simulatedMode}<p class="conversation-status simulated" role="status">Dieser Raum arbeitet gerade mit vorbereiteten Antworten. Deine Planung bleibt erhalten.</p>{/if}
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
             {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
             {#if renderedMessages.length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
@@ -1701,7 +1701,10 @@ async function sendMessage() {
                 <button class="pinnwand-note" on:click={() => openMarkerTarget(pinMarker)}><span aria-hidden="true">{markerGlyph(pinMarker.kind)}</span><strong>{pinMarker.label}</strong><small>{markerKindLabel(pinMarker.kind)} · {markerTargetDisplay(pinMarker)}</small></button>
                 {#if pinnwandOpen}<div class="pinnwand-list">{#each roomOverview.conversationMarkers as marker}<button on:click={() => openMarkerTarget(marker)}><span aria-hidden="true">{markerGlyph(marker.kind)}</span><span><strong>{marker.label}</strong><small>{markerKindLabel(marker.kind)} · {markerTargetDisplay(marker)}</small></span></button>{/each}</div>{/if}
               {:else}<p class="pinnwand-empty">Noch kein Gedanke ist hier festgehalten. Im Gespräch kannst du eine Stelle als Denkstand markieren.</p>{/if}
-            </section>            <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
+            </section>            <details class="denkstand-details">
+              <summary><span>Gemeinsamen Denkstand ansehen</span><span class="details-hint">Aus dem Gespräch festgehalten</span></summary>
+            <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
+            </details>
              <div class="conversation-perspective">
                {#if roomOverview}
                  {@const attention = roomOverview.attentionCard}
@@ -1711,7 +1714,7 @@ async function sendMessage() {
                    {#if attention.preview}<details class="attention-preview"><summary>Entwurf ansehen{attention.preview.truncated ? " · gekürzt" : ""}</summary><pre>{attention.preview.content}</pre></details>{/if}
                    {#if attention.automaticCheck || attention.criticalFriendCheck}<div class="review-checks">
                      {#if attention.automaticCheck}<span><strong>Automatische Vorprüfung:</strong> {attention.automaticCheck.status === "passed" ? "bestanden" : attention.automaticCheck.status === "failed" ? "nicht bestanden" : "ausstehend"}</span>{/if}
-                     {#if attention.criticalFriendCheck}<span><strong>Critical-Friend-Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
+                     {#if attention.criticalFriendCheck}<span><strong>Begleitende Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
                    </div>{/if}
                    <div class="attention-actions">
                      {#if attention.primaryAction}<button on:click={actOnAttention} disabled={attentionBusy}>{attentionBusy ? "Speichert …" : attention.primaryAction.label}</button>{/if}
@@ -1720,13 +1723,20 @@ async function sendMessage() {
                  </section>
                {/if}
                {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
-              {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
-                <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
-                  <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
-                  {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
-                  {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}{/if}
-                </section>
-              {/each}
+              {#if cards.some((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte")}
+                <details class="supporting-traces">
+                  <summary><span>Weitere Gesprächsspuren</span><span class="details-hint">{cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte").length} zurückgenommene Bereiche</span></summary>
+                  <div class="supporting-traces-body">
+                    {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
+                      <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
+                        <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
+                        {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
+                        {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}{/if}
+                      </section>
+                    {/each}
+                  </div>
+                </details>
+              {/if}
             </div>
           {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
@@ -2147,11 +2157,6 @@ async function sendMessage() {
     color: #6b5320;
     font-size: 0.85rem;
     line-height: 1.35;
-  }
-  .conversation-status.simulated code {
-    background: rgba(0, 0, 0, 0.06);
-    padding: 0.05rem 0.3rem;
-    border-radius: 0.25rem;
   }
 </style>
 

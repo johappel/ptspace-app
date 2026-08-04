@@ -681,3 +681,47 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 }
 .marker-return { display:inline-flex; align-items:center; gap:.35rem; align-self:flex-start; margin:0 0 .65rem; border:1px solid #c5d9d0; border-radius:.45rem; padding:.42rem .55rem; background:#eef6ef; color:#2c6054; font-size:.72rem; font-weight:750; }
 .message-action:disabled { opacity:.45; cursor:not-allowed; }
+
+/* M0 Denkraum-System: eine ruhige Oberfläche, Gespräch vor Verwaltung. */
+:root {
+  --dr-bg: #f7f6f1;
+  --dr-surface: rgba(255, 255, 252, .92);
+  --dr-surface-soft: rgba(247, 251, 247, .76);
+  --dr-ink: #173c38;
+  --dr-muted: #71827b;
+  --dr-focus: #5f9a86;
+  --dr-line: rgba(57, 91, 80, .16);
+  --dr-radius: .7rem;
+  --dr-shadow: 0 18px 55px rgba(37, 72, 65, .08);
+  --dr-space: clamp(1rem, 2.2vw, 1.8rem);
+  --dr-motion: .16s ease;
+}
+
+body { background: var(--dr-bg); color: var(--dr-ink); }
+.planning-room { background: radial-gradient(circle at 44% 18%, rgba(219, 234, 224, .35), transparent 38%), var(--dr-bg); }
+.workspace-grid { grid-template-columns: minmax(0, var(--primary-width)) 1px minmax(230px, 1fr); }
+.conversation-panel { background: var(--dr-surface); border-color: var(--dr-line); box-shadow: var(--dr-shadow); }
+.perspective-panel:has(.conversation-perspective) { display: flex; flex-direction: column; gap: .8rem; overflow: auto; padding: .7rem .35rem .4rem 1rem; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.perspective-panel:has(.conversation-perspective) > .panel-heading { flex: 0 0 auto; padding-inline: 0; }
+.perspective-panel:has(.conversation-perspective) > .pinnwand-projection { flex: 0 0 auto; }
+.pinnwand-projection { border-color: var(--dr-line); background: var(--dr-surface-soft); box-shadow: none; opacity: .9; }
+.denkstand-details, .supporting-traces { border-block: 1px solid var(--dr-line); }
+.denkstand-details summary, .supporting-traces summary { display: flex; align-items: baseline; justify-content: space-between; gap: .7rem; padding: .65rem 0; color: var(--dr-ink); cursor: pointer; list-style: none; font-size: .78rem; font-weight: 750; }
+.denkstand-details summary::-webkit-details-marker, .supporting-traces summary::-webkit-details-marker { display: none; }
+.denkstand-details summary::before, .supporting-traces summary::before { content: "＋"; color: var(--dr-focus); font-size: 1rem; line-height: 1; }
+.denkstand-details[open] summary::before, .supporting-traces[open] summary::before { content: "－"; }
+.details-hint { margin-left: auto; color: var(--dr-muted); font-size: .68rem; font-weight: 600; }
+.denkstand-details > .design-pad { margin: 0 0 .7rem; padding: .2rem 0 .1rem; border: 0; background: transparent; box-shadow: none; }
+.conversation-perspective { display: flex; flex-direction: column; gap: .75rem; min-height: 0; overflow: visible; }
+.supporting-traces-body { display: grid; gap: .65rem; padding: 0 0 .7rem 1.35rem; }
+.supporting-traces .thinking-card { background: var(--dr-surface-soft); box-shadow: none; }
+.attention-card { box-shadow: 0 12px 30px rgba(75, 115, 91, .08); }
+.statusbar { border-inline: 0; border-radius: 0; background: transparent; padding-inline: 0; color: var(--dr-muted); }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, [data-message-id]:focus-visible, summary:focus-visible { outline-color: var(--dr-focus); }
+@media (prefers-reduced-motion: reduce) {
+  :root { --dr-motion: 0s; }
+}
+@media (max-width: 980px) {
+  .perspective-panel:has(.conversation-perspective) { padding: .8rem 0 0; }
+  .supporting-traces-body { padding-left: 0; }
+}
