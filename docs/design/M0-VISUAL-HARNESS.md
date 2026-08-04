@@ -25,3 +25,5 @@ Die Zustände entstehen über die vorhandenen Planungsraum-, Gesprächs-, Guided
 Der kurze Hintergrundarbeitszustand ist in der echten Mock-Ausführung absichtlich sehr schnell. Nach dem vollständigen Mock-Durchlauf setzt der Harness deshalb nur den isolierten Service-Request auf einen festen in_progress-Projektionsstand und entfernt den dazu nicht passenden Rückkehrmarker. Dadurch bleibt DR-05 reproduzierbar, ohne Produktionscode oder Runtimearchitektur zu verändern.
 
 Der Harness prüft zusätzlich sichtbare Kerntexte, den expandierbaren Hintergrundbereich und den Reduced-Motion-Kontext. Er ersetzt nicht die qualitative Prüfung gegen DENKRAUM-DESIGN-CONTRACT.md: Erfolgreiche Screenshot-Erzeugung schließt M0 nicht ab und ändert keine Roadmap-Checkbox.
+
+Die geschlossene Statuszeile und die geöffnete Hintergrundebene werden für DR-05 gegen denselben teacher-facing Arbeitsauftrag geprüft. Damit wird eine veraltete Statusanzeige nicht mehr als stabiler Referenzzustand akzeptiert.

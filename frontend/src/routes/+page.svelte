@@ -578,11 +578,13 @@
     }
   }
 
-  function backgroundStatusLabel() {
+  function backgroundStatusLabel(backgroundWork: { title: string; status: string }[] | undefined, requests: ServiceRequest[], message: string) {
     if (sending) return "Critical Friend antwortet";
-    const activeRequest = roomOverview?.backgroundWork.find((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet");
+    const activeRequest = backgroundWork?.find((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet");
     if (activeRequest) return activeRequest.title + " wird vorbereitet";
-    if (serviceMessage) return serviceMessage;
+    const activeServiceRequest = requests.find((request) => request.status === "approved" || request.status === "queued" || request.status === "in_progress");
+    if (activeServiceRequest) return "Vorbereitung wird vorbereitet";
+    if (message) return message;
     return "Gespräch bereit";
   }
 
@@ -1817,7 +1819,7 @@ async function sendMessage() {
           {/if}
         </aside>
       </section>
-      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel()}</strong><span>{roomOverview?.conversationMarkers.length ?? 0} Gesprächsbezüge</span></button>{/if}
+      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong><span>{roomOverview?.conversationMarkers.length ?? 0} Gesprächsbezüge</span></button>{/if}
     {:else}
       <section class="empty-state"><MessageSquareText size={34} /><h2>Lege einen Planungsraum an.</h2><p>Der erste Umsetzungsschnitt arbeitet mit einer geschützten Backend-Grenze und einem simulierten Gegenüber.</p></section>
     {/if}

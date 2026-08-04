@@ -75,8 +75,15 @@ Haupt- und Detailansichten teilen Farben, Serifentypografie, Fokusoutline und we
 
 ## Abnahmegrenze
 
-`ROADMAP.md` bleibt unverändert. M0 ist nach diesem Paket noch nicht abgeschlossen, weil die Browserverbindung und damit Screenshots, schmale Darstellung, Tastatur-Smoke-Test und Reduced-Motion-Prüfung fehlen. Issue #17 bleibt offen.
+`ROADMAP.md` bleibt unverändert. Der Playwright-Nachweis für sieben Zustände ist vorhanden; M0 bleibt offen, weil die qualitative Designprüfung sowie DR-03 und DR-07 noch nicht vollständig abgearbeitet sind. Issue #17 bleibt offen.
 
-### Nächster klar abgegrenzter Schritt
+### Historischer nächster Schritt vor dem Harness
 
-Browserzugang bereitstellen oder in einer Umgebung mit verfügbarer Browsersteuerung die sieben geforderten Zustände reproduzierbar erfassen. Dabei insbesondere prüfen: erster Blick ohne Dashboardwirkung, Fokusreihenfolge durch die beiden `details`-Bereiche, schmale Darstellung, Reduced Motion ohne Illustration sowie Rückkehr vom Detailbereich in das Gespräch.
+Dieser historische nächste Schritt wurde durch den repository-eigenen Playwright-Nachweis umgesetzt. Die verbleibende manuelle qualitative Prüfung ist in der Aktualisierung unten ausdrücklich getrennt dokumentiert.
+## Aktualisierung nach dem Playwright-Nachweis
+
+Der repository-eigene Playwright-Design-Harness ist inzwischen lokal ausführbar und erzeugt sieben stabile Screenshots. Er prüft außerdem die zentralen teacher-facing Texte, DR-05 als laufende Hintergrundarbeit sowie den Reduced-Motion-Kontext. Die frühere Einschränkung zur fehlenden interaktiven Browserverbindung bleibt für eine manuelle qualitative Sichtprüfung bestehen; sie ist kein Grund, den technischen Nachweis zu verwerfen.
+
+Die geschlossene DR-05-Statuszeile verwendet jetzt denselben geladenen Arbeitsauftrag wie die geöffnete Hintergrundebene. Dadurch werden Statuszeile und Detailprojektion nicht mehr auseinanderlaufen, wenn die Projektion aus dem Service-Request geladen wird.
+
+Die sieben Harness-Zustände sind damit technisch reproduzierbar erfasst. M0 bleibt offen, bis die qualitative Prüfung gegen den Design Contract und die noch nicht im Harness enthaltenen Referenzzustände DR-03 und DR-07 abgearbeitet sind.

@@ -31,3 +31,15 @@ Für jeden Zustand werden dokumentiert:
 - bekannte Abweichungen und Folge-Issue.
 
 Ein Snapshot gilt nicht allein als gestalterische Abnahme. Er macht Veränderungen prüfbar; die qualitative Beurteilung bleibt zusätzlich erforderlich.
+
+## M0-Nachweis
+
+Der lokale Playwright-Design-Harness erfasst reproduzierbar:
+
+- DR-01, DR-02, DR-04, DR-05 und DR-06 als Desktop-Screenshots;
+- DR-08 als schmale Darstellung mit 640 px Breite;
+- DR-09 mit Reduced Motion und gesetztem App-Schalter.
+
+Diese sieben Zustände sind technisch reproduzierbar erfasst, aber nicht automatisch qualitativ abgenommen. DR-03 und DR-07 bleiben für M0 als separate visuelle Prüfpunkte offen.
+
+Der lokale Befehl ist pnpm visual:design; stabile Dateien und die Fixture-Strategie stehen in docs/design/M0-VISUAL-HARNESS.md.

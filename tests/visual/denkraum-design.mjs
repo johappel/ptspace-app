@@ -298,6 +298,13 @@ async function run() {
     await assertText(desktopPage, ".conversation-panel", "Critical Friend");
     await assertText(desktopPage, ".attention-card", "Jetzt wichtig");
     await capture(desktopPage, "dr-02-conversation-desktop");
+    const denkstandSummary = desktopPage.locator(".denkstand-details summary");
+    await denkstandSummary.focus();
+    await desktopPage.keyboard.press("Enter");
+    if ((await desktopPage.locator(".denkstand-details[open]").count()) !== 1) {
+      throw new Error("Der gemeinsame Denkstand ist per Tastatur nicht zu öffnen.");
+    }
+    await desktopPage.keyboard.press("Enter");
 
     await openSpace(desktopPage, spaces.dr04);
     await assertText(desktopPage, ".attention-card", "Welche Erfahrung soll den Einstieg tragen?");
@@ -305,7 +312,9 @@ async function run() {
 
     await openSpace(desktopPage, spaces.dr05);
     await assertText(desktopPage, ".statusbar", "Im Hintergrund");
-    await desktopPage.locator("button.statusbar").click();
+    await assertText(desktopPage, ".statusbar", "Arbeitsauftrag als Entwurf vorbereiten wird vorbereitet");
+    await desktopPage.locator("button.statusbar").focus();
+    await desktopPage.keyboard.press("Enter");
     await assertText(desktopPage, "#background-work", "Arbeitsauftrag als Entwurf vorbereiten");
     await capture(desktopPage, "dr-05-background-work-desktop");
 
