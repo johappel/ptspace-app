@@ -6,14 +6,15 @@ Stand: 2026-08-04
 
 `ptspace-app` wird vom lokalen Mock-/Hybridprototyp zu einem reproduzierbaren, harness-basierten MVP weiterentwickelt.
 
-Der Meilenstein umfasst vier zusammenhängende Entwicklungsziele:
+Der Meilenstein umfasst fünf zusammenhängende Entwicklungsziele:
 
+0. die hochwertige, atmosphärisch angemessene Denkraum-Gestaltung als durchgehendes Produkt-Gate absichern
 1. Kernel und App semantisch synchronisieren
 2. persistente Runtime-Sessions und kontrollierte Kontextkompression einführen
 3. den vorhandenen Kernablauf mit einem echten Harness betreiben
-4. den Ablauf durch E2E- und Zugänglichkeitsabnahme absichern
+4. den Ablauf durch E2E-, visuelle, qualitative Design- und Zugänglichkeitsabnahme absichern
 
-Der Meilenstein erweitert nicht primär den Funktionsumfang. Er macht den vorhandenen Kernprozess konsistent, real ausführbar, testbar und belastbar.
+Der Meilenstein erweitert nicht primär den Funktionsumfang. Er macht den vorhandenen Kernprozess konsistent, real ausführbar, testbar und belastbar, ohne den Planungsraum in ein Dashboard zu verwandeln.
 
 ## 2. Nicht Teil dieses Meilensteins
 
@@ -28,14 +29,14 @@ Bis zur Abnahme werden nicht begonnen:
 - automatische Veränderungen kanonischer Artefakte ohne Vorschau und Zustimmung,
 - breiter Ausbau des Knowledge-Systems, sofern er für den Referenzablauf nicht erforderlich ist.
 
-## 3. Verbindliche Architektur
+## 3. Verbindliche Grundlagen
 
 ```text
 pedagogical-thinking-space
 = pädagogischer Kernel und normative Semantik
 
 ptspace-app frontend
-= lehrkräftebezogene Oberfläche
+= lehrkräftebezogene Denkraum-Oberfläche
 
 ptspace-app backend
 = Schutz-, Policy-, Session- und Orchestrierungsschicht
@@ -51,6 +52,42 @@ Planning-Space Workspace
 ```
 
 Der Browser spricht niemals direkt mit dem Harness. Mock- und Real-Harness implementieren denselben Adaptervertrag.
+
+Für alle sichtbaren Änderungen gelten zusätzlich verbindlich:
+
+- `REFACTOR-UX.md`
+- `docs/design/DENKRAUM-DESIGN-CONTRACT.md`
+- `docs/design/FRONTEND-REVIEW-CHECKLIST.md`
+- `docs/design/REFERENCE-STATES.md`
+
+---
+
+## M0 – Denkraum Design Gate
+
+### Ziel
+
+Das Frontend wird als ruhiger, hochwertiger gemeinsamer pädagogischer Denkraum abgesichert. Das Design ist keine spätere Politur, sondern eine meilensteinübergreifende Produktanforderung.
+
+Detailauftrag: `docs/milestones/REAL-RUNTIME-MVP-DESIGN-GATE.md`.
+
+### Verbindliche Kriterien
+
+- Gespräch und gemeinsamer Gegenstand dominieren den ersten Blick.
+- `Jetzt wichtig` zeigt höchstens einen entscheidbaren Gegenstand.
+- Pinnwand und Hintergrundarbeit bleiben zurückgenommene Ebenen.
+- technische Runtimezustände erscheinen teacher-facing und visuell dezent.
+- gleichgewichtige Karten-, Spalten- und Statusraster gelten als Dashboard-Ausschlusskriterium.
+- Typografie, Abstände, Materialität, Tiefe und Bewegung wirken über Haupt- und Detailansichten konsistent.
+- Referenzzustände und visuelle Nachweise werden gepflegt.
+
+### Abnahme
+
+- Der erste Eindruck ist eindeutig Denkraum, nicht Dashboard.
+- Design-Tokens und Referenzzustände sind dokumentiert.
+- Frontend-PRs verwenden das Denkraum-Design-Gate.
+- visuelle Regressionen beziehungsweise überprüfbare Referenznachweise sind vorbereitet.
+
+M0 bleibt für alle nachfolgenden Frontend-Änderungen verbindlich.
 
 ---
 
@@ -112,7 +149,7 @@ interface RuntimeSession {
 - Session bei weiteren Nachrichten wiederaufnehmen;
 - Backend-Neustarts, verlorene Harness-Sessions und kontrollierte Neuerzeugung behandeln;
 - Parallelzugriffe und Run-Locking pro Planungsraum definieren;
-- technische Diagnose ermöglichen, ohne Sessiondetails in den normalen Lehrkräftedialog zu tragen;
+- technische Diagnose ermöglichen, ohne Sessiondetails in den normalen Lehrkräftedialog oder die visuelle Hauptfläche zu tragen;
 - Mock- und Real-Adapter auf denselben Sessionvertrag umstellen;
 - Isolation zwischen Planungsräumen testen.
 
@@ -122,7 +159,7 @@ interface RuntimeSession {
 - Ein Backend-Neustart verliert die Zuordnung nicht.
 - Eine verlorene Harness-Session wird kontrolliert wiederhergestellt.
 - Zwei Planungsräume verwenden getrennte Sessions und Kontexte.
-- Der Runtimezustand wird nach einem Frontend-Neuladen korrekt angezeigt.
+- Der Runtimezustand wird nach einem Frontend-Neuladen korrekt, aber nicht dashboardartig angezeigt.
 
 ---
 
@@ -173,7 +210,7 @@ unresolved_tensions:
 - Die letzten relevanten Nachrichten bleiben unverändert verfügbar.
 - Kompression erfolgt nach einem expliziten Token-, Nachrichten- oder Größenbudget.
 - Verdichtungen sind versioniert und diagnostizierbar.
-- Geladene Kontextbestandteile und ungefähre Tokenkosten werden technisch protokolliert, ohne unnötige personenbezogene Inhalte zu loggen.
+- Geladene Kontextbestandteile und ungefähre Tokenkosten werden technisch protokolliert, ohne unnötige personenbezogene Inhalte zu loggen oder die Lehrkräfteoberfläche damit zu belasten.
 
 ### Abnahmekriterien
 
@@ -181,7 +218,7 @@ unresolved_tensions:
 - Bestätigte Entscheidungen werden nach Kompression korrekt berücksichtigt.
 - Verworfene Optionen erscheinen nicht erneut als beschlossene Planung.
 - Promptgröße und Antwortlänge wachsen nicht linear mit jeder Nachricht.
-- Die pro Run geladenen Kontextbestandteile sind nachvollziehbar.
+- Die pro Run geladenen Kontextbestandteile sind technisch nachvollziehbar.
 
 ---
 
@@ -213,7 +250,7 @@ interface HarnessAdapter {
 - technische Permission-Anfragen durch Backend-Policies behandeln;
 - Zugriffe außerhalb des erlaubten Workspace blockieren;
 - Runtime-Fehler in lehrkräfteverständliche Zustände übersetzen;
-- Mock-/Simulationsmodus und Realmodus eindeutig kennzeichnen;
+- Mock-/Simulationsmodus und Realmodus eindeutig, aber visuell zurückgenommen kennzeichnen;
 - Referenzkonfiguration und lokalen Startweg dokumentieren.
 
 ### Referenzablauf
@@ -236,15 +273,15 @@ Planungsraum anlegen
 - Der Harness schreibt ausschließlich innerhalb des erlaubten Workspace.
 - Ein abgebrochener Auftrag beschädigt keine kanonischen Dateien.
 - Mock- und Realmodus verwenden dieselben API-Routen und Domainverträge.
-- Der Modus und der Zustand einer laufenden Arbeit sind nach Reload korrekt erkennbar.
+- Der Modus und Zustand laufender Arbeit sind nach Reload korrekt erkennbar, ohne den Denkraum in ein Runtime-Dashboard zu verwandeln.
 
 ---
 
-## M5 – Browser-E2E und CI-Gates
+## M5 – Browser-E2E, visuelle Regression und CI-Gates
 
 ### Ziel
 
-Der zentrale Produktablauf und kritische Recovery-Fälle werden in einem realen Browser automatisch geprüft.
+Der zentrale Produktablauf, kritische Recovery-Fälle und die verbindlichen Denkraum-Referenzzustände werden in einem realen Browser automatisch geprüft.
 
 ### Verbindliche Szenarien
 
@@ -258,21 +295,23 @@ Der zentrale Produktablauf und kritische Recovery-Fälle werden in einem realen 
 8. Canvas und Zeitansicht wechseln, ohne Informationen zu verlieren.
 9. Runtime-Abbruch und Wiederaufnahme.
 10. Ungültige oder unzulässige Harness-Ausgabe abweisen.
+11. Referenzzustände DR-01 bis DR-09 visuell erfassen und gegen unbeabsichtigte Änderungen schützen.
 
 ### Abnahmekriterien
 
 - E2E-Tests laufen reproduzierbar lokal.
 - E2E-Tests laufen in GitHub Actions.
 - Fehlgeschlagene Kernchecks verhindern das Zusammenführen.
+- relevante visuelle Regressionen werden als CI-Artefakte oder Checks verfügbar.
 - Testdaten sind synthetisch und enthalten keine personenbezogenen Daten.
 
 ---
 
-## M6 – Zugänglichkeitsabnahme
+## M6 – Zugänglichkeits- und qualitative Designabnahme
 
 ### Ziel
 
-Der Referenzablauf ist ohne Maus, Animation, Ton oder räumliche Illustration nutzbar.
+Der Referenzablauf ist ohne Maus, Animation, Ton oder räumliche Illustration nutzbar und bleibt zugleich als hochwertiger, konsistenter Denkraum erkennbar.
 
 ### Prüfbereiche
 
@@ -285,7 +324,10 @@ Der Referenzablauf ist ohne Maus, Animation, Ton oder räumliche Illustration nu
 - Reduced Motion und abschaltbare Töne;
 - responsive Nutzung;
 - ausreichende Kontraste;
-- funktionsgleiche lineare Alternative zum Canvas.
+- funktionsgleiche lineare Alternative zum Canvas;
+- qualitative Prüfung gegen `REFACTOR-UX.md` und `DENKRAUM-DESIGN-CONTRACT.md`;
+- Konsistenz von Hauptansicht und vertieften Arbeitsansichten;
+- Ausschluss dashboardartiger Karten-, Spalten- und Statushierarchien.
 
 ### Abnahmekriterien
 
@@ -294,21 +336,23 @@ Der Referenzablauf ist ohne Maus, Animation, Ton oder räumliche Illustration nu
 - Die wichtigsten Ansichten wurden mit einem Screenreader als Smoke-Test geprüft.
 - Animation und Ton können vollständig deaktiviert werden.
 - Ohne Canvas-Interaktion bleibt die Planung vollständig erreichbar.
+- Eine dokumentierte qualitative Designabnahme bestätigt den eindeutigen Denkraum- und Nicht-Dashboard-Charakter.
 
 ---
 
 ## 4. Reihenfolge und Abhängigkeiten
 
 ```text
-M1 Kernel/App Alignment
+M0 Denkraum Design Gate
+→ M1 Kernel/App Alignment
 → M2 persistente Sessions
 → M3 Kontextbudget und Kompression
 → M4 Real-Harness-Referenzablauf
-→ M5 Browser-E2E und CI
-→ M6 Zugänglichkeitsabnahme
+→ M5 Browser-E2E, visuelle Regression und CI
+→ M6 Zugänglichkeits- und qualitative Designabnahme
 ```
 
-E2E- und Accessibility-Testgerüste dürfen früh vorbereitet werden. Ein späterer Meilenstein darf jedoch keine ungelöste Architekturfrage eines früheren Meilensteins stillschweigend umgehen.
+M0 bleibt als Querschnitts-Gate aktiv. E2E-, visuelle und Accessibility-Testgerüste dürfen früh vorbereitet werden. Ein späterer Meilenstein darf keine ungelöste Architektur- oder Designfrage eines früheren Meilensteins stillschweigend umgehen.
 
 ## 5. Handoff pro PR
 
@@ -316,7 +360,8 @@ Jeder Handoff dokumentiert:
 
 - bearbeitetes Issue und Meilensteinziel;
 - geänderte Dateien;
-- Architekturentscheidungen;
+- Architektur- und gegebenenfalls Designentscheidungen;
+- betroffene Denkraum-Referenzzustände;
 - ausgeführte Tests und Ergebnisse;
 - bekannte Einschränkungen;
 - Risiken für nachfolgende Arbeit;
@@ -330,7 +375,8 @@ Der Meilenstein ist abgeschlossen, wenn:
 - jeder Planungsraum eine persistente Runtime-Session besitzt;
 - lange Gespräche kontrolliert verdichtet werden;
 - der zentrale Ablauf mit einem realen Harness funktioniert;
-- der vollständige Ablauf durch E2E-Tests geschützt ist;
+- der vollständige Ablauf durch E2E- und visuelle Regressionstests geschützt ist;
 - die zentrale Nutzerreise tastatur- und screenreadertauglich ist;
 - der Mockmodus nicht mehr die einzige verlässlich funktionierende Betriebsart ist;
-- Installation und Referenzablauf von einem frischen Clone reproduziert werden können.
+- Installation und Referenzablauf von einem frischen Clone reproduziert werden können;
+- die qualitative Designabnahme bestätigt, dass die Anwendung als hochwertiger, atmosphärisch angemessener Denkraum und ausdrücklich nicht als Dashboard erlebt wird.
