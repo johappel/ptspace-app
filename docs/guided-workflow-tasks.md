@@ -539,3 +539,11 @@ Workflow. Halte die Referenz „Quietude & Thought“ und alle Accessibility-Reg
 Beginne nach GW-230. Bearbeite GW-300 und GW-310. Belege Klickbudget, Marker,
 Reload, Idempotenz, Hintergrundfeedback, Reduced Motion und Freigabe mit Tests.
 ```
+
+## Verbindlicher Fokusablauf für die Hauptansicht
+
+Die AttentionCard ist eine serverseitige Projektion, aber ihr sichtbarer Ort folgt einer festen Dramaturgie:
+
+Gespräch im Normalzustand → genau eine temporäre Fokuslage unmittelbar im Gespräch → Passt | Weiterreden | Später zurückstellen → Übernahme, Gesprächsbezug oder bewusste Pinnwand-Ablage → ruhiger Gesprächszustand.
+
+Die Sidebar ist während der Fokuslage zurückgenommen und danach Ablage beziehungsweise Wiederzugang. Ein bloßes Rendern der AttentionCard als dauerhaftes Seitenpanel erfüllt GW-200, GW-210 oder GW-230 nicht. Der Harness muss diese Zustandsfolge für DR-02, DR-04, DR-06 und DR-08 prüfen.

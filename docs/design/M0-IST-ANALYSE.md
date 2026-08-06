@@ -87,3 +87,18 @@ Der repository-eigene Playwright-Design-Harness ist inzwischen lokal ausführbar
 Die geschlossene DR-05-Statuszeile verwendet jetzt denselben geladenen Arbeitsauftrag wie die geöffnete Hintergrundebene. Dadurch werden Statuszeile und Detailprojektion nicht mehr auseinanderlaufen, wenn die Projektion aus dem Service-Request geladen wird.
 
 Die sieben Harness-Zustände sind damit technisch reproduzierbar erfasst. M0 bleibt offen, bis die qualitative Prüfung gegen den Design Contract und die noch nicht im Harness enthaltenen Referenzzustände DR-03 und DR-07 abgearbeitet sind.
+
+## Aktualisierung nach dem qualitativen Review vom 2026-08-04
+
+Der neueste qualitative Review zu PR #18 hat die bisherige Interpretation als unzureichend bewertet: reduzierte Kartenbreiten und zurückgenommene Oberflächen reichen nicht. Der aktuelle Gegenstand muss eine temporäre Fokuslage im Gespräch bilden.
+
+Die Umsetzung folgt deshalb nun dieser verbindlichen Folge: Gespräch im Normalzustand → genau ein entscheidungsreifer Gegenstand unmittelbar im Gespräch → Passt | Weiterreden | Später zurückstellen → Übernahme, Gesprächsbezug oder bewusste Ablage → ruhiger Gesprächszustand. Die Sidebar/Pinnwand ist Ablage und Wiederzugang, nicht der primäre Ort einer anstehenden Entscheidung.
+
+Damit werden DR-02, DR-04, DR-06 und DR-08 nicht mehr als Varianten einer Kartenanordnung verstanden:
+
+- DR-02 zeigt den ruhigen Gesprächszustand ohne aktive Fokusprojektion.
+- DR-04 und DR-06 zeigen jeweils genau eine temporäre Fokuslage und zurückgenommene sekundäre Ebenen.
+- DR-08 bewahrt diese Priorität bei schmaler Breite.
+- Der Harness weist die bewusste Ablage mit Später zurückstellen und den anschließenden Pinnwand-Wiederzugang nach.
+
+Issue #17 und PR #18 bleiben entsprechend offen beziehungsweise Draft; eine erfolgreiche Screenshot-Erzeugung wird nicht als qualitative Abnahme behauptet.

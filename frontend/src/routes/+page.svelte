@@ -96,6 +96,11 @@
   let expandedMaterialId = "";
   let roomAccessOpen = false;
   let pinnwandOpen = false;
+  let deferredAttentionId = "";
+  let continuedAttentionId = "";
+  let attentionFocused = false;
+  let attentionDeferred = false;
+  let focusRegionElement: HTMLElement | null = null;
   let messageFilter: "all" | "captured" | "decisions" | "work" = "all";
   let highlightedMessageId = "";
   let markerReturnMessageId = "";
@@ -184,6 +189,8 @@
     roomView = "conversation";
     roomAccessOpen = false;
     pinnwandOpen = false;
+    deferredAttentionId = "";
+    continuedAttentionId = "";
     statusDetailsOpen = false;
     activeFocus = null;
     learningLandscape = null;
@@ -248,6 +255,7 @@
       serviceMessage = "";
       findings = [];
       roomOverview = await api.getRoomOverview(space.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
       await loadMaterials(space.id, loadVersion);
       if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
@@ -269,6 +277,23 @@
 
   function isCurrentSpaceLoad(spaceId: string, loadVersion = spaceLoadVersion) {
     return activeSpace?.id === spaceId && spaceLoadVersion === loadVersion;
+  }
+
+  function deferredAttentionStorageKey(spaceId: string) {
+    return `ptspace.deferred-attention.${spaceId}`;
+  }
+
+  function syncAttentionDisposition(card: import("@ptspace/shared").AttentionCard) {
+    if (!activeSpace) return;
+    const storedId = localStorage.getItem(deferredAttentionStorageKey(activeSpace.id));
+    deferredAttentionId = storedId === card.id && card.kind !== "continue_conversation" ? storedId : "";
+    if (continuedAttentionId && continuedAttentionId !== card.id) continuedAttentionId = "";
+    if (!deferredAttentionId && storedId) localStorage.removeItem(deferredAttentionStorageKey(activeSpace.id));
+  }
+
+  async function returnFocusToConversation() {
+    await tick();
+    composerElement?.focus();
   }
 
   function hasActiveBackgroundWork() {
@@ -311,6 +336,7 @@
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       serviceRequests = requests.requests;
       roomOverview = overview;
+      syncAttentionDisposition(overview.attentionCard);
       if (overview.attentionCard.kind === "result_review") await loadMaterials(spaceId, loadVersion);
     } catch {
       // The closed status bar remains usable if a transient poll fails.
@@ -337,7 +363,9 @@
         await loadMaterials(activeSpace.id);
       }
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       playFeedbackSound();
+      await returnFocusToConversation();
     } catch (err) {
       error = err instanceof Error ? err.message : "Dieser Schritt konnte noch nicht gespeichert werden.";
     } finally {
@@ -348,7 +376,28 @@
   function discussAttention() {
     const card = roomOverview?.attentionCard;
     if (!card) return;
+    continuedAttentionId = card.id;
+    deferredAttentionId = "";
     focusConversation(`Lass uns das gemeinsam weiterdenken: ${card.title} `, card.discussAction.focus);
+  }
+
+  async function deferAttention() {
+    if (!activeSpace || !roomOverview || roomOverview.attentionCard.kind === "continue_conversation") return;
+    const card = roomOverview.attentionCard;
+    deferredAttentionId = card.id;
+    continuedAttentionId = "";
+    localStorage.setItem(deferredAttentionStorageKey(activeSpace.id), card.id);
+    pinnwandOpen = false;
+    await returnFocusToConversation();
+  }
+
+  async function reopenDeferredAttention() {
+    if (!roomOverview || !activeSpace) return;
+    deferredAttentionId = "";
+    continuedAttentionId = "";
+    localStorage.removeItem(deferredAttentionStorageKey(activeSpace.id));
+    await tick();
+    focusRegionElement?.focus();
   }
 
   function availableMaterialTargets() {
@@ -431,6 +480,7 @@
       makeCanvas();
       materialMessage = result.changed ? "Der pädagogische Bezug wurde gemeinsam gespeichert." : "Dieser Bezug besteht bereits.";
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       playFeedbackSound();
     } catch (err) {
       materialMessage = err instanceof Error ? err.message : "Die Materialzuordnung konnte nicht gespeichert werden.";
@@ -665,6 +715,7 @@ async function sendMessage() {
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       cards = state.cards;
       roomOverview = await api.getRoomOverview(spaceId);
+      syncAttentionDisposition(roomOverview.attentionCard);
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
@@ -898,6 +949,7 @@ async function sendMessage() {
       await focusConversation(`Wir haben festgehalten: ${decisionToRecord.trim()} (Begründung: ${decisionReason.trim()}). Lass uns prüfen, was daraus als Nächstes folgt.`);
       cards = (await api.getThinkingState(activeSpace.id)).cards;
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
     } catch (err) { error = err instanceof Error ? err.message : "Die Entscheidung konnte nicht festgehalten werden."; }
   }
   function decisionParts(item: string) {
@@ -1589,6 +1641,13 @@ async function sendMessage() {
     ? messages
     : roomOverview ? visibleMessages() : [];
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
+  $: attentionFocused = !!roomOverview?.attentionCard
+    && roomOverview.attentionCard.kind !== "continue_conversation"
+    && roomOverview.attentionCard.id !== deferredAttentionId
+    && roomOverview.attentionCard.id !== continuedAttentionId;
+  $: attentionDeferred = !!roomOverview?.attentionCard
+    && roomOverview.attentionCard.kind !== "continue_conversation"
+    && roomOverview.attentionCard.id === deferredAttentionId;
 </script>
 
 <svelte:head><title>{activeSpace?.title ?? "Pädagogischer Denkraum"} · ptspace</title></svelte:head>
@@ -1660,7 +1719,7 @@ async function sendMessage() {
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 
     {#if activeSpace}
-      <section class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
+      <section class:attention-is-focused={attentionFocused} class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
         <section class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum">
           <div class="conversation-heading">
             <MessageSquareText size={18} />
@@ -1670,6 +1729,24 @@ async function sendMessage() {
               {#if pinnwandOpen}<button class="quiet-button" on:click={() => (pinnwandOpen = false)}>Pinnwand schließen</button>{/if}
             </div>
           </div>
+          {#if roomOverview && attentionFocused}
+            {@const attention = roomOverview.attentionCard}
+            <section class="conversation-focus-layer" bind:this={focusRegionElement} tabindex="-1" aria-live="assertive" aria-labelledby="conversation-focus-heading" aria-describedby="conversation-focus-rationale">
+              <div class="conversation-focus-kicker"><Lightbulb size={17} /><span>Jetzt wichtig</span><small>Aus dem Gespräch hervorgegangen</small></div>
+              <h2 id="conversation-focus-heading">{attention.title}</h2>
+              <p id="conversation-focus-rationale">{attention.rationale}</p>
+              {#if attention.preview}<details class="attention-preview"><summary>Entwurf ansehen{attention.preview.truncated ? " · gekürzt" : ""}</summary><pre>{attention.preview.content}</pre></details>{/if}
+              {#if attention.automaticCheck || attention.criticalFriendCheck}<div class="review-checks">
+                {#if attention.automaticCheck}<span><strong>Automatische Vorprüfung:</strong> {attention.automaticCheck.status === "passed" ? "bestanden" : attention.automaticCheck.status === "failed" ? "nicht bestanden" : "ausstehend"}</span>{/if}
+                {#if attention.criticalFriendCheck}<span><strong>Begleitende Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
+              </div>{/if}
+              <div class="attention-actions conversation-focus-actions">
+                {#if attention.primaryAction}<button on:click={actOnAttention} disabled={attentionBusy}>{attentionBusy ? "Speichert …" : attention.primaryAction.label}</button>{/if}
+                <button class="ghost" on:click={discussAttention}>Weiterreden</button>
+                <button class="quiet-action" on:click={deferAttention}>Später zurückstellen</button>
+              </div>
+            </section>
+          {/if}
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
             {#if simulatedMode}<p class="conversation-status simulated" role="status">Dieser Raum arbeitet gerade mit vorbereiteten Antworten. Deine Planung bleibt erhalten.</p>{/if}
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
@@ -1692,12 +1769,13 @@ async function sendMessage() {
           <div class="composer-wrap">{#if activeFocus}<div class="focus-chip"><span>Bezug: {focusKindLabels[activeFocus.kind]} · {activeFocus.label}</span><button on:click={() => (activeFocus = null)} aria-label="Fokus aufheben"><X size={13} /></button></div>{/if}<div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
         </section>
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
-        <aside class="perspective-panel" aria-label="Gewählte Perspektive">
+        <aside class="perspective-panel" aria-label="Gewählte Perspektive" aria-hidden={attentionFocused ? "true" : undefined}>
           {#if markerReturnMessageId}<button class="marker-return" on:click={returnToConversation}>Zur auslösenden Gesprächsstelle zurück <ArrowRight size={14} /></button>{/if}
           {#if roomView === "conversation"}
             <div class="panel-heading"><Lightbulb size={18} /><div><strong>Denkstand</strong><span>Gemeinsam festhalten, was das weitere Gespräch trägt.</span></div><div class="panel-menu"><button on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/markdown`} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div></div>
             <section class="pinnwand-projection" aria-label="Pinnwand">
               <div class="pinnwand-heading"><div><span>Pinnwand</span><strong>Was aus dem Gespräch bleibt</strong></div><button class="quiet-button" on:click={() => (pinnwandOpen = !pinnwandOpen)}>{pinnwandOpen ? "Weniger anzeigen" : "Öffnen"}</button></div>
+              {#if attentionDeferred && roomOverview}<button class="pinnwand-deferred" on:click={reopenDeferredAttention}><span aria-hidden="true">?</span><span><strong>Später zurückgestellt</strong><small>{roomOverview.attentionCard.title}</small></span><ArrowRight size={14} /></button>{/if}
               {#if roomOverview?.conversationMarkers.length}
                 {@const pinMarker = roomOverview.conversationMarkers[roomOverview.conversationMarkers.length - 1]}
                 <button class="pinnwand-note" on:click={() => openMarkerTarget(pinMarker)}><span aria-hidden="true">{markerGlyph(pinMarker.kind)}</span><strong>{pinMarker.label}</strong><small>{markerKindLabel(pinMarker.kind)} · {markerTargetDisplay(pinMarker)}</small></button>
@@ -1708,22 +1786,6 @@ async function sendMessage() {
             <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
             </details>
              <div class="conversation-perspective">
-               {#if roomOverview}
-                 {@const attention = roomOverview.attentionCard}
-                 <section class="thinking-card attention-card" aria-labelledby="attention-heading">
-                   <div class="action-card-heading"><Lightbulb size={18} /><div><span>Jetzt wichtig</span><strong id="attention-heading">{attention.title}</strong></div></div>
-                   <p>{attention.rationale}</p>
-                   {#if attention.preview}<details class="attention-preview"><summary>Entwurf ansehen{attention.preview.truncated ? " · gekürzt" : ""}</summary><pre>{attention.preview.content}</pre></details>{/if}
-                   {#if attention.automaticCheck || attention.criticalFriendCheck}<div class="review-checks">
-                     {#if attention.automaticCheck}<span><strong>Automatische Vorprüfung:</strong> {attention.automaticCheck.status === "passed" ? "bestanden" : attention.automaticCheck.status === "failed" ? "nicht bestanden" : "ausstehend"}</span>{/if}
-                     {#if attention.criticalFriendCheck}<span><strong>Begleitende Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
-                   </div>{/if}
-                   <div class="attention-actions">
-                     {#if attention.primaryAction}<button on:click={actOnAttention} disabled={attentionBusy}>{attentionBusy ? "Speichert …" : attention.primaryAction.label}</button>{/if}
-                     <button class="ghost" on:click={discussAttention}>Weiterreden</button>
-                   </div>
-                 </section>
-               {/if}
                {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
               {#if cards.some((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte")}
                 <details class="supporting-traces">

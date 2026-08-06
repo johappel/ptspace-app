@@ -43,3 +43,14 @@ Der lokale Playwright-Design-Harness erfasst reproduzierbar:
 Diese sieben Zustände sind technisch reproduzierbar erfasst, aber nicht automatisch qualitativ abgenommen. DR-03 und DR-07 bleiben für M0 als separate visuelle Prüfpunkte offen.
 
 Der lokale Befehl ist pnpm visual:design; stabile Dateien und die Fixture-Strategie stehen in docs/design/M0-VISUAL-HARNESS.md.
+
+## Dramaturgischer Nachweis für DR-02, DR-04, DR-06 und DR-08
+
+Die vier Zustände werden gegen dieselbe Fokuslogik geprüft:
+
+- DR-02: ruhiger Normalzustand; kein entscheidungsreifer Gegenstand konkurriert mit dem Gespräch.
+- DR-04: genau eine offene Entscheidung liegt als temporäre Fokuslage unmittelbar im Gespräch. Die Seitenebene ist zurückgenommen. Passt, Weiterreden und Später zurückstellen sind sichtbar.
+- DR-06: genau eine Ergebnisprüfung liegt als temporäre Fokuslage unmittelbar im Gespräch; Vorschau und fachliche Handlungen gehören zu diesem einen Gegenstand.
+- DR-08: dieselbe Priorität bleibt bei schmaler Breite erhalten. Die Fokuslage bleibt im Gespräch; sekundäre Bereiche werden nicht einfach als konkurrierender Blockstapel darunter angeordnet.
+
+Ein zusätzlicher Interaktionstest muss Später zurückstellen aus DR-04 oder DR-06 ausführen, die Fokuslage schließen und den Gegenstand erst danach als wiederaufrufbaren Eintrag in der Pinnwand nachweisen.

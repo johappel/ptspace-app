@@ -144,3 +144,16 @@ Das Design-Gate ist erfüllt, wenn:
 - `docs/milestones/REAL-RUNTIME-MVP.md` bindet diese Gates in den aktuellen Meilenstein ein.
 - `REFACTOR-AGENTS.md` verpflichtet Coding-Agenten zur Anwendung.
 - GitHub-Issues dokumentieren Umsetzung, Screenshots, Tests und Abnahme.
+
+## 12. Fokuslage als Zustandsvertrag
+
+Jetzt wichtig ist keine dauerhaft sichtbare Zusatzkarte. Der Vertrag beschreibt die Dramaturgie des Blicks:
+
+Gespräch
+→ ein entscheidungsreifer Gegenstand
+→ temporäre Fokuslage im Gespräch
+→ Passt | Weiterreden | Später zurückstellen
+→ Übernahme oder Gesprächsbezug beziehungsweise bewusste Ablage
+→ Gespräch wieder alleiniger Primärfokus
+
+Das Design-Gate ist verletzt, wenn eine offene Entscheidung oder ein zurückgekehrtes Ergebnis gleichzeitig als gleichgewichtige Seitenkarte neben dem Gespräch steht. Während der Fokuslage werden sekundäre Bereiche zurückgenommen; sie sind nicht der primäre Ort der Entscheidung. Erst Später zurückstellen beziehungsweise eine gleichwertige bewusste Aktion darf den Gegenstand in Sidebar oder Pinnwand ablegen. Der Harness muss diese Zustände und die Rückkehr in den ruhigen Gesprächszustand prüfen, nicht nur Screenshot-Erzeugung.

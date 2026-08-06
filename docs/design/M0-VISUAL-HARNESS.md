@@ -17,7 +17,7 @@ Das Skript startet Backend und Frontend auf den lokalen Ports 4174 und 4173, ver
 | DR-04 Offene Entscheidung, Desktop | dr-04-open-decision-desktop.png |
 | DR-05 Hintergrundarbeit, Desktop | dr-05-background-work-desktop.png |
 | DR-06 Ergebnis zur Prüfung, Desktop | dr-06-result-review-desktop.png |
-| DR-08 Laufendes Gespräch, schmal | dr-08-conversation-narrow.png |
+| DR-08 Fokuslage im Gespräch, schmal | dr-08-conversation-narrow.png |
 | DR-09 Laufendes Gespräch, Reduced Motion | dr-09-reduced-motion.png |
 
 Die Zustände entstehen über die vorhandenen Planungsraum-, Gesprächs-, Guided-Proposal- und Service-Request-APIs. Der Mock-Harness liefert die bekannten Antwort- und Entwurfsdaten. Zeit-Elemente werden im Screenshot maskiert, die Viewports, Sprache, Zeitzone und Farbpräferenz sind festgelegt, Animationen werden beim Screenshot deaktiviert.
@@ -27,3 +27,16 @@ Der kurze Hintergrundarbeitszustand ist in der echten Mock-Ausführung absichtli
 Der Harness prüft zusätzlich sichtbare Kerntexte, den expandierbaren Hintergrundbereich und den Reduced-Motion-Kontext. Er ersetzt nicht die qualitative Prüfung gegen DENKRAUM-DESIGN-CONTRACT.md: Erfolgreiche Screenshot-Erzeugung schließt M0 nicht ab und ändert keine Roadmap-Checkbox.
 
 Die geschlossene Statuszeile und die geöffnete Hintergrundebene werden für DR-05 gegen denselben teacher-facing Arbeitsauftrag geprüft. Damit wird eine veraltete Statusanzeige nicht mehr als stabiler Referenzzustand akzeptiert.
+
+## Dramaturgische Fokusprüfung
+
+Der Harness prüft nicht nur, ob Jetzt wichtig sichtbar ist:
+
+- DR-02 enthält im Normalzustand keine aktive Fokuslage;
+- DR-04 und DR-06 enthalten jeweils genau eine conversation-focus-layer unmittelbar vor dem Gesprächsverlauf;
+- während dieser Fokuslage ist die Sidebar als sekundäre Ebene zurückgenommen und semantisch nicht der Handlungsort;
+- die Fokuslage bietet Passt beziehungsweise die fachliche Freigabe, Weiterreden und Später zurückstellen;
+- nach Später zurückstellen verschwindet die Fokuslage, und erst dann ist der Gegenstand als Später zurückgestellt in der Pinnwand wieder erreichbar;
+- DR-08 prüft dieselbe Fokuslage bei 640 px, statt alle Bereiche nur untereinander zu stapeln.
+
+Erfolgreiche Screenshots bleiben ein technischer Nachweis. Die qualitative Frage ist, ob der Blick dramaturgisch zwischen ruhigem Gespräch, genau einem temporären Fokus und bewusster Ablage wechselt.

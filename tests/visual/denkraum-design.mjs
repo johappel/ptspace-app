@@ -296,7 +296,12 @@ async function run() {
 
     await openSpace(desktopPage, spaces.dr02);
     await assertText(desktopPage, ".conversation-panel", "Critical Friend");
-    await assertText(desktopPage, ".attention-card", "Jetzt wichtig");
+    if ((await desktopPage.locator(".conversation-focus-layer").count()) !== 0) {
+      throw new Error("DR-02 darf im ruhigen Gesprächszustand keine Fokuslage zeigen.");
+    }
+    if ((await desktopPage.locator(".attention-card").count()) !== 0) {
+      throw new Error("DR-02 darf keine dauerhafte Jetzt-wichtig-Karte neben dem Gespräch zeigen.");
+    }
     await capture(desktopPage, "dr-02-conversation-desktop");
     const denkstandSummary = desktopPage.locator(".denkstand-details summary");
     await denkstandSummary.focus();
@@ -307,8 +312,18 @@ async function run() {
     await desktopPage.keyboard.press("Enter");
 
     await openSpace(desktopPage, spaces.dr04);
-    await assertText(desktopPage, ".attention-card", "Welche Erfahrung soll den Einstieg tragen?");
+    await assertText(desktopPage, ".conversation-focus-layer", "Welche Erfahrung soll den Einstieg tragen?");
+    if ((await desktopPage.locator(".conversation-focus-layer").count()) !== 1) {
+      throw new Error("DR-04 muss genau eine temporäre Fokuslage im Gespräch zeigen.");
+    }
+    await assertText(desktopPage, ".conversation-focus-layer", "Weiterreden");
+    await assertText(desktopPage, ".conversation-focus-layer", "Später zurückstellen");
     await capture(desktopPage, "dr-04-open-decision-desktop");
+    await desktopPage.getByRole("button", { name: "Später zurückstellen" }).click();
+    await waitFor("DR-04 Fokus zurückgestellt", async () => (await desktopPage.locator(".conversation-focus-layer").count()) === 0);
+    await assertText(desktopPage, ".pinnwand-deferred", "Später zurückgestellt");
+    await desktopPage.locator(".pinnwand-deferred").click();
+    await waitFor("DR-04 Fokus wieder geöffnet", async () => (await desktopPage.locator(".conversation-focus-layer").count()) === 1);
 
     await openSpace(desktopPage, spaces.dr05);
     await assertText(desktopPage, ".statusbar", "Im Hintergrund");
@@ -319,8 +334,11 @@ async function run() {
     await capture(desktopPage, "dr-05-background-work-desktop");
 
     await openSpace(desktopPage, spaces.dr06);
-    await assertText(desktopPage, ".attention-card", "Ergebnis zur Prüfung");
-    await assertText(desktopPage, ".attention-card", "Entwurf ansehen");
+    await assertText(desktopPage, ".conversation-focus-layer", "Ergebnis zur Prüfung");
+    await assertText(desktopPage, ".conversation-focus-layer", "Entwurf ansehen");
+    if ((await desktopPage.locator(".conversation-focus-layer").count()) !== 1) {
+      throw new Error("DR-06 muss genau eine temporäre Fokuslage im Gespräch zeigen.");
+    }
     await capture(desktopPage, "dr-06-result-review-desktop");
     await desktop.close();
 
@@ -334,8 +352,14 @@ async function run() {
     });
     const narrowPage = await narrow.newPage();
     await waitForApp(narrowPage);
-    await openSpace(narrowPage, spaces.dr02);
-    await assertText(narrowPage, ".conversation-panel", "Gespräch");
+    await openSpace(narrowPage, spaces.dr04);
+    await assertText(narrowPage, ".conversation-focus-layer", "Welche Erfahrung soll den Einstieg tragen?");
+    if ((await narrowPage.locator(".conversation-focus-layer").count()) !== 1) {
+      throw new Error("DR-08 muss die Fokuslage auch bei schmaler Breite im Gespräch halten.");
+    }
+    if ((await narrowPage.locator(".attention-card").count()) !== 0) {
+      throw new Error("DR-08 darf die Fokuslage nicht als zweiten Kartenblock untereinander stapeln.");
+    }
     await capture(narrowPage, "dr-08-conversation-narrow");
     await narrow.close();
 
