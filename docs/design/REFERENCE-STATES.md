@@ -1,6 +1,6 @@
 # Denkraum-Referenzzustände
 
-Stand: 2026-08-04
+Stand: 2026-08-06
 
 Diese Datei dient als Index für die visuellen Referenzzustände des Denkraums. Die tatsächlichen Screenshots oder visuellen Testartefakte werden im Rahmen von M0 und M5 ergänzt.
 
@@ -14,7 +14,7 @@ Diese Datei dient als Index für die visuellen Referenzzustände des Denkraums. 
 | DR-04 | Offene Entscheidung | Zeigt „Jetzt wichtig“ genau einen klaren Fokus? | technisch erfasst, qualitativ offen |
 | DR-05 | Hintergrundarbeit | Bleibt laufende Arbeit als ruhige Statusspur sichtbar statt als Job-Dashboard? | technisch erfasst, qualitativ offen |
 | DR-06 | Ergebnis zur Prüfung | Kehrt das Ergebnis verständlich und prüfbar in denselben Denkraum zurück? | technisch erfasst, qualitativ offen |
-| DR-07 | Lernlandschaft geöffnet | Bleibt die vertiefte Ansicht Teil desselben Produktraums? | offen |
+| DR-07 | Lernlandschaft geöffnet | Bleibt die vertiefte Ansicht Teil desselben Produktraums? | technisch erfasst, qualitativ offen |
 | DR-08 | Schmale Darstellung | Bleiben Gespräch, Fokus und lineare Navigation priorisiert? | offen |
 | DR-09 | Reduced Motion / ohne Illustration | Bleibt die semantische und atmosphärische Qualität ohne Bewegung und Raumillustration erhalten? | offen |
 
@@ -36,11 +36,12 @@ Ein Snapshot gilt nicht allein als gestalterische Abnahme. Er macht Veränderung
 
 Der lokale Playwright-Design-Harness erfasst reproduzierbar:
 
-- DR-01, DR-02, DR-03, DR-04, DR-05 und DR-06 als Desktop-Screenshots;
+- DR-01, DR-02, DR-03, DR-04, DR-05, DR-06 und DR-07 als Desktop-Screenshots;
 - DR-08 als schmale Darstellung mit 640 px Breite;
-- DR-09 mit Reduced Motion und gesetztem App-Schalter.
+- DR-09 mit Reduced Motion und gesetztem App-Schalter;
+- DR-05 zusätzlich als geöffnete vertiefte Hintergrundansicht.
 
-Diese acht Zustände sind technisch reproduzierbar erfasst, aber nicht automatisch qualitativ abgenommen. DR-07 bleibt für M0 als separater visueller Prüfpunkt offen.
+Alle neun Referenzzustände sind damit technisch reproduzierbar erfasst, DR-05 besitzt zusätzlich einen getrennten Detailzustand. Kein Snapshot gilt automatisch als qualitative Abnahme; die Sichtprüfung gegen den Design Contract bleibt offen.
 
 Der lokale Befehl ist pnpm visual:design; stabile Dateien und die Fixture-Strategie stehen in docs/design/M0-VISUAL-HARNESS.md.
 
@@ -62,3 +63,5 @@ Die ruhige Gesprächsansicht zeigt dauerhaft nur Titel, Gespräch, Eingabe, eine
 Die Pinnwand ist im Ruhezustand keine Inhaltsfläche. „Denkstand · N Spuren festgehalten“ öffnet bewusst eine Gedächtnisschicht mit höchstens fünf aktuellen Spuren. Jede Spur benennt ihren fachlichen Typ und ihre Herkunft; „Im Gespräch aufgreifen“ beziehungsweise „Zur Herkunft“ schließt die Ansicht und führt zur markierten Gesprächsstelle zurück. „Alle Spuren“ öffnet die vollständige Historie erst auf ausdrückliche Aktion. Eine zurückgestellte Fokuslage erscheint erst nach „Später zurückstellen“ als wiederaufrufbare Spur.
 
 Hintergrundarbeit wird normal nur einmal als flache Statuszeile projiziert. Die geöffnete Detailansicht enthält die vertiefte teacher-facing Information; dieselbe Arbeit wird nicht zusätzlich als rechte Nebenkarte gerendert. DR-02, DR-03, DR-04, DR-05, DR-06, DR-08 und DR-09 müssen deshalb dieselbe Fokus- und Rückkehrlogik bewahren. Issue #17 bleibt offen, bis die qualitative Sichtprüfung abgeschlossen ist.
+
+Der Harness deckt jetzt auch DR-03 und DR-07 ab und prüft die Rückkehr vom Pinnwand-Eintrag beziehungsweise aus der Lernlandschaft in den Denkraum. DR-05 wird im Normalmodus mit genau einer Statuszeile und nach bewusster Aktivierung als eigenständige Detailansicht erfasst. Die technische Erfassung ist damit für DR-01 bis DR-09 vorhanden. Die qualitative Sichtprüfung gegen den Design Contract bleibt offen; ROADMAP.md wird nicht geändert und Issue #17 bleibt offen.

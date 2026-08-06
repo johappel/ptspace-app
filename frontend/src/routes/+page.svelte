@@ -654,6 +654,14 @@
     return "Gespräch bereit";
   }
 
+  function backgroundWorkTeacherStatus(status: string) {
+    if (status === "wartet_kurz") return "wartet kurz";
+    if (status === "wird_vorbereitet" || status === "in_progress") return "wird vorbereitet";
+    if (status === "liegt_zur_pruefung_bereit" || status === "returned") return "liegt zur Pr\u00fcfung bereit";
+    if (status === "konnte_noch_nicht_erstellt_werden" || status === "failed") return "braucht Aufmerksamkeit";
+    return "bereit";
+  }
+
   function serviceRequestTeacherLabel(request: ServiceRequest) {
     if (request.status === "in_progress" || request.status === "approved") return "wird vorbereitet";
     if (request.status === "returned") return "Ergebnis liegt zur Prüfung vor";
@@ -670,6 +678,7 @@
   }
   function chooseRoomView(view: "conversation" | "landscape" | "timeline" | "board" | "materials" | "knowledge") {
     roomAccessOpen = false;
+    statusDetailsOpen = false;
     if (view === "conversation") {
       roomView = "conversation";
       return;
@@ -681,6 +690,7 @@
   function openPinnwand() {
     pinnwandOpen = true;
     pinnwandHistoryOpen = false;
+    statusDetailsOpen = false;
     roomView = "conversation";
     roomAccessOpen = false;
   }
@@ -1745,20 +1755,31 @@ async function sendMessage() {
             <button on:click={openSettings}>Einstellungen</button>
           </nav>
         {/if}
+        {#if activeSpace && simulatedMode}<button class="runtime-status-access" on:click={openSettings} aria-haspopup="dialog">Vorbereitete Antworten <span>Details</span></button>{/if}
       </div>
     </header>
-    {#if statusDetailsOpen && roomOverview}
-      <section id="background-work" class="status-details" aria-label="Hintergrundarbeit und Verlauf">
-        <div class="workshop-summary"><strong>Im Hintergrund</strong><span>{roomOverview.backgroundWork.filter((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet").length} Vorbereitungen aktiv</span>{#each roomOverview.backgroundWork as work}<span class="workshop-request">{work.title} · {work.status === "wartet_kurz" ? "wartet kurz" : work.status === "wird_vorbereitet" ? "wird vorbereitet" : work.status === "liegt_zur_pruefung_bereit" ? "liegt zur Prüfung bereit" : work.status === "konnte_noch_nicht_erstellt_werden" ? "braucht Aufmerksamkeit" : "bereit"}</span>{/each}</div>
-        <div class="workshop-summary"><strong>Zuletzt festgehalten</strong>{#each roomOverview.activity.slice(0, 3) as activity}<span>{activity.label}</span>{/each}</div>
-        <button class="workshop-board-link" on:click={() => chooseRoomView("board")}>Vorbereitungen und Planungsboard öffnen <ArrowRight size={14} /></button>
-      </section>
-    {/if}
-
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 
     {#if activeSpace}
-      <section class:attention-is-focused={attentionFocused} class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
+      {#if statusDetailsOpen && roomOverview}
+        <section id="background-work" class="background-work-view" aria-label="Im Hintergrund">
+          <header class="background-work-heading">
+            <div><span>Vertiefte Arbeitsansicht</span><h2>Im Hintergrund</h2><p>Die Vorbereitung bleibt an das Gespr&auml;ch gebunden. Hier kannst du ihren Stand in Ruhe ansehen und anschlie&szlig;end in denselben Denkraum zur&uuml;ckkehren.</p></div>
+          </header>
+          <div class="background-work-list" aria-label="Vorbereitungen">
+            {#each roomOverview.backgroundWork as work}
+              <article class="background-work-item">
+                <div><span>Aus dem Gespr&auml;ch</span><h3>{work.title}</h3><p>Ein fachlicher Arbeitsauftrag wird f&uuml;r den n&auml;chsten Gespr&auml;chsschritt vorbereitet.</p></div>
+                <strong>{backgroundWorkTeacherStatus(work.status)}</strong>
+              </article>
+            {:else}
+              <p class="background-work-empty">Im Hintergrund ist gerade keine Vorbereitung sichtbar.</p>
+            {/each}
+          </div>
+          <div class="background-work-actions"><button on:click={() => chooseRoomView("board")}><ArrowRight size={15} /> Vorbereitungen ansehen</button><button class="ghost" on:click={() => (statusDetailsOpen = false)}>Im Gespr&auml;ch weiterdenken</button></div>
+        </section>
+      {:else}
+      <section class:attention-is-focused={attentionFocused} class:pinnwand-open={pinnwandOpen} class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
         <section class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum">
           <div class="conversation-heading">
             <MessageSquareText size={18} />
@@ -1768,7 +1789,7 @@ async function sendMessage() {
                 <summary>Ansicht</summary>
                 <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
               </details>
-              {#if pinnwandOpen}<button class="quiet-button" on:click={closePinnwand}>Pinnwand schließen</button>{/if}
+
             </div>
           </div>
           {#if roomOverview && attentionFocused}
@@ -1790,7 +1811,6 @@ async function sendMessage() {
             </section>
           {/if}
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
-            {#if simulatedMode}<p class="conversation-status simulated" role="status">Dieser Raum arbeitet gerade mit vorbereiteten Antworten. Deine Planung bleibt erhalten.</p>{/if}
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
             {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
             {#if renderedMessages.length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
@@ -1940,7 +1960,8 @@ async function sendMessage() {
           {/if}
         </aside>
       </section>
-      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong></button>{/if}
+    {/if}
+      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>{statusDetailsOpen ? "Zur&uuml;ck im Gespr&auml;ch" : "Im Hintergrund"}</span><strong>{statusDetailsOpen ? "Gespr&auml;ch &ouml;ffnen" : backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong></button>{/if}
     {:else}
       <section class="empty-state"><MessageSquareText size={34} /><h2>Lege einen Planungsraum an.</h2><p>Der erste Umsetzungsschnitt arbeitet mit einer geschützten Backend-Grenze und einem simulierten Gegenüber.</p></section>
     {/if}
@@ -2234,12 +2255,12 @@ async function sendMessage() {
   {#if planningModal && learningLandscape}
     <div class="planning-overlay" role="presentation" on:click={() => (planningModal = false)}>
       <dialog class="planning-modal" open aria-label="Unterrichtsplanung" on:click|stopPropagation>
-        <header class="planning-modal-header"><div><span>Unterrichtsplanung</span><h2>{learningLandscape.title}</h2></div><button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schließen"><X size={20} /></button></header>
+        <header class="planning-modal-header"><div class="planning-modal-context"><span>Unterrichtsplanung &middot; aus dem Denkraum</span><h2>{learningLandscape.title}</h2><p>Die Lernlandschaft bleibt mit dem Gespr&auml;ch und diesem Planungsraum verbunden.</p></div><div class="planning-modal-actions"><button class="planning-return" on:click={() => { planningModal = false; roomView = "conversation"; }}>Zur&uuml;ck ins Gespr&auml;ch</button><button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schlie&szlig;en"><X size={20} /></button></div></header>
         <nav class="planning-tabs" aria-label="Planungsansichten"><button role="tab" aria-selected={planningTab === "landscape"} class:active={planningTab === "landscape"} on:click={() => (planningTab = "landscape")}>Lernlandschaft</button><button role="tab" aria-selected={planningTab === "board"} class:active={planningTab === "board"} on:click={() => (planningTab = "board")}>Planungsboard</button></nav>
         <section class="planning-modal-content">
           {#if planningTab === "landscape"}
             <div class="modal-landscape-toolbar"><div><strong>Lernlandschaft</strong><span>Canvas und lineare Lesansicht greifen auf dieselbe Landschaft zu.</span></div><div class="title-actions"><button class="add-moment-button" on:click={() => (landscapeMode = "canvas")}><MapIcon size={14} /> Raumansicht</button><button class="add-moment-button" on:click={() => (landscapeMode = "linear")}><List size={14} /> Linear lesen</button><button class="add-moment-button ghost-action" on:click={() => openGroupForm()}><Layers size={14} /> Fläche hinzufügen</button><button class="add-moment-button ghost-action" on:click={resetLandscapeLayout}><RotateCcw size={14} /> Layout zurücksetzen</button></div></div>
-            {#if landscapeMode === "canvas"}<div class="modal-flow-canvas flow-canvas" role="application" aria-label="Lernlandschaft im Canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div>{:else}<div class="modal-linear-note"><List size={24} /><h3>Lineare Lesansicht</h3><p>Die vollständige lineare Darstellung ist im Planungsraum verfügbar. Sie bleibt aus derselben Lernlandschaft abgeleitet und zeigt Wahl- und Parallelwege ausdrücklich.</p><button on:click={() => { planningModal = false; roomView = "landscape"; }}>Lineare Lesansicht öffnen</button></div>{/if}
+            {#if landscapeMode === "canvas"}<div class="modal-flow-canvas flow-canvas" role="application" aria-label="Lernlandschaft im Canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div>{:else}<div class="linear-landscape modal-linear-landscape" aria-label="Lineare Lesansicht der Lernlandschaft"><p class="linear-landscape-intro">Diese Lesansicht nutzt dieselben Lernmomente und &Uuml;berg&auml;nge wie die Raumansicht. Beide Darstellungen bleiben gleichwertig erreichbar.</p>{#each linearMoments() as moment, index}<article class="linear-moment"><div class="linear-moment-index" aria-hidden="true">{index + 1}</div><div class="linear-moment-content"><span class="learning-moment-kind">{momentKindLabels[moment.kind] ?? moment.kind}</span><h3>{moment.title}</h3><p>{moment.didacticPurpose || "Didaktische Funktion noch offen"}</p>{#if moment.learningActivity}<small><strong>Lernaktivit&auml;t:</strong> {moment.learningActivity}</small>{/if}{#if landscapeGroups.some((group) => group.memberIds.includes(moment.id))}<div class="linear-groups">{#each landscapeGroups.filter((group) => group.memberIds.includes(moment.id)) as group}<span>{landscapeGroupKindLabels[group.kind]}: {group.title}</span>{/each}</div>{/if}<div class="linear-moment-actions"><button on:click={() => openMomentDetail(moment.id)}>Lernmoment &ouml;ffnen</button>{#each transitionsFrom(moment.id) as transition}<span class="linear-transition"><strong>{transitionKindLabels[transition.kind]}</strong> &rarr; {momentTitle(transition.to)}</span>{/each}</div></div></article>{/each}</div>{/if}
           {:else}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard?.items.filter((item) => item.column === column.id) ?? [] as item}<button class="board-card" on:click={() => { planningModal = false; boardDetail = item; }}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>{/if}
         </section>
       </dialog>

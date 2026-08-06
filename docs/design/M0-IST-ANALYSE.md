@@ -1,6 +1,6 @@
 # M0 Ist-Analyse und Umsetzungspaket
 
-Stand: 2026-08-04
+Stand: 2026-08-06
 Issue: [#17 – M0: Denkraum-Design absichern – ausdrücklich kein Dashboard](https://github.com/johappel/ptspace-app/issues/17)
 
 ## Prüfgrundlage und Einschränkung
@@ -45,11 +45,11 @@ Haupt- und Detailansichten teilen Farben, Serifentypografie, Fokusoutline und we
 |---|---|---|
 | DR-01 Neuer Planungsraum | teilweise überzeugend, nicht visuell abgenommen | Modal und Empty-State sind pädagogisch formuliert; tatsächlicher erster Eindruck ohne Browser-Screenshot nicht belegbar. |
 | DR-02 Laufendes Gespräch | verbessert, nicht visuell abgenommen | Gespräch erhält nach dem Paket mehr Breite; rechter Bereich bleibt sekundär, aber Browserprüfung fehlt. |
-| DR-03 Festgehaltener Gedanke | teilweise überzeugend | Marker und Rücksprung sind im Code vorhanden; Pinnwandwirkung und Ursprungskontext sind nicht visuell geprüft. |
+| DR-03 Festgehaltener Gedanke | technisch erfasst, qualitativ offen | Marker, breite geöffnete Gedächtnisschicht und Rücksprung sind im Code und im Harness vorhanden; die qualitative Wirkung ist nicht im Browser geprüft. |
 | DR-04 Offene Entscheidung | verbessert, nicht visuell abgenommen | Eine `attentionCard` bleibt sichtbar; weitere Entscheidungslisten liegen nun hinter „Weitere Gesprächsspuren“. |
-| DR-05 Hintergrundarbeit | teilweise überzeugend | Flache Statusleiste und teacher-facing Statusmapping sind vorhanden; Detailbereich und Board-Rücksprung sind nur statisch geprüft. |
+| DR-05 Hintergrundarbeit | technisch erfasst, qualitativ offen | Der Normalmodus projiziert nur eine Statuszeile; die bewusste Öffnung ersetzt die Gesprächsprojektion durch eine vertiefte Ansicht ohne Fokuskarte. Die qualitative Trennung ist nicht im Browser geprüft. |
 | DR-06 Ergebnis zur Prüfung | teilweise überzeugend | Ergebnisvorschau, Prüfung und Rücksprunglogik sind vorhanden; kein Browsernachweis für denselben Denkraum. |
-| DR-07 Lernlandschaft geöffnet | teilweise überzeugend | Canvas und lineare Ansicht existieren und haben Rückkehrlogik; Canvas- und Detailmaterialität sind nicht visuell abgenommen. |
+| DR-07 Lernlandschaft geöffnet | technisch erfasst, qualitativ offen | Das deterministische Fixture prüft Planungsraum-Kontext, Herkunft, Rückkehr sowie Canvas und lineare Ansicht; die Materialität ist nicht im Browser abgenommen. |
 | DR-08 Schmale Darstellung | code-seitig vorbereitet, nicht prüfbar | Responsive Breakpoints, lineare Ansicht und Fokusregeln sind vorhanden; keine Browserverbindung für schmale Breite. |
 | DR-09 Reduced Motion / ohne Illustration | code-seitig vorbereitet, nicht prüfbar | `prefers-reduced-motion`, App-Schalter und lineare Navigation existieren; semantische Gleichwertigkeit wurde nicht im Browser gesmokt. |
 
@@ -82,11 +82,11 @@ Haupt- und Detailansichten teilen Farben, Serifentypografie, Fokusoutline und we
 Dieser historische nächste Schritt wurde durch den repository-eigenen Playwright-Nachweis umgesetzt. Die verbleibende manuelle qualitative Prüfung ist in der Aktualisierung unten ausdrücklich getrennt dokumentiert.
 ## Aktualisierung nach dem Playwright-Nachweis
 
-Der repository-eigene Playwright-Design-Harness ist inzwischen lokal ausführbar und erzeugt sieben stabile Screenshots. Er prüft außerdem die zentralen teacher-facing Texte, DR-05 als laufende Hintergrundarbeit sowie den Reduced-Motion-Kontext. Die frühere Einschränkung zur fehlenden interaktiven Browserverbindung bleibt für eine manuelle qualitative Sichtprüfung bestehen; sie ist kein Grund, den technischen Nachweis zu verwerfen.
+Der repository-eigene Playwright-Design-Harness ist inzwischen lokal ausführbar und erzeugt stabile Referenzbilder für DR-01 bis DR-09 sowie einen getrennten Detailzustand für DR-05. Er prüft außerdem die zentralen teacher-facing Texte, DR-05 als laufende Hintergrundarbeit, DR-07 als deterministisches Fixture sowie den Reduced-Motion-Kontext. Die frühere Einschränkung zur fehlenden interaktiven Browserverbindung bleibt für eine manuelle qualitative Sichtprüfung bestehen; sie ist kein Grund, den technischen Nachweis zu verwerfen.
 
 Die geschlossene DR-05-Statuszeile verwendet jetzt denselben geladenen Arbeitsauftrag wie die geöffnete Hintergrundebene. Dadurch werden Statuszeile und Detailprojektion nicht mehr auseinanderlaufen, wenn die Projektion aus dem Service-Request geladen wird.
 
-Die sieben Harness-Zustände sind damit technisch reproduzierbar erfasst. M0 bleibt offen, bis die qualitative Prüfung gegen den Design Contract und die noch nicht im Harness enthaltenen Referenzzustände DR-03 und DR-07 abgearbeitet sind.
+Die neun Referenzzustände sind damit technisch reproduzierbar erfasst; DR-05 besitzt zusätzlich einen getrennten Detailzustand. M0 bleibt offen, bis die qualitative Prüfung gegen den Design Contract abgeschlossen ist.
 
 ## Aktualisierung nach dem qualitativen Review vom 2026-08-04
 
@@ -111,4 +111,4 @@ Die qualitative Nacharbeit konzentrierte sich auf drei eng begrenzte Punkte aus 
 - Hintergrundarbeit wird nur noch als eine flache Statuszeile projiziert. Die Detailansicht wird bewusst geöffnet und enthält keine parallele rechte Arbeitskarte. Technische Worker-, Queue-, Harness- und Runtime-Begriffe bleiben unsichtbar.
 - Die Pinnwand ist eine temporär geöffnete Gedächtnisschicht. Im Ruhezustand bleibt nur „Denkstand · N Spuren festgehalten“ sichtbar. Beim Festhalten wird genau ein neuer Eintrag kurz angekündigt; die geöffnete Ansicht zeigt maximal fünf kuratierte Spuren, Herkunft und Rücksprung. Erst „Später zurückstellen“ legt eine Fokuslage wiederaufrufbar ab.
 
-Der Harness deckt jetzt auch DR-03 ab und prüft die Rückkehr vom Pinnwand-Eintrag zur hervorgehobenen Gesprächsstelle. Die technische Erfassung ist damit für DR-01 bis DR-06, DR-08 und DR-09 vorhanden. DR-07 sowie die qualitative Sichtprüfung gegen den Design Contract bleiben offen. ROADMAP.md wird nicht geändert; Issue #17 bleibt offen.
+Der Harness deckt jetzt auch DR-03 und DR-07 ab und prüft die Rückkehr vom Pinnwand-Eintrag beziehungsweise aus der Lernlandschaft in den Denkraum. DR-05 wird im Normalmodus und als bewusste Detailansicht geprüft. Die technische Erfassung ist damit für DR-01 bis DR-09 vorhanden. Die qualitative Sichtprüfung gegen den Design Contract bleibt offen. ROADMAP.md wird nicht geändert; Issue #17 bleibt offen.

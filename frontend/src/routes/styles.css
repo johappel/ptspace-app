@@ -950,3 +950,67 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 
 .pinnwand-drawer-actions { position: relative; display: flex; align-items: center; gap: .35rem; margin-left: auto; }
 .pinnwand-drawer-actions .export-menu { right: 0; left: auto; }
+
+/* Qualitative M0-Nacharbeit: ein Modus fuer Hintergrundarbeit, eine raeumliche Gedachtnisschicht. */
+.runtime-status-access { border: 0; border-bottom: 1px solid rgba(95, 154, 134, .28); padding: .25rem .1rem; background: transparent; color: var(--dr-muted); font-size: .68rem; font-weight: 750; }
+.runtime-status-access:hover { color: var(--dr-ink); border-color: var(--dr-focus); }
+.runtime-status-access span { margin-left: .28rem; color: var(--dr-focus); font-weight: 800; }
+.background-work-view { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 1.5rem; padding: clamp(1.4rem, 4vw, 3.4rem) clamp(1rem, 7vw, 7rem) 1.4rem; overflow: auto; background: linear-gradient(135deg, rgba(255,255,252,.8), rgba(239,248,240,.58)); border: 1px solid var(--dr-line); border-radius: var(--dr-radius); box-shadow: var(--dr-shadow); }
+.background-work-heading { max-width: 48rem; padding-bottom: 1rem; border-bottom: 1px solid var(--dr-line); }
+.background-work-heading span, .background-work-item span { color: #4f806e; font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.background-work-heading h2 { margin: .25rem 0 .4rem; color: var(--dr-ink); font-family: "Source Serif 4", Georgia, "Times New Roman", ui-serif, serif; font-size: clamp(1.6rem, 3vw, 2.35rem); }
+.background-work-heading p, .background-work-item p { max-width: 42rem; margin: 0; color: var(--dr-muted); line-height: 1.55; }
+.background-work-list { display: grid; gap: .85rem; max-width: 58rem; }
+.background-work-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding: 1rem 1.15rem; border-top: 1px solid var(--dr-line); background: rgba(255,255,252,.52); }
+.background-work-item h3 { margin: .25rem 0 .35rem; color: var(--dr-ink); font-family: "Source Serif 4", Georgia, "Times New Roman", ui-serif, serif; font-size: 1.1rem; }
+.background-work-item strong { flex: 0 0 auto; color: #31594f; font-size: .76rem; font-weight: 800; }
+.background-work-empty { color: var(--dr-muted); }
+.background-work-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: auto; }
+.background-work-actions button { display: inline-flex; align-items: center; gap: .4rem; min-height: 2.35rem; border: 1px solid #afcac0; border-radius: .45rem; padding: .55rem .75rem; background: #fffef9; color: #164940; font-size: .76rem; font-weight: 750; }
+.background-work-actions button:hover { background: #eef6ef; }
+.background-work-actions button.ghost { border-color: transparent; background: transparent; color: var(--dr-muted); }
+
+/* DR-03: geoeffnete Pinnwand als breite, temporaere Ebene mit sichtbarer Herkunft. */
+.workspace-grid:has(.pinnwand-drawer) { grid-template-columns: minmax(0, 1fr) 0 minmax(360px, min(40vw, 560px)); }
+.workspace-grid:has(.pinnwand-drawer) .resize-handle { display: none; }
+.workspace-grid:has(.pinnwand-drawer) .conversation-panel { position: relative; z-index: 1; pointer-events: none; opacity: .76; filter: saturate(.82); }
+.perspective-panel:has(.pinnwand-drawer), .workspace-grid.pinnwand-open .perspective-panel { grid-column: 3; position: relative; z-index: 2; padding: 0; overflow: hidden; border: 0; background: transparent; }
+.pinnwand-drawer { position: relative; z-index: 3; gap: 1.35rem; padding: clamp(1.15rem, 2.4vw, 2rem) clamp(1.1rem, 2.6vw, 2.2rem) 1.6rem; border-left: 1px solid rgba(57, 91, 80, .2); background: linear-gradient(135deg, rgba(247,251,247,.88), rgba(255,253,247,.96)); box-shadow: -18px 0 42px rgba(37,72,65,.09); }
+.pinnwand-drawer-heading { min-width: 0; align-items: flex-start; padding-bottom: 1rem; }
+.pinnwand-drawer-heading > div:first-child { min-width: 0; }
+.pinnwand-drawer-heading h2 { font-size: clamp(1.45rem, 2.3vw, 1.9rem); }
+.pinnwand-drawer-heading p { max-width: none; font-size: .78rem; }
+.pinnwand-drawer-actions { flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
+.pinnwand-drawer-actions .quiet-button { white-space: nowrap; }
+.pinnwand-trace { gap: .7rem; padding: 1rem 0; }
+.pinnwand-trace-content { gap: .3rem; }
+.pinnwand-trace-content strong { font-size: 1rem; line-height: 1.35; }
+.pinnwand-trace-content small { line-height: 1.4; }
+.pinnwand-trace-actions { gap: .45rem; }
+.pinnwand-trace-actions button, .pinnwand-history-button { min-height: 2.15rem; padding: .45rem .6rem; line-height: 1.25; }
+
+.workspace-grid.pinnwand-open { grid-template-columns: minmax(0, 1fr) 0 minmax(360px, 42vw); }
+
+/* DR-07: dieselbe Typografie und Herkunft auch in der vertieften Lernlandschaft. */
+.planning-modal-context { min-width: 0; }
+.planning-modal-context p { margin: .35rem 0 0; color: #657b76; font-size: .76rem; line-height: 1.4; }
+.planning-modal-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .45rem; }
+.planning-return { border: 1px solid #afcac0; border-radius: .45rem; padding: .5rem .65rem; background: #fffef9; color: #164940; font-size: .74rem; font-weight: 750; }
+.planning-return:hover { background: #eef6ef; }
+.modal-linear-landscape { max-width: 58rem; margin: 0 auto; padding: 1.2rem clamp(1rem, 3vw, 2rem) 2rem; overflow: auto; }
+.modal-linear-landscape .linear-landscape-intro { margin-bottom: 1rem; }
+@media (max-width: 980px) {
+  .background-work-view { border-radius: .7rem; padding: 1.2rem 1rem; }
+  .workspace-grid:has(.pinnwand-drawer) { grid-template-columns: 1fr; }
+  .workspace-grid:has(.pinnwand-drawer) .conversation-panel { opacity: .72; }
+  .pinnwand-drawer { height: auto; min-height: 0; border-left: 0; border-top: 1px solid rgba(57, 91, 80, .2); }
+  .planning-modal-actions { justify-content: flex-start; }
+}
+@media (max-width: 620px) {
+  .background-work-item { display: grid; gap: .65rem; }
+  .pinnwand-drawer-heading { display: grid; grid-template-columns: 1fr auto; }
+  .pinnwand-drawer-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .planning-modal-header { align-items: flex-start; }
+  .planning-modal-actions { display: grid; grid-template-columns: 1fr auto; width: 100%; }
+  .planning-return { justify-self: start; }
+}

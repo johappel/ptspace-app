@@ -182,6 +182,37 @@ async function seedStates() {
   const dr06Request = await proposeStudentInstruction(dr06, "Der Entwurf soll als Gesprächsgegenstand zurückkehren und fachlich geprüft werden.");
   await api("/api/planning-spaces/" + dr06.id + "/service-requests/" + dr06Request.id + "/approve", { method: "POST", body: "{}" });
   await shapeRequestProjection(dr06, dr06Request, "returned", "Ergebnis zur Prüfung");
+  const dr07 = await createSpace(
+    "dr07",
+    "Lernlandschaft Verantwortung",
+    "Eine Lernlandschaft soll den gemeinsamen Weg von Erfahrung zu begruendeter Handlung sichtbar machen."
+  );
+  await addConversation(dr07, "Wir moechten den Weg von einer eigenen Erfahrung ueber gemeinsames Deuten zu einer begruendeten Handlung planen.");
+  await api("/api/planning-spaces/" + dr07.id + "/learning-landscape", {
+    method: "PUT",
+    body: JSON.stringify({
+      schema: "ptspace.learning-landscape/v1",
+      title: "Von Erfahrung zu begruendeter Handlung",
+      structure: "hybrid",
+      moments: [
+        { id: "lm-erfahrung", title: "Eigene Erfahrung wahrnehmen", kind: "impulse", didacticPurpose: "Einen gemeinsamen Ausgangspunkt finden.", learningActivity: "Stille Notiz und kurzer Austausch", expectedExperience: "Die Lernenden erkennen unterschiedliche Ausgangslagen.", materialNeeds: [], materialIds: [], openQuestions: [], status: "draft" },
+        { id: "lm-deuten", title: "Perspektiven gemeinsam deuten", kind: "inquiry", didacticPurpose: "Erfahrungen in einen fachlichen Zusammenhang bringen.", learningActivity: "Vergleich und Gespraech", expectedExperience: "Die Lernenden pruefen mehrere Deutungen.", materialNeeds: [], materialIds: [], openQuestions: [], status: "draft" },
+        { id: "lm-handeln", title: "Eine begruendete Handlung skizzieren", kind: "reflection", didacticPurpose: "Eine tragfaehige Konsequenz formulieren.", learningActivity: "Vereinbarung und Ausblick", expectedExperience: "Die Lernenden begruenden einen naechsten Schritt.", materialNeeds: [], materialIds: [], openQuestions: [], status: "draft" }
+      ],
+      transitions: [
+        { id: "tr-erfahrung-deuten", from: "lm-erfahrung", to: "lm-deuten", kind: "required", rationale: "Die Deutung knuepft an die wahrgenommene Erfahrung an." },
+        { id: "tr-deuten-handeln", from: "lm-deuten", to: "lm-handeln", kind: "choice", rationale: "Aus mehreren Deutungen entsteht ein begruendeter Ausblick." }
+      ]
+    })
+  });
+  await api("/api/planning-spaces/" + dr07.id + "/learning-landscape-layout", {
+    method: "PUT",
+    body: JSON.stringify({
+      nodes: [{ id: "lm-erfahrung", x: 70, y: 170 }, { id: "lm-deuten", x: 410, y: 170 }, { id: "lm-handeln", x: 750, y: 170 }],
+      groups: [],
+      viewport: { x: 0, y: 0, zoom: 0.92 }
+    })
+  });
 }
 
 async function shapeRequestProjection(space, request, status, title) {
@@ -348,7 +379,7 @@ async function run() {
       throw new Error("Der gemeinsame Denkstand ist per Tastatur nicht zu öffnen.");
     }
     await desktopPage.keyboard.press("Enter");
-    await desktopPage.getByRole("button", { name: "Pinnwand schließen" }).click();
+    await desktopPage.locator(".pinnwand-drawer-heading > .quiet-button").click();
 
     await openSpace(desktopPage, spaces.dr04);
     await assertText(desktopPage, ".conversation-focus-layer", "Welche Erfahrung soll den Einstieg tragen?");
@@ -369,10 +400,18 @@ async function run() {
     await openSpace(desktopPage, spaces.dr05);
     await assertText(desktopPage, ".statusbar", "Im Hintergrund");
     await assertText(desktopPage, ".statusbar", "Arbeitsauftrag als Entwurf vorbereiten wird vorbereitet");
+    if ((await desktopPage.locator(".status-details").count()) !== 0 || (await desktopPage.locator(".background-work-view").count()) !== 0) {
+      throw new Error("DR-05 darf im normalen Gespraechsmodus keine breite Hintergrunduebersicht zeigen.");
+    }
+    await capture(desktopPage, "dr-05-background-work-desktop");
     await desktopPage.locator("button.statusbar").focus();
     await desktopPage.keyboard.press("Enter");
-    await assertText(desktopPage, "#background-work", "Arbeitsauftrag als Entwurf vorbereiten");
-    await capture(desktopPage, "dr-05-background-work-desktop");
+    await waitFor("DR-05 vertiefte Hintergrundansicht", async () => (await desktopPage.locator(".background-work-view").count()) === 1);
+    await assertText(desktopPage, ".background-work-view", "Arbeitsauftrag als Entwurf vorbereiten");
+    if ((await desktopPage.locator(".conversation-panel").count()) !== 0 || (await desktopPage.locator(".conversation-focus-layer").count()) !== 0) {
+      throw new Error("DR-05 darf in der vertieften Arbeitsansicht keine parallele Gespraechs- oder Fokusprojektion zeigen.");
+    }
+    await capture(desktopPage, "dr-05-background-work-open-desktop");
 
     await openSpace(desktopPage, spaces.dr06);
     await assertText(desktopPage, ".conversation-focus-layer", "Ergebnis zur Prüfung");
@@ -381,6 +420,26 @@ async function run() {
       throw new Error("DR-06 muss genau eine temporäre Fokuslage im Gespräch zeigen.");
     }
     await capture(desktopPage, "dr-06-result-review-desktop");
+    await openSpace(desktopPage, spaces.dr07);
+    await desktopPage.locator(".room-access-toggle").click();
+    await desktopPage.locator(".room-nav button").filter({ hasText: "Unterrichtsplanung" }).dispatchEvent("click");
+    await waitFor("DR-07 Lernlandschaft geoeffnet", async () => (await desktopPage.locator(".planning-modal").count()) === 1);
+    await assertText(desktopPage, ".planning-modal", "Von Erfahrung zu begruendeter Handlung");
+    await assertText(desktopPage, ".planning-modal", "aus dem Denkraum");
+    if ((await desktopPage.locator(".planning-return").count()) !== 1) { throw new Error("DR-07 muss eine eindeutige Rueckkehr in den Denkraum anbieten."); }
+    await desktopPage.getByRole("button", { name: "Raumansicht" }).click();
+    await waitFor("DR-07 Canvasansicht", async () => (await desktopPage.locator(".modal-flow-canvas").count()) === 1);
+    await capture(desktopPage, "dr-07-learning-landscape-desktop");
+    await desktopPage.getByRole("button", { name: "Linear lesen" }).click();
+    await waitFor("DR-07 lineare Lesansicht", async () => (await desktopPage.locator(".modal-linear-landscape").count()) === 1);
+    if ((await desktopPage.locator(".modal-linear-landscape .linear-moment").count()) !== 3) {
+      throw new Error("DR-07 muss dieselben drei Lernmomente linear erreichbar machen.");
+    }
+    await desktopPage.locator(".planning-return").click();
+    await waitFor("DR-07 Rueckkehr in den Denkraum", async () => (await desktopPage.locator(".planning-modal").count()) === 0);
+    if ((await desktopPage.locator(".conversation-panel").count()) !== 1) {
+      throw new Error("DR-07 muss eindeutig in den bestehenden Denkraum zurueckkehren.");
+    }
     await desktop.close();
 
     const narrow = await browser.newContext({

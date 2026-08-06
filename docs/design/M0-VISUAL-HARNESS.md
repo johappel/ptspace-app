@@ -16,8 +16,10 @@ Das Skript startet Backend und Frontend auf den lokalen Ports 4174 und 4173, ver
 | DR-02 Laufendes Gespräch, Desktop | dr-02-conversation-desktop.png |
 | DR-03 Festgehaltener Gedanke, Desktop | dr-03-captured-thought-desktop.png |
 | DR-04 Offene Entscheidung, Desktop | dr-04-open-decision-desktop.png |
-| DR-05 Hintergrundarbeit, Desktop | dr-05-background-work-desktop.png |
+| DR-05 Hintergrundarbeit, Desktop, Normalmodus | dr-05-background-work-desktop.png |
+| DR-05 Hintergrundarbeit, geöffnete Detailansicht | dr-05-background-work-open-desktop.png |
 | DR-06 Ergebnis zur Prüfung, Desktop | dr-06-result-review-desktop.png |
+| DR-07 Lernlandschaft, Desktop | dr-07-learning-landscape-desktop.png |
 | DR-08 Fokuslage im Gespräch, schmal | dr-08-conversation-narrow.png |
 | DR-09 Laufendes Gespräch, Reduced Motion | dr-09-reduced-motion.png |
 
@@ -27,7 +29,7 @@ Der kurze Hintergrundarbeitszustand ist in der echten Mock-Ausführung absichtli
 
 Der Harness prüft zusätzlich sichtbare Kerntexte, den expandierbaren Hintergrundbereich und den Reduced-Motion-Kontext. Er ersetzt nicht die qualitative Prüfung gegen DENKRAUM-DESIGN-CONTRACT.md: Erfolgreiche Screenshot-Erzeugung schließt M0 nicht ab und ändert keine Roadmap-Checkbox.
 
-Die geschlossene Statuszeile und die geöffnete Hintergrundebene werden für DR-05 gegen denselben teacher-facing Arbeitsauftrag geprüft. Damit wird eine veraltete Statusanzeige nicht mehr als stabiler Referenzzustand akzeptiert.
+Die geschlossene Statuszeile und die geöffnete Hintergrundebene werden für DR-05 gegen denselben teacher-facing Arbeitsauftrag geprüft. Im Normalmodus darf keine breite Hintergrundübersicht zusätzlich zum Gespräch erscheinen; nach Aktivierung tritt das Gespräch zurück und die Fokuslage wird nicht wiederholt. Damit wird eine veraltete Mehrfachprojektion nicht mehr als stabiler Referenzzustand akzeptiert.
 
 ## Dramaturgische Fokusprüfung
 
@@ -45,3 +47,9 @@ Erfolgreiche Screenshots bleiben ein technischer Nachweis. Die qualitative Frage
 ## Nachweis der Pinnwand-Gedächtnisschicht
 
 DR-03 legt im isolierten Harness einen Gesprächsmarker an. Der Normalzustand prüft den kompakten Zugang ohne permanente Pinnwandkarte. Nach bewusstem Öffnen werden Herkunft, Typ und genau eine aktuelle Spur geprüft; anschließend führt „Im Gespräch aufgreifen“ zurück zur hervorgehobenen Gesprächsstelle. Die Darstellung zeigt höchstens fünf aktuelle Spuren; eine vollständige Historie ist nur als bewusste Aktion vorgesehen.
+
+## Nachweis der geöffneten Lernlandschaft
+
+DR-07 verwendet ein deterministisches Fixture mit drei Lernmomenten und zwei Übergängen. Der Referenzzustand prüft den Planungsraum-Kontext, die sichtbare Herkunft „aus dem Denkraum“, die eindeutige Rückkehr, die Raumansicht als Canvas sowie die gleichwertige lineare Lesansicht. Node-, Graph-, Schema- und Runtimebegriffe sind kein Bestandteil der teacher-facing Referenztexte.
+
+Die Zustände sind technisch erfasst, aber nicht qualitativ im Browser abgenommen. Die Screenshots ersetzen diese Sichtprüfung nicht.
