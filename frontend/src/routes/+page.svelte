@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
+  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, Settings, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
   import { api, type ConversationMarker, type ConversationMessage, type ExportApproval, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow, type Connection, type Edge, type Node, type NodeTypes } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
@@ -96,10 +96,14 @@
   let expandedMaterialId = "";
   let roomAccessOpen = false;
   let pinnwandOpen = false;
+  let pinnwandHistoryOpen = false;
+  let recentMarkerId = "";
+  let recentMarkerTimer: number | null = null;
   let deferredAttentionId = "";
   let continuedAttentionId = "";
   let attentionFocused = false;
   let attentionDeferred = false;
+  let visiblePinnwandMarkers: ConversationMarker[] = [];
   let focusRegionElement: HTMLElement | null = null;
   let messageFilter: "all" | "captured" | "decisions" | "work" = "all";
   let highlightedMessageId = "";
@@ -189,6 +193,8 @@
     roomView = "conversation";
     roomAccessOpen = false;
     pinnwandOpen = false;
+    pinnwandHistoryOpen = false;
+    recentMarkerId = "";
     deferredAttentionId = "";
     continuedAttentionId = "";
     statusDetailsOpen = false;
@@ -261,6 +267,7 @@
       if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
       roomAccessOpen = false;
       pinnwandOpen = false;
+      pinnwandHistoryOpen = false;
       messageFilter = "all";
       highlightedMessageId = "";
       markerReturnMessageId = "";
@@ -396,6 +403,7 @@
     deferredAttentionId = "";
     continuedAttentionId = "";
     localStorage.removeItem(deferredAttentionStorageKey(activeSpace.id));
+    closePinnwand();
     await tick();
     focusRegionElement?.focus();
   }
@@ -571,6 +579,9 @@
         label: markerLabel.trim() || markerKindLabel(markerKind)
       });
       roomOverview = roomOverview ? { ...roomOverview, conversationMarkers: [...roomOverview.conversationMarkers, result.marker] } : await api.getRoomOverview(activeSpace.id);
+      recentMarkerId = result.marker.id;
+      if (recentMarkerTimer !== null) window.clearTimeout(recentMarkerTimer);
+      recentMarkerTimer = window.setTimeout(() => { recentMarkerId = ""; recentMarkerTimer = null; }, 4200);
       markerMessageId = "";
       serviceMessage = "Der Bezug ist im Gespräch festgehalten.";
       playFeedbackSound();
@@ -584,7 +595,10 @@
   async function openMarkerTarget(marker: ConversationMarker) {
     markerReturnMessageId = marker.sourceMessageId;
     highlightedMessageId = marker.sourceMessageId;
-    pinnwandOpen = marker.targetType === "thinking_state";
+    if (marker.targetType === "thinking_state") {
+      await returnToConversation();
+      return;
+    }
     if (marker.targetType === "board_item") {
       await selectPerspective("board");
       boardDetail = planningBoard?.items.find((item) => item.id === marker.targetId) ?? null;
@@ -602,6 +616,8 @@
   async function returnToConversation() {
     roomView = "conversation";
     roomAccessOpen = false;
+    pinnwandOpen = false;
+    pinnwandHistoryOpen = false;
     messageFilter = "all";
     await tick();
     const target = Array.from(messagesElement?.querySelectorAll<HTMLElement>("[data-message-id]") ?? []).find((element) => element.dataset.messageId === markerReturnMessageId);
@@ -655,11 +671,31 @@
   function chooseRoomView(view: "conversation" | "landscape" | "timeline" | "board" | "materials" | "knowledge") {
     roomAccessOpen = false;
     if (view === "conversation") {
-      pinnwandOpen = false;
       roomView = "conversation";
       return;
     }
+    pinnwandOpen = false;
+    pinnwandHistoryOpen = false;
     void selectPerspective(view);
+  }
+  function openPinnwand() {
+    pinnwandOpen = true;
+    pinnwandHistoryOpen = false;
+    roomView = "conversation";
+    roomAccessOpen = false;
+  }
+  function closePinnwand() {
+    pinnwandOpen = false;
+    pinnwandHistoryOpen = false;
+  }
+  async function openSettings() {
+    roomAccessOpen = false;
+    settingsOpen = true;
+    try {
+      runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage;
+    } catch {
+      runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden.";
+    }
   }
   async function scrollConversationToEnd(behavior: ScrollBehavior = "smooth") {
     await tick();
@@ -1648,6 +1684,9 @@ async function sendMessage() {
   $: attentionDeferred = !!roomOverview?.attentionCard
     && roomOverview.attentionCard.kind !== "continue_conversation"
     && roomOverview.attentionCard.id === deferredAttentionId;
+  $: visiblePinnwandMarkers = pinnwandHistoryOpen
+    ? (roomOverview?.conversationMarkers ?? []).slice().reverse()
+    : (roomOverview?.conversationMarkers ?? []).slice(-5).reverse();
 </script>
 
 <svelte:head><title>{activeSpace?.title ?? "Pädagogischer Denkraum"} · ptspace</title></svelte:head>
@@ -1693,17 +1732,17 @@ async function sendMessage() {
       <div><span>Planungsräume</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
       <div class="topbar-actions">
         {#if activeSpace}<button class="room-access-toggle" on:click={() => (roomAccessOpen = !roomAccessOpen)} aria-expanded={roomAccessOpen} aria-controls="room-access"><MoreHorizontal size={16} /> Bereiche <span>{roomAccessOpen ? "schließen" : "öffnen"}</span></button>{/if}
-        <button class="planning-open" on:click={openPlanning}><MapIcon size={16} /> Unterrichtsplanung</button>
-        <button class="settings-button" on:click={async () => { settingsOpen = true; try { runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage; } catch { runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden."; } }}><Settings size={16} /> Einstellungen</button>
         {#if activeSpace && roomAccessOpen}
           <nav id="room-access" class="room-nav" aria-label="Bereiche im Planungsraum">
             <button class:active={roomView === "conversation" && !pinnwandOpen} on:click={() => chooseRoomView("conversation")}>Gespräch</button>
-            <button class:active={pinnwandOpen} on:click={() => { pinnwandOpen = true; chooseRoomView("conversation"); }}>Pinnwand</button>
+            <button class:active={pinnwandOpen} on:click={openPinnwand}>Pinnwand</button>
             <button class:active={roomView === "landscape"} on:click={() => chooseRoomView("landscape")}>Lernlandschaft</button>
             <button class:active={roomView === "timeline"} on:click={() => chooseRoomView("timeline")}>Zeit &amp; Dramaturgie</button>
             <button class:active={roomView === "board"} on:click={() => chooseRoomView("board")}>Vorbereitungen</button>
             <button class:active={roomView === "knowledge"} on:click={() => chooseRoomView("knowledge")}>Knowledge &amp; Quellen</button>
             <button class:active={roomView === "materials"} on:click={() => chooseRoomView("materials")}>Materialien</button>
+            <button on:click={() => { roomAccessOpen = false; openPlanning(); }}>Unterrichtsplanung</button>
+            <button on:click={openSettings}>Einstellungen</button>
           </nav>
         {/if}
       </div>
@@ -1725,8 +1764,11 @@ async function sendMessage() {
             <MessageSquareText size={18} />
             <div><strong>Gespräch</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
             <div class="conversation-tools">
-              <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
-              {#if pinnwandOpen}<button class="quiet-button" on:click={() => (pinnwandOpen = false)}>Pinnwand schließen</button>{/if}
+              <details class="conversation-options">
+                <summary>Ansicht</summary>
+                <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
+              </details>
+              {#if pinnwandOpen}<button class="quiet-button" on:click={closePinnwand}>Pinnwand schließen</button>{/if}
             </div>
           </div>
           {#if roomOverview && attentionFocused}
@@ -1771,38 +1813,55 @@ async function sendMessage() {
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
         <aside class="perspective-panel" aria-label="Gewählte Perspektive" aria-hidden={attentionFocused ? "true" : undefined}>
           {#if markerReturnMessageId}<button class="marker-return" on:click={returnToConversation}>Zur auslösenden Gesprächsstelle zurück <ArrowRight size={14} /></button>{/if}
-          {#if roomView === "conversation"}
-            <div class="panel-heading"><Lightbulb size={18} /><div><strong>Denkstand</strong><span>Gemeinsam festhalten, was das weitere Gespräch trägt.</span></div><div class="panel-menu"><button on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/markdown`} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div></div>
-            <section class="pinnwand-projection" aria-label="Pinnwand">
-              <div class="pinnwand-heading"><div><span>Pinnwand</span><strong>Was aus dem Gespräch bleibt</strong></div><button class="quiet-button" on:click={() => (pinnwandOpen = !pinnwandOpen)}>{pinnwandOpen ? "Weniger anzeigen" : "Öffnen"}</button></div>
-              {#if attentionDeferred && roomOverview}<button class="pinnwand-deferred" on:click={reopenDeferredAttention}><span aria-hidden="true">?</span><span><strong>Später zurückgestellt</strong><small>{roomOverview.attentionCard.title}</small></span><ArrowRight size={14} /></button>{/if}
-              {#if roomOverview?.conversationMarkers.length}
-                {@const pinMarker = roomOverview.conversationMarkers[roomOverview.conversationMarkers.length - 1]}
-                <button class="pinnwand-note" on:click={() => openMarkerTarget(pinMarker)}><span aria-hidden="true">{markerGlyph(pinMarker.kind)}</span><strong>{pinMarker.label}</strong><small>{markerKindLabel(pinMarker.kind)} · {markerTargetDisplay(pinMarker)}</small></button>
-                {#if pinnwandOpen}<div class="pinnwand-list">{#each roomOverview.conversationMarkers as marker}<button on:click={() => openMarkerTarget(marker)}><span aria-hidden="true">{markerGlyph(marker.kind)}</span><span><strong>{marker.label}</strong><small>{markerKindLabel(marker.kind)} · {markerTargetDisplay(marker)}</small></span></button>{/each}</div>{/if}
-              {:else}<p class="pinnwand-empty">Noch kein Gedanke ist hier festgehalten. Im Gespräch kannst du eine Stelle als Denkstand markieren.</p>{/if}
-            </section>            <details class="denkstand-details">
-              <summary><span>Gemeinsamen Denkstand ansehen</span><span class="details-hint">Aus dem Gespräch festgehalten</span></summary>
-            <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
-            </details>
-             <div class="conversation-perspective">
-               {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
-              {#if cards.some((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte")}
-                <details class="supporting-traces">
-                  <summary><span>Weitere Gesprächsspuren</span><span class="details-hint">{cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte").length} zurückgenommene Bereiche</span></summary>
-                  <div class="supporting-traces-body">
-                    {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
-                      <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
-                        <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
-                        {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
-                        {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}{/if}
-                      </section>
+            {#if roomView === "conversation" && !pinnwandOpen}
+              <button class="traces-access" on:click={openPinnwand} aria-label={"Denkstand öffnen: " + (roomOverview?.conversationMarkers.length ?? 0) + " Spuren festgehalten"}>
+                <span class="traces-access-label">Denkstand</span>
+                <strong>{roomOverview?.conversationMarkers.length ?? 0} Spuren festgehalten</strong>
+                <ArrowRight size={15} />
+              </button>
+              {#if recentMarkerId}
+                {@const recentMarker = roomOverview?.conversationMarkers.find((marker) => marker.id === recentMarkerId)}
+                {#if recentMarker}<div class="trace-echo" role="status" aria-live="polite"><span>Gerade festgehalten</span><strong>{recentMarker.label}</strong><small>{markerKindLabel(recentMarker.kind)} · aus dem Gespräch</small></div>{/if}
+              {/if}
+            {:else if roomView === "conversation" && pinnwandOpen}
+              <section class="pinnwand-drawer" aria-label="Geöffnete Pinnwand">
+                <header class="pinnwand-drawer-heading">
+                  <div><span>Gedächtnisschicht</span><h2>Pinnwand</h2><p>Was für das gegenwärtige Weiterdenken noch trägt.</p></div>
+                  <button class="quiet-button" on:click={closePinnwand}>Schließen</button>
+                  <div class="pinnwand-drawer-actions"><button class="quiet-button" on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={api.backendUrl + "/api/planning-spaces/" + activeSpace.id + "/export/markdown"} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div>
+                </header>
+                {#if attentionDeferred && roomOverview}<button class="pinnwand-deferred" on:click={reopenDeferredAttention}><span aria-hidden="true">?</span><span><strong>Später zurückgestellt</strong><small>{roomOverview.attentionCard.title}</small></span><ArrowRight size={14} /></button>{/if}
+                {#if visiblePinnwandMarkers.length > 0}
+                  <div class="pinnwand-traces" aria-label="Aktuelle Spuren">
+                    {#each visiblePinnwandMarkers as marker}
+                      <article class="pinnwand-trace">
+                        <div class="pinnwand-trace-content"><span class="trace-type">{markerKindLabel(marker.kind)}</span><strong>{marker.label}</strong><small>Aus dem Gespräch · {markerTargetDisplay(marker)}</small></div>
+                        <div class="pinnwand-trace-actions"><button on:click={() => openMarkerTarget(marker)}>Im Gespräch aufgreifen</button><button on:click={() => openMarkerTarget(marker)}>Zur Herkunft</button></div>
+                      </article>
                     {/each}
                   </div>
+                  {#if (roomOverview?.conversationMarkers.length ?? 0) > 5}<button class="pinnwand-history-button" on:click={() => (pinnwandHistoryOpen = !pinnwandHistoryOpen)}>{pinnwandHistoryOpen ? "Aktuelle Spuren zeigen" : "Alle Spuren anzeigen"}</button>{/if}
+                {:else}
+                  <p class="pinnwand-empty">Noch keine Spur festgehalten. Im Gespräch kannst du einen Gedanken bewusst als Denkstand markieren.</p>
+                {/if}
+                <details class="denkstand-details">
+                  <summary><span>Gemeinsamen Denkstand ansehen</span><span class="details-hint">Aus dem Gespräch festgehalten</span></summary>
+                  <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
                 </details>
-              {/if}
-            </div>
-          {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
+                {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
+                {#if cards.some((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte")}
+                  <details class="supporting-traces"><summary><span>Weitere Gesprächsspuren</span><span class="details-hint">Nur bei Bedarf</span></summary><div class="supporting-traces-body">
+                    {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
+                      <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
+                        <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? card.previewItems.length + " noch zu klären" : "Ein sinnvoller nächster Schritt"}</span></div></div>
+                        {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation("Lass uns diese offene Entscheidung klären: " + decision.question)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
+                        {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation("Ich möchte den nächsten Schritt „" + item + "“ im Gespräch aufgreifen: ")}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}{/if}
+                      </section>
+                    {/each}
+                  </div></details>
+                {/if}
+              </section>
+            {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
           {:else if roomView === "knowledge"}
             <div class="knowledge-view">
@@ -1881,7 +1940,7 @@ async function sendMessage() {
           {/if}
         </aside>
       </section>
-      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong><span>{roomOverview?.conversationMarkers.length ?? 0} Gesprächsbezüge</span></button>{/if}
+      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong></button>{/if}
     {:else}
       <section class="empty-state"><MessageSquareText size={34} /><h2>Lege einen Planungsraum an.</h2><p>Der erste Umsetzungsschnitt arbeitet mit einer geschützten Backend-Grenze und einem simulierten Gegenüber.</p></section>
     {/if}

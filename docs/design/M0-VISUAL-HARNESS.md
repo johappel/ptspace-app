@@ -14,6 +14,7 @@ Das Skript startet Backend und Frontend auf den lokalen Ports 4174 und 4173, ver
 |---|---|
 | DR-01 Neuer Planungsraum, Desktop | dr-01-new-space-desktop.png |
 | DR-02 Laufendes Gespräch, Desktop | dr-02-conversation-desktop.png |
+| DR-03 Festgehaltener Gedanke, Desktop | dr-03-captured-thought-desktop.png |
 | DR-04 Offene Entscheidung, Desktop | dr-04-open-decision-desktop.png |
 | DR-05 Hintergrundarbeit, Desktop | dr-05-background-work-desktop.png |
 | DR-06 Ergebnis zur Prüfung, Desktop | dr-06-result-review-desktop.png |
@@ -32,11 +33,15 @@ Die geschlossene Statuszeile und die geöffnete Hintergrundebene werden für DR-
 
 Der Harness prüft nicht nur, ob Jetzt wichtig sichtbar ist:
 
-- DR-02 enthält im Normalzustand keine aktive Fokuslage;
+- DR-02 enthält im Normalzustand keine aktive Fokuslage und nur den schmalen Denkstand-Zugang;
 - DR-04 und DR-06 enthalten jeweils genau eine conversation-focus-layer unmittelbar vor dem Gesprächsverlauf;
 - während dieser Fokuslage ist die Sidebar als sekundäre Ebene zurückgenommen und semantisch nicht der Handlungsort;
 - die Fokuslage bietet Passt beziehungsweise die fachliche Freigabe, Weiterreden und Später zurückstellen;
 - nach Später zurückstellen verschwindet die Fokuslage, und erst dann ist der Gegenstand als Später zurückgestellt in der Pinnwand wieder erreichbar;
-- DR-08 prüft dieselbe Fokuslage bei 640 px, statt alle Bereiche nur untereinander zu stapeln.
+- DR-08 prüft dieselbe Fokuslage bei 640 px, statt alle Bereiche nur untereinander zu stapeln;
 
 Erfolgreiche Screenshots bleiben ein technischer Nachweis. Die qualitative Frage ist, ob der Blick dramaturgisch zwischen ruhigem Gespräch, genau einem temporären Fokus und bewusster Ablage wechselt.
+
+## Nachweis der Pinnwand-Gedächtnisschicht
+
+DR-03 legt im isolierten Harness einen Gesprächsmarker an. Der Normalzustand prüft den kompakten Zugang ohne permanente Pinnwandkarte. Nach bewusstem Öffnen werden Herkunft, Typ und genau eine aktuelle Spur geprüft; anschließend führt „Im Gespräch aufgreifen“ zurück zur hervorgehobenen Gesprächsstelle. Die Darstellung zeigt höchstens fünf aktuelle Spuren; eine vollständige Historie ist nur als bewusste Aktion vorgesehen.

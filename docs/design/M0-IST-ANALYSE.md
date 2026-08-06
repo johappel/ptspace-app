@@ -102,3 +102,13 @@ Damit werden DR-02, DR-04, DR-06 und DR-08 nicht mehr als Varianten einer Karten
 - Der Harness weist die bewusste Ablage mit Später zurückstellen und den anschließenden Pinnwand-Wiederzugang nach.
 
 Issue #17 und PR #18 bleiben entsprechend offen beziehungsweise Draft; eine erfolgreiche Screenshot-Erzeugung wird nicht als qualitative Abnahme behauptet.
+
+## Aktualisierung nach der Nacharbeit vom 2026-08-06
+
+Die qualitative Nacharbeit konzentrierte sich auf drei eng begrenzte Punkte aus dem Review zu PR #18:
+
+- Sekundäre Bedienmöglichkeiten sind im Normalzustand hinter „Bereiche“ beziehungsweise „Ansicht“ gebündelt. Die Gesprächsansicht zeigt keine dauerhafte Pinnwand-, Denkstand-, Entscheidungs- oder Nächste-Schritte-Fläche mehr.
+- Hintergrundarbeit wird nur noch als eine flache Statuszeile projiziert. Die Detailansicht wird bewusst geöffnet und enthält keine parallele rechte Arbeitskarte. Technische Worker-, Queue-, Harness- und Runtime-Begriffe bleiben unsichtbar.
+- Die Pinnwand ist eine temporär geöffnete Gedächtnisschicht. Im Ruhezustand bleibt nur „Denkstand · N Spuren festgehalten“ sichtbar. Beim Festhalten wird genau ein neuer Eintrag kurz angekündigt; die geöffnete Ansicht zeigt maximal fünf kuratierte Spuren, Herkunft und Rücksprung. Erst „Später zurückstellen“ legt eine Fokuslage wiederaufrufbar ab.
+
+Der Harness deckt jetzt auch DR-03 ab und prüft die Rückkehr vom Pinnwand-Eintrag zur hervorgehobenen Gesprächsstelle. Die technische Erfassung ist damit für DR-01 bis DR-06, DR-08 und DR-09 vorhanden. DR-07 sowie die qualitative Sichtprüfung gegen den Design Contract bleiben offen. ROADMAP.md wird nicht geändert; Issue #17 bleibt offen.

@@ -136,7 +136,22 @@ async function seedStates() {
     "Die Lerngruppe soll eine konkrete Erfahrung von Verantwortung gemeinsam deuten."
   );
   await addConversation(dr02, "Die Lerngruppe bringt sehr unterschiedliche Erfahrungen von Verantwortung mit. Wir sollten zuerst genau zuhören.");
-
+  const dr03 = await createSpace(
+    "dr03",
+    "Festgehaltener Gedanke",
+    "Ein relevanter Gedanke soll aus dem Gespräch als ruhige Spur erhalten bleiben."
+  );
+  const dr03Message = await addConversation(dr03, "Die unterschiedliche Erfahrung der Lernenden soll unser weiteres Gespräch tragen.");
+  await api("/api/planning-spaces/" + dr03.id + "/conversation-markers", {
+    method: "POST",
+    body: JSON.stringify({
+      sourceMessageId: dr03Message,
+      kind: "captured_note",
+      targetType: "thinking_state",
+      targetId: "denkstand",
+      label: "Erfahrung der Lernenden als Gesprächsspur"
+    })
+  });
   const dr04 = await createSpace(
     "dr04",
     "Offene Entscheidung im Einstieg",
@@ -302,7 +317,30 @@ async function run() {
     if ((await desktopPage.locator(".attention-card").count()) !== 0) {
       throw new Error("DR-02 darf keine dauerhafte Jetzt-wichtig-Karte neben dem Gespräch zeigen.");
     }
+    if ((await desktopPage.locator(".traces-access").count()) !== 1) {
+      throw new Error("DR-02 muss den Denkstand als schmalen Zugang statt als dauerhafte Nebenfläche zeigen.");
+    }
+    if ((await desktopPage.locator(".pinnwand-projection").count()) !== 0) {
+      throw new Error("DR-02 darf keine dauerhafte Pinnwandkarte zeigen.");
+    }
     await capture(desktopPage, "dr-02-conversation-desktop");
+
+    await openSpace(desktopPage, spaces.dr03);
+    await assertText(desktopPage, ".traces-access", "1 Spuren festgehalten");
+    await desktopPage.locator(".traces-access").click();
+    await waitFor("DR-03 Pinnwand geöffnet", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 1);
+    await assertText(desktopPage, ".pinnwand-drawer", "Festgehaltener Gedanke");
+    await assertText(desktopPage, ".pinnwand-drawer", "Erfahrung der Lernenden als Gesprächsspur");
+    if ((await desktopPage.locator(".pinnwand-trace").count()) !== 1) {
+      throw new Error("DR-03 muss genau die aktuelle Gesprächsspur zeigen.");
+    }
+    await capture(desktopPage, "dr-03-captured-thought-desktop");
+    await desktopPage.locator(".pinnwand-trace-actions button").first().click();
+    await waitFor("DR-03 Rückkehr ins Gespräch", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 0);
+    if ((await desktopPage.locator(".message.highlighted").count()) !== 1) {
+      throw new Error("DR-03 muss aus der Pinnwand zur Herkunft im Gespräch zurückführen.");
+    }
+    await desktopPage.locator(".traces-access").click();
     const denkstandSummary = desktopPage.locator(".denkstand-details summary");
     await denkstandSummary.focus();
     await desktopPage.keyboard.press("Enter");
@@ -310,6 +348,7 @@ async function run() {
       throw new Error("Der gemeinsame Denkstand ist per Tastatur nicht zu öffnen.");
     }
     await desktopPage.keyboard.press("Enter");
+    await desktopPage.getByRole("button", { name: "Pinnwand schließen" }).click();
 
     await openSpace(desktopPage, spaces.dr04);
     await assertText(desktopPage, ".conversation-focus-layer", "Welche Erfahrung soll den Einstieg tragen?");
@@ -321,6 +360,8 @@ async function run() {
     await capture(desktopPage, "dr-04-open-decision-desktop");
     await desktopPage.getByRole("button", { name: "Später zurückstellen" }).click();
     await waitFor("DR-04 Fokus zurückgestellt", async () => (await desktopPage.locator(".conversation-focus-layer").count()) === 0);
+    await desktopPage.locator(".traces-access").click();
+    await waitFor("DR-04 Pinnwand geöffnet", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 1);
     await assertText(desktopPage, ".pinnwand-deferred", "Später zurückgestellt");
     await desktopPage.locator(".pinnwand-deferred").click();
     await waitFor("DR-04 Fokus wieder geöffnet", async () => (await desktopPage.locator(".conversation-focus-layer").count()) === 1);
@@ -388,7 +429,7 @@ async function run() {
 
 try {
   await run();
-  console.log("Playwright-Design-Harness erfolgreich: 7 Referenzzustände erzeugt.");
+  console.log("Playwright-Design-Harness erfolgreich: 8 Referenzzustände erzeugt.");
 } finally {
   await stopProcesses();
 }
