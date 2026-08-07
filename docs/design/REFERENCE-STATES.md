@@ -26,6 +26,7 @@ Die Referenzzustände beschreiben denselben Denkraum in unterschiedlichen Hauptp
 |---|---|
 | DR-03a Pinnwand geschlossen | Gespräch als alleiniger Hauptfokus; nur der kompakte Denkstand-Zugang ist sichtbar. |
 | DR-03b Pinnwand geöffnet | Pinnwand als Hauptarbeitsraum mit wenigen kuratierten Spuren, Typ, Herkunft und Rückkehraktion. |
+| DR-02c Companion Strip | Im Nebenfokus bleiben nur der letzte Companion-Beitrag und die Eingabe sichtbar; der vollständige Faden ist unmittelbar wieder öffnbar. |
 | DR-05a Gespräch mit Statuszeile | Vorbereitung nur als flache teacher-facing Statusspur, ohne doppelte Arbeitsprojektion. |
 | DR-05b bewusst geöffnete Vorbereitung | Vorbereitungen übernehmen den Hauptarbeitsraum; technische Ausführungsbegriffe bleiben verborgen. |
 | DR-07a Lernlandschaft ohne Auswahl | Lernlandschaft als Hauptarbeitsraum; der Planungsraum und die Gesprächsbegleitung bleiben erkennbar. |
@@ -43,6 +44,7 @@ Die Fokusmodusbilder liegen unter `tests/visual/screenshots/`:
 - DR-07: `dr-07-learning-landscape-desktop.png`
 - DR-08: `dr-08-conversation-narrow.png`
 - DR-09: `dr-09-reduced-motion.png`
+- DR-02c: `dr-10-companion-strip-desktop.png`
 
 Für alle sechs Fokusmodi gilt: Der vorherige Fokus bleibt als Rückkehrpunkt erhalten, der neue Hauptbereich erhält den Tastaturfokus, und bei schmaler Darstellung steht der aktive Gegenstand vor Navigation und Statusinformationen.
 
@@ -69,7 +71,7 @@ Der lokale Playwright-Design-Harness erfasst reproduzierbar:
 - DR-09 mit Reduced Motion und gesetztem App-Schalter;
 - DR-05 zusätzlich als geöffnete vertiefte Hintergrundansicht.
 
-Alle neun Referenzzustände sind damit technisch reproduzierbar erfasst, DR-05 besitzt zusätzlich einen getrennten Detailzustand. Kein Snapshot gilt automatisch als qualitative Abnahme; die Sichtprüfung gegen den Design Contract bleibt offen.
+Alle neun Referenzzustände und der zusätzliche Companion-Strip-Unterzustand sind damit technisch reproduzierbar erfasst, DR-05 besitzt zusätzlich einen getrennten Detailzustand. Kein Snapshot gilt automatisch als qualitative Abnahme; die Sichtprüfung gegen den Design Contract bleibt offen.
 
 Der lokale Befehl ist pnpm visual:design; stabile Dateien und die Fixture-Strategie stehen in docs/design/M0-VISUAL-HARNESS.md.
 
@@ -86,7 +88,7 @@ Ein zusätzlicher Interaktionstest muss Später zurückstellen aus DR-04 oder DR
 
 ## Nacharbeit am Design-Gate vom 2026-08-07
 
-Die ruhige Gesprächsansicht zeigt dauerhaft nur Titel, Gespräch, Eingabe, einen kleinen Zugang zum Denkstand und gegebenenfalls die eine aktuelle Fokuslage. Filter, vollständiger Denkstand, offene Entscheidungen und weitere Bereiche werden erst über einen diskreten Zugang oder eine vertiefte Ansicht geöffnet. Ein bewusster Zugang übernimmt anschließend den Hauptarbeitsraum als Fokusmodus.
+Die ruhige Gesprächsansicht zeigt dauerhaft nur Titel, Gespräch, Eingabe, einen kleinen Zugang zum Denkstand und gegebenenfalls die eine aktuelle Fokuslage. Filter, vollständiger Denkstand, offene Entscheidungen und weitere Bereiche werden erst über einen diskreten Zugang oder eine vertiefte Ansicht geöffnet. Ein bewusster Zugang übernimmt anschließend den Hauptarbeitsraum als Fokusmodus. In Nebenfokus kann der gemeinsame Gesprächsverlauf zusätzlich als Companion Strip auf den letzten Companion-Beitrag und die Eingabe reduziert werden; „Gespräch groß öffnen“ und Doppelklick führen ohne Menü zurück in den Gesprächsfokus.
 
 Die Pinnwand ist im Ruhezustand keine Inhaltsfläche. „Denkstand · N Spuren festgehalten“ öffnet bewusst eine Gedächtnisschicht mit höchstens fünf aktuellen, kuratierten Spuren. Jede Spur benennt ihren fachlichen Typ und ihre Herkunft; „Im Gespräch aufgreifen“ beziehungsweise „Zur Herkunft“ schließt die Ansicht und führt zur markierten Gesprächsstelle zurück. Eine zurückgestellte Fokuslage erscheint erst nach „Später zurückstellen“ als wiederaufrufbare Spur. Eine vollständige Historie ist kein Bestandteil dieses Fokusmodus.
 

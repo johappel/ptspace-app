@@ -341,7 +341,7 @@ async function run() {
     await waitForApp(desktopPage);
 
     await openSpace(desktopPage, spaces.dr02);
-    await assertText(desktopPage, ".conversation-panel", "Critical Friend");
+    await assertText(desktopPage, ".conversation-panel", "Pedagogical Companion");
     if ((await desktopPage.locator(".conversation-focus-layer").count()) !== 0) {
       throw new Error("DR-02 darf im ruhigen Gesprächszustand keine Fokuslage zeigen.");
     }
@@ -365,6 +365,19 @@ async function run() {
       await waitFor("Fokusmodus " + label, async () => (await desktopPage.locator(selector).count()) === 1);
       await assertText(desktopPage, ".focus-mode-heading", "Wir sprechen gerade über");
     }
+    await desktopPage.getByRole("button", { name: "Begleitung verkleinern" }).click();
+    await waitFor("Companion Strip", async () => (await desktopPage.locator(".companion-strip").count()) === 1);
+    if ((await desktopPage.locator(".companion-strip .message").count()) > 1) {
+      throw new Error("Die Companion Strip darf höchstens den letzten Companion-Beitrag zeigen.");
+    }
+    await capture(desktopPage, "dr-10-companion-strip-desktop");
+    await desktopPage.getByRole("button", { name: "Gespräch groß öffnen", exact: true }).click();
+    await waitFor("Companion Strip Rückkehr per Aktion", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
+    await desktopPage.getByRole("button", { name: "Perspektive wechseln" }).click();
+    await desktopPage.getByRole("button", { name: "Auf den Tisch: Zeit & Dramaturgie" }).click();
+    await waitFor("Doppelklick-Ziel Companion", async () => (await desktopPage.locator(".companion-heading").count()) === 1);
+    await desktopPage.locator(".companion-heading").dblclick();
+    await waitFor("Companion Rückkehr per Doppelklick", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
     await desktopPage.getByRole("button", { name: "Perspektive wechseln" }).click();
     await desktopPage.getByRole("button", { name: "Gespräch", exact: true }).click();
     await waitFor("Rückkehr zum Gespräch", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
@@ -518,7 +531,7 @@ async function run() {
 
 try {
   await run();
-  console.log("Playwright-Design-Harness erfolgreich: 9 Referenzzustände erzeugt (DR-05 zusätzlich vertieft).");
+  console.log("Playwright-Design-Harness erfolgreich: 10 Referenzzustände erzeugt (DR-05 zusätzlich vertieft).");
 } finally {
   await stopProcesses();
 }

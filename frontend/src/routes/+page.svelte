@@ -51,6 +51,7 @@
   let previousFocusMode: FocusMode = "conversation";
   let previousFocusedObject: FocusedObject = null;
   let companionExpanded = false;
+  let companionStrip = false;
   let designNotes = "";
   let editingDesign = false;
   let savingDesign = false;
@@ -209,6 +210,7 @@
     statusDetailsOpen = false;
     activeFocus = null;
     companionExpanded = false;
+    companionStrip = false;
     learningLandscape = null;
     planningBoard = null;
     temporalPlan = null;
@@ -564,6 +566,11 @@
     return messages.filter((_message, index) => indexes.has(index));
   }
 
+  function companionStripMessages() {
+    const latestCompanionMessage = [...messages].reverse().find((message) => message.author === "critical_friend");
+    return latestCompanionMessage ? [latestCompanionMessage] : messages.slice(-1);
+  }
+
   function formatMessageTime(message: UiMessage) {
     return message.createdAt ? new Date(message.createdAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
   }
@@ -686,7 +693,7 @@
   }
 
   function backgroundStatusLabel(backgroundWork: { title: string; status: string }[] | undefined, requests: ServiceRequest[], message: string) {
-    if (sending) return "Critical Friend antwortet";
+    if (sending) return "Pedagogical Companion antwortet";
     const activeRequest = backgroundWork?.find((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet");
     if (activeRequest) return activeRequest.title + " wird vorbereitet";
     const activeServiceRequest = requests.find((request) => request.status === "approved" || request.status === "queued" || request.status === "in_progress");
@@ -772,12 +779,20 @@
       previousFocusMode = focusMode;
       focusMode = "conversation";
       focusedObject = null;
+      companionStrip = false;
       pinnwandOpen = false;
       void returnFocusToConversation();
       return;
     }
     pinnwandOpen = false;
     void selectPerspective(view);
+  }
+
+  function handleCompanionDoubleClick(event: MouseEvent) {
+    if (focusMode === "conversation") return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, textarea, select, input, a, summary")) return;
+    void chooseRoomView("conversation");
   }
   function openPinnwand() {
     void selectPerspective("pinboard");
@@ -1075,6 +1090,7 @@ async function sendMessage() {
     focusedObject = object;
     pinnwandOpen = view === "pinboard";
     companionExpanded = false;
+    companionStrip = false;
     if (view === "conversation" || !activeSpace) {
       await returnFocusToConversation();
       return;
@@ -1819,7 +1835,8 @@ async function sendMessage() {
 
   $: renderedMessages = focusMode === "conversation"
     ? messageFilter === "all" ? messages : roomOverview ? visibleMessages() : []
-    : companionExpanded ? (messageFilter === "all" ? messages : roomOverview ? visibleMessages() : []) : contextualMessages();
+    : companionStrip ? companionStripMessages()
+      : companionExpanded ? (messageFilter === "all" ? messages : roomOverview ? visibleMessages() : []) : contextualMessages();
   $: currentFocusedObjectLabel = focusedObjectLabel(focusMode, focusedObject, roomOverview, learningLandscape, temporalPlan, planningBoard, materials, messages);
   $: currentComposerPrompt = companionPrompt(focusMode, focusedObject);
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
@@ -1927,19 +1944,29 @@ async function sendMessage() {
         </section>
       {:else}
       <section class:attention-is-focused={focusMode === "conversation" && attentionFocused} class:pinnwand-open={pinnwandOpen} class:focus-mode-active={focusMode !== "conversation"} class={`workspace-grid focus-mode-${focusMode}`} bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
-        <section class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum">
+        <section class:companion-strip={focusMode !== "conversation" && companionStrip} class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum" on:dblclick={handleCompanionDoubleClick}>
+          {#if focusMode === "conversation" || !companionStrip}
            <div class="conversation-heading">
             <MessageSquareText size={18} />
             <div><strong>Gespräch</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
             <div class="conversation-tools">
-              <details class="conversation-options">
+              {#if focusMode === "conversation"}<details class="conversation-options">
                 <summary>Ansicht</summary>
                 <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
-              </details>
+              </details>{/if}
 
              </div>
            </div>
-           {#if focusMode !== "conversation"}<div class="companion-heading"><div><strong>Begleitendes Gespräch</strong><span>{currentFocusedObjectLabel}</span></div><button class="quiet-button" on:click={() => (companionExpanded = !companionExpanded)} aria-expanded={companionExpanded}>{companionExpanded ? "Kontext zeigen" : "Vollständigen Faden öffnen"}</button></div>{/if}
+          {/if}
+          {#if focusMode !== "conversation"}
+            <div class:companion-strip-heading={companionStrip} class="companion-heading">
+              <div><strong>{companionStrip ? "Companion" : "Begleitendes Gespräch"}</strong><span>Wir sprechen gerade über: {currentFocusedObjectLabel}</span></div>
+              <div class="companion-actions">
+                <button class="quiet-button" on:click={() => chooseRoomView("conversation")}>Gespräch groß öffnen</button>
+                {#if !companionStrip}<button class="quiet-button" on:click={() => (companionExpanded = !companionExpanded)} aria-expanded={companionExpanded}>{companionExpanded ? "Kontext zeigen" : "Vollständigen Faden öffnen"}</button><button class="quiet-button" on:click={() => (companionStrip = true)}>Begleitung verkleinern</button>{:else}<button class="quiet-button" on:click={() => (companionStrip = false)}>Kontext zeigen</button>{/if}
+              </div>
+            </div>
+          {/if}
             {#if roomOverview && focusMode === "conversation" && attentionFocused}
             {@const attention = roomOverview.attentionCard}
             <section class="conversation-focus-layer" bind:this={focusRegionElement} tabindex="-1" aria-live="assertive" aria-labelledby="conversation-focus-heading" aria-describedby="conversation-focus-rationale">
@@ -1967,7 +1994,7 @@ async function sendMessage() {
               <article class:teacher={message.author === "teacher"} class:context-message={isContextMessage(message)} class:highlighted={highlightedMessageId === message.id} class="message" data-message-id={message.id}>
                 <div class="avatar" aria-hidden="true">{message.author === "teacher" ? "L" : "CF"}</div>
                 <div class="message-content">
-                  <div class="message-meta"><strong>{message.author === "teacher" ? "Lehrkraft" : "Critical Friend"}</strong>{#if formatMessageTime(message)}<time>{formatMessageTime(message)}</time>{/if}</div>
+                  <div class="message-meta"><strong>{message.author === "teacher" ? "Lehrkraft" : "Pedagogical Companion"}</strong>{#if formatMessageTime(message)}<time>{formatMessageTime(message)}</time>{/if}</div>
                   <div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div>
                   {#if messageMarkers.length > 0}<div class="message-markers" aria-label="Gesprächsbezüge">{#each messageMarkers as marker}<button class="message-marker" on:click={() => openMarkerTarget(marker)} title="{markerKindLabel(marker.kind)} öffnen"><span aria-hidden="true">{markerGlyph(marker.kind)}</span> {markerKindLabel(marker.kind)} · {marker.label}</button>{/each}</div>{/if}
                   <div class="message-actions"><button class="message-action" disabled={message.id === "welcome"} on:click={() => openMarkerComposer(message)}>Gedanken festhalten</button></div>
@@ -1981,7 +2008,7 @@ async function sendMessage() {
         </section>
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
          <section class="perspective-panel" aria-label="Aktiver Fokusbereich" aria-hidden={focusMode === "conversation" && attentionFocused ? "true" : undefined}>
-           {#if focusMode !== "conversation"}<section class="focus-mode-heading" tabindex="-1" bind:this={focusRegionElement} aria-labelledby="focus-mode-title"><span class="focus-mode-kicker">{focusModeLabel(focusMode)} · Auf den Tisch</span><h2 id="focus-mode-title">{currentFocusedObjectLabel}</h2><p><strong>Wir sprechen gerade über:</strong> {currentFocusedObjectLabel}</p><div class="focus-mode-actions"><button class="focus-return" on:click={() => chooseRoomView("conversation")}><MessageSquareText size={14} /> Darüber sprechen</button><button class="focus-return quiet-button" on:click={() => chooseRoomView("conversation")}>Zurück zum Gespräch</button></div></section>{/if}
+           {#if focusMode !== "conversation"}<section class="focus-mode-heading" tabindex="-1" bind:this={focusRegionElement} aria-labelledby="focus-mode-title"><span class="focus-mode-kicker">{focusModeLabel(focusMode)} · Auf den Tisch</span><h2 id="focus-mode-title">{currentFocusedObjectLabel}</h2><p><strong>Auf dem Tisch liegt:</strong> {focusModeLabel(focusMode)}</p><p><strong>Wir sprechen gerade über:</strong> {currentFocusedObjectLabel}</p><div class="focus-mode-actions"><button class="focus-return" on:click={() => chooseRoomView("conversation")}><MessageSquareText size={14} /> Darüber sprechen</button><button class="focus-return quiet-button" on:click={() => chooseRoomView("conversation")}>Zurück zum Gespräch</button></div></section>{/if}
            {#if markerReturnMessageId}<button class="marker-return" on:click={returnToConversation}>Zur auslösenden Gesprächsstelle zurück <ArrowRight size={14} /></button>{/if}
             {#if focusMode === "thinking-state"}
               <section class="thinking-state-view" aria-label="Strukturierter Denkstand">
@@ -2172,7 +2199,7 @@ async function sendMessage() {
             <section class="detail-block"><strong>Materialbedarf</strong>{#if moment.materialNeeds.length === 0}<p class="muted">Noch kein Materialbedarf festgehalten.</p>{:else}<ul class="need-list">{#each moment.materialNeeds as need}<li><span>{need}</span><button class="link-action" on:click={() => openBoardProposal(moment.id, need)}>Als Arbeitsvorhaben vorschlagen</button></li>{/each}</ul>{/if}</section>
             {#if moment.openQuestions.length}<section class="detail-block"><strong>Offene Fragen</strong><ul>{#each moment.openQuestions as question}<li>{question}</li>{/each}</ul></section>{/if}
             <section class="detail-block"><strong>Zeitliche Platzierungen</strong>{#if placementsFor(moment.id).length === 0}<p class="muted">Noch nicht zeitlich eingeplant.</p>{:else}<ul>{#each placementsFor(moment.id) as placement}<li>{windowTitle(placement.windowId)} · {placement.durationMinutes} min</li>{/each}</ul>{/if}</section>
-            <div class="detail-actions"><button on:click={() => { const target = moment; closeMomentDetail(); focusConversation(`Zu „${target.title}“ weiterdenken: `, { kind: "learning_moment", id: target.id, label: target.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
+            <div class="detail-actions"><button on:click={() => { const target = moment; closeMomentDetail(); focusConversation(`Zu „${target.title}“ weiterdenken: `, { kind: "learning_moment", id: target.id, label: target.title }); }}><MessageSquareText size={15} /> Mit dem Companion weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
           </div>
         {/if}
       </dialog>
@@ -2189,7 +2216,7 @@ async function sendMessage() {
           <label>Didaktische Funktion <small>optional</small><textarea bind:value={newMomentForm.didacticPurpose} rows="2" placeholder="Wozu dient dieser Moment?"></textarea></label>
           <label>Lernaktivität <small>optional</small><textarea bind:value={newMomentForm.learningActivity} rows="2" placeholder="Was tun die Lernenden?"></textarea></label>
           <label>Erwartete Lernerfahrung <small>optional</small><textarea bind:value={newMomentForm.expectedExperience} rows="2" placeholder="Was soll spürbar oder erkennbar werden?"></textarea></label>
-          <div class="pad-actions"><button type="button" class="ghost" on:click={developMomentWithCriticalFriend}>Mit Critical Friend entwickeln</button><button type="submit" disabled={newMomentForm.title.trim().length < 2}>Lernmoment aufnehmen</button></div>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={developMomentWithCriticalFriend}>Mit dem Companion entwickeln</button><button type="submit" disabled={newMomentForm.title.trim().length < 2}>Lernmoment aufnehmen</button></div>
         </form>
       </dialog>
     </div>
@@ -2209,7 +2236,7 @@ async function sendMessage() {
         {:else}
           <div class="detail-body">
             <dl><dt>Übergangstyp</dt><dd>{transitionKindLabels[transition.kind] ?? transition.kind}</dd><dt>Pädagogische Begründung</dt><dd>{transition.rationale || "—"}</dd></dl>
-            <div class="detail-actions"><button on:click={startEditTransition}>Bearbeiten</button><button on:click={checkTransitionWithCriticalFriend}><MessageSquareText size={15} /> Mit Critical Friend prüfen</button><button on:click={proposeMissingMoment}>Fehlenden Lernmoment vorschlagen</button><button class="danger" on:click={removeTransition}>Entfernen</button></div>
+            <div class="detail-actions"><button on:click={startEditTransition}>Bearbeiten</button><button on:click={checkTransitionWithCriticalFriend}><MessageSquareText size={15} /> Mit dem Companion prüfen</button><button on:click={proposeMissingMoment}>Fehlenden Lernmoment vorschlagen</button><button class="danger" on:click={removeTransition}>Entfernen</button></div>
           </div>
         {/if}
       </dialog>
@@ -2347,7 +2374,7 @@ async function sendMessage() {
           <label>Dramaturgische Rolle<select bind:value={draft.dramaturgicalRole}>{#each Object.entries(dramaturgicalRoleLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
           <label>Modus<select bind:value={draft.mode}>{#each Object.entries(placementModeLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
           <label>Notiz <small>optional</small><textarea bind:value={draft.note} rows="2"></textarea></label>
-          <div class="pad-actions"><button type="button" class="ghost" on:click={() => focusPlacementInConversation(draft)}>Mit Critical Friend weiterdenken</button><button type="button" class="danger" on:click={() => removePlacement(draft)}>Platzierung entfernen</button><button type="submit">Änderung festhalten</button></div>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={() => focusPlacementInConversation(draft)}>Mit dem Companion weiterdenken</button><button type="button" class="danger" on:click={() => removePlacement(draft)}>Platzierung entfernen</button><button type="submit">Änderung festhalten</button></div>
         </form>
       </dialog>
     </div>
@@ -2362,7 +2389,7 @@ async function sendMessage() {
           {#if windowConflicts(detail).length > 0}<ul class="window-conflicts">{#each windowConflicts(detail) as conflict}<li><TriangleAlert size={12} /> {conflict}</li>{/each}</ul>{/if}
           <section class="detail-block"><strong>Dramaturgie im Verlauf</strong>{#if placementsInWindow(detail.id).length === 0}<p class="muted">Noch keine Lernmomente in diesem Fenster.</p>{:else}<div class="dramaturgy-track">{#each placementsInWindow(detail.id) as placement}<div class="dramaturgy-slot mode-{placement.mode}" style={`flex: ${Math.max(1, placement.durationMinutes)}`}><span>{formatMinute(placement.startMinute)}</span><strong>{momentTitle(placement.momentId)}</strong><em>{dramaturgicalRoleLabels[placement.dramaturgicalRole]} · {placementModeLabels[placement.mode]}</em></div>{/each}</div>{/if}</section>
           {#if placementsInWindow(detail.id).length > 0}<section class="detail-block"><strong>Tabellarischer Verlaufsplan</strong><table class="lesson-table"><thead><tr><th>Zeit</th><th>Funktion</th><th>Lernaktivität</th><th>Modus</th></tr></thead><tbody>{#each placementsInWindow(detail.id) as placement}{@const moment = learningLandscape?.moments.find((entry) => entry.id === placement.momentId)}<tr on:click={() => openPlacementEditor(placement)}><td>{formatMinute(placement.startMinute)}–{formatMinute(placement.startMinute + placement.durationMinutes)}</td><td>{dramaturgicalRoleLabels[placement.dramaturgicalRole]}</td><td>{moment?.learningActivity || moment?.title || "—"}</td><td>{placementModeLabels[placement.mode]}</td></tr>{/each}</tbody></table></section>{/if}
-          <div class="detail-actions"><button on:click={() => { const target = detail; windowDetail = null; openWindowForm(target); }}>Fenster bearbeiten</button><button on:click={() => { windowDetail = null; focusConversation(`Zur Dramaturgie von „${detail.title}“ weiterdenken: `, { kind: "teaching_window", id: detail.id, label: detail.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button></div>
+            <div class="detail-actions"><button on:click={() => { const target = detail; windowDetail = null; openWindowForm(target); }}>Fenster bearbeiten</button><button on:click={() => { windowDetail = null; focusConversation(`Zur Dramaturgie von „${detail.title}“ weiterdenken: `, { kind: "teaching_window", id: detail.id, label: detail.title }); }}><MessageSquareText size={15} /> Mit dem Companion weiterdenken</button></div>
         </div>
       </dialog>
     </div>
@@ -2414,7 +2441,7 @@ async function sendMessage() {
   {#if proposal}
     {@const current = proposal}
     <div class="planning-overlay" role="presentation" on:click={() => (proposal = null)}>
-      <dialog class="start-modal detail-modal" open aria-label="Vorschlag des Critical Friend" on:click|stopPropagation>
+      <dialog class="start-modal detail-modal" open aria-label="Vorschlag des Pedagogical Companion" on:click|stopPropagation>
         <header><div><span>Vorschlag · noch nicht übernommen</span><h2>{proposalKindTitles[current.kind] ?? "Vorschlag"}</h2></div><button class="icon-button" on:click={() => (proposal = null)} aria-label="Schließen"><X size={20} /></button></header>
         <div class="detail-body">
           <dl>

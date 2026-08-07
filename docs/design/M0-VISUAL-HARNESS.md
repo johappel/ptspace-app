@@ -22,8 +22,9 @@ Das Skript startet Backend und Frontend auf den lokalen Ports 4174 und 4173, ver
 | DR-07 Lernlandschaft, Desktop | dr-07-learning-landscape-desktop.png |
 | DR-08 Fokuslage im Gespräch, schmal | dr-08-conversation-narrow.png |
 | DR-09 Laufendes Gespräch, Reduced Motion | dr-09-reduced-motion.png |
+| DR-02c Companion Strip im Nebenfokus | dr-10-companion-strip-desktop.png |
 
-Die Zustände entstehen über die vorhandenen Planungsraum-, Gesprächs-, Guided-Proposal- und Service-Request-APIs. Der Mock-Harness liefert die bekannten Antwort- und Entwurfsdaten. Zeit-Elemente werden im Screenshot maskiert, die Viewports, Sprache, Zeitzone und Farbpräferenz sind festgelegt, Animationen werden beim Screenshot deaktiviert.
+Die Zustände entstehen über die vorhandenen Planungsraum-, Gesprächs-, Guided-Proposal- und Service-Request-APIs. Der Mock-Harness liefert die bekannten Antwort- und Entwurfsdaten. Zeit-Elemente werden im Screenshot maskiert, die Viewports, Sprache, Zeitzone und Farbpräferenz sind festgelegt, Animationen werden beim Screenshot deaktiviert. DR-02c prüft zusätzlich die reduzierte Begleitdarstellung, die direkte Aktion „Gespräch groß öffnen“ und die Rückkehr per Doppelklick.
 
 Der kurze Hintergrundarbeitszustand ist in der echten Mock-Ausführung absichtlich sehr schnell. Nach dem vollständigen Mock-Durchlauf setzt der Harness deshalb nur den isolierten Service-Request auf einen festen in_progress-Projektionsstand und entfernt den dazu nicht passenden Rückkehrmarker. Dadurch bleibt DR-05 reproduzierbar, ohne Produktionscode oder Runtimearchitektur zu verändern.
 
@@ -65,4 +66,4 @@ Der Harness prüft nun explizit, dass ein Bereich den Hauptarbeitsraum übernimm
 - Composer- und Fokusbeschriftungen beziehen sich auf den aktiven Gegenstand;
 - der technische Test prüft die Rückkehr, ersetzt aber keine qualitative Beurteilung von Rhythmus, Materialität und visueller Dominanz.
 
-Der Lauf vom 2026-08-07 erzeugte erfolgreich die neun vorgesehenen Zustände sowie die geöffnete DR-05-Detailansicht. Die Dateien liegen unter `tests/visual/screenshots/`.
+Der Lauf vom 2026-08-07 erzeugte erfolgreich die neun vorgesehenen Zustände, die geöffnete DR-05-Detailansicht sowie DR-02c. Die Dateien liegen unter `tests/visual/screenshots/`.
