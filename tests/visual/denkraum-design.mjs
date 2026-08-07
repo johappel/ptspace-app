@@ -355,31 +355,61 @@ async function run() {
       throw new Error("DR-02 darf keine dauerhafte Pinnwandkarte zeigen.");
     }
     await capture(desktopPage, "dr-02-conversation-desktop");
+    for (const [label, selector] of [
+      ["Zeit & Dramaturgie", ".focus-mode-timeline"],
+      ["Vorbereitungen", ".focus-mode-preparation"],
+      ["Materialien", ".focus-mode-materials"]
+    ]) {
+      await desktopPage.getByRole("button", { name: "Perspektive wechseln" }).click();
+      await desktopPage.getByRole("button", { name: "Auf den Tisch: " + label }).click();
+      await waitFor("Fokusmodus " + label, async () => (await desktopPage.locator(selector).count()) === 1);
+      await assertText(desktopPage, ".focus-mode-heading", "Wir sprechen gerade über");
+    }
+    await desktopPage.getByRole("button", { name: "Perspektive wechseln" }).click();
+    await desktopPage.getByRole("button", { name: "Gespräch", exact: true }).click();
+    await waitFor("Rückkehr zum Gespräch", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
 
     await openSpace(desktopPage, spaces.dr03);
-    await assertText(desktopPage, ".traces-access", "1 Spuren festgehalten");
+    await assertText(desktopPage, ".traces-access", "1 kuratierte Spuren");
     await desktopPage.locator(".traces-access").click();
     await waitFor("DR-03 Pinnwand geöffnet", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 1);
+    if ((await desktopPage.locator(".focus-mode-pinboard").count()) !== 1) {
+      throw new Error("DR-03 muss die Pinnwand als aktiven Fokusmodus auf den Tisch legen.");
+    }
     await assertText(desktopPage, ".pinnwand-drawer", "Festgehaltener Gedanke");
     await assertText(desktopPage, ".pinnwand-drawer", "Erfahrung der Lernenden als Gesprächsspur");
     if ((await desktopPage.locator(".pinnwand-trace").count()) !== 1) {
       throw new Error("DR-03 muss genau die aktuelle Gesprächsspur zeigen.");
     }
+    if (await desktopPage.locator("textarea").getAttribute("placeholder") !== "Welche Spur möchtest du aufgreifen?") {
+      throw new Error("DR-03b muss das zurückgenommene Pinnwand-Gespräch als Spurzugang formulieren.");
+    }
+    await capture(desktopPage, "dr-03-pinboard-unselected-desktop");
+    await desktopPage.locator(".pinnwand-trace-select").click();
+    await assertText(desktopPage, ".companion-heading", "Erfahrung der Lernenden als Gesprächsspur");
+    if (await desktopPage.locator("textarea").getAttribute("placeholder") !== "Was möchtest du an diesem Gedanken weiterdenken?") {
+      throw new Error("DR-03 muss den Composer auf den ausgewählten Gedanken beziehen.");
+    }
+    if ((await desktopPage.locator(".pinnwand-trace-actions button").allTextContents()).join("|") !== "Im Gespräch aufgreifen|Zur Herkunft") {
+      throw new Error("DR-03 muss Gesprächsaufnahme und Herkunft als getrennte Aktionen benennen.");
+    }
     await capture(desktopPage, "dr-03-captured-thought-desktop");
-    await desktopPage.locator(".pinnwand-trace-actions button").first().click();
+    await desktopPage.locator(".pinnwand-trace-actions button").last().click();
     await waitFor("DR-03 Rückkehr ins Gespräch", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 0);
     if ((await desktopPage.locator(".message.highlighted").count()) !== 1) {
       throw new Error("DR-03 muss aus der Pinnwand zur Herkunft im Gespräch zurückführen.");
     }
     await desktopPage.locator(".traces-access").click();
-    const denkstandSummary = desktopPage.locator(".denkstand-details summary");
-    await denkstandSummary.focus();
-    await desktopPage.keyboard.press("Enter");
-    if ((await desktopPage.locator(".denkstand-details[open]").count()) !== 1) {
-      throw new Error("Der gemeinsame Denkstand ist per Tastatur nicht zu öffnen.");
-    }
-    await desktopPage.keyboard.press("Enter");
-    await desktopPage.locator(".pinnwand-drawer-heading > .quiet-button").click();
+    await desktopPage.locator(".pinnwand-trace-actions button").first().click();
+    await waitFor("DR-03 Gesprächsspur aufgreifen", async () => (await desktopPage.locator(".pinnwand-drawer").count()) === 0);
+    await desktopPage.locator(".traces-access").click();
+    await desktopPage.locator(".thinking-state-access").click();
+    await waitFor("DR-03 Denkstand-Fokus geöffnet", async () => (await desktopPage.locator(".focus-mode-thinking-state").count()) === 1);
+    await assertText(desktopPage, ".thinking-state-view", "Thema");
+    await assertText(desktopPage, ".thinking-state-view", "Relevante Lernreise");
+    await capture(desktopPage, "dr-03-thinking-state-desktop");
+    await desktopPage.locator(".focus-return").first().click();
+    await waitFor("DR-03 Denkstand-Rückkehr ins Gespräch", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
 
     await openSpace(desktopPage, spaces.dr04);
     await assertText(desktopPage, ".conversation-focus-layer", "Welche Erfahrung soll den Einstieg tragen?");
@@ -422,21 +452,21 @@ async function run() {
     await capture(desktopPage, "dr-06-result-review-desktop");
     await openSpace(desktopPage, spaces.dr07);
     await desktopPage.locator(".room-access-toggle").click();
-    await desktopPage.locator(".room-nav button").filter({ hasText: "Unterrichtsplanung" }).dispatchEvent("click");
-    await waitFor("DR-07 Lernlandschaft geoeffnet", async () => (await desktopPage.locator(".planning-modal").count()) === 1);
-    await assertText(desktopPage, ".planning-modal", "Von Erfahrung zu begruendeter Handlung");
-    await assertText(desktopPage, ".planning-modal", "aus dem Denkraum");
-    if ((await desktopPage.locator(".planning-return").count()) !== 1) { throw new Error("DR-07 muss eine eindeutige Rueckkehr in den Denkraum anbieten."); }
+    await desktopPage.locator(".room-nav button").filter({ hasText: "Auf den Tisch: Lernlandschaft" }).dispatchEvent("click");
+    await waitFor("DR-07 Lernlandschaft geoeffnet", async () => (await desktopPage.locator(".focus-mode-landscape").count()) === 1);
+    await assertText(desktopPage, ".focus-mode-heading", "Von Erfahrung zu begruendeter Handlung");
+    await assertText(desktopPage, ".focus-mode-heading", "Wir sprechen gerade über");
+    if ((await desktopPage.locator(".focus-return").count()) < 1) { throw new Error("DR-07 muss eine eindeutige Rückkehr in den Denkraum anbieten."); }
     await desktopPage.getByRole("button", { name: "Raumansicht" }).click();
-    await waitFor("DR-07 Canvasansicht", async () => (await desktopPage.locator(".modal-flow-canvas").count()) === 1);
+    await waitFor("DR-07 Canvasansicht", async () => (await desktopPage.locator(".landscape-view.inline .flow-canvas").count()) === 1);
     await capture(desktopPage, "dr-07-learning-landscape-desktop");
-    await desktopPage.getByRole("button", { name: "Linear lesen" }).click();
-    await waitFor("DR-07 lineare Lesansicht", async () => (await desktopPage.locator(".modal-linear-landscape").count()) === 1);
-    if ((await desktopPage.locator(".modal-linear-landscape .linear-moment").count()) !== 3) {
+    await desktopPage.getByRole("button", { name: "Lineare Lesansicht" }).click();
+    await waitFor("DR-07 lineare Lesansicht", async () => (await desktopPage.locator(".focus-mode-landscape .linear-landscape").count()) === 1);
+    if ((await desktopPage.locator(".focus-mode-landscape .linear-landscape .linear-moment").count()) !== 3) {
       throw new Error("DR-07 muss dieselben drei Lernmomente linear erreichbar machen.");
     }
-    await desktopPage.locator(".planning-return").click();
-    await waitFor("DR-07 Rueckkehr in den Denkraum", async () => (await desktopPage.locator(".planning-modal").count()) === 0);
+    await desktopPage.locator(".focus-return").first().click();
+    await waitFor("DR-07 Rueckkehr in den Denkraum", async () => (await desktopPage.locator(".focus-mode-conversation").count()) === 1);
     if ((await desktopPage.locator(".conversation-panel").count()) !== 1) {
       throw new Error("DR-07 muss eindeutig in den bestehenden Denkraum zurueckkehren.");
     }
@@ -488,7 +518,7 @@ async function run() {
 
 try {
   await run();
-  console.log("Playwright-Design-Harness erfolgreich: 8 Referenzzustände erzeugt.");
+  console.log("Playwright-Design-Harness erfolgreich: 9 Referenzzustände erzeugt (DR-05 zusätzlich vertieft).");
 } finally {
   await stopProcesses();
 }

@@ -87,6 +87,26 @@ export type PlanningBoardItem = {
 export type PlanningBoard = { schema: "ptspace.planning-board/v1"; items: PlanningBoardItem[] };
 
 
+export type FocusMode =
+  | "conversation"
+  | "pinboard"
+  | "thinking-state"
+  | "landscape"
+  | "timeline"
+  | "preparation"
+  | "materials"
+  | "knowledge";
+
+export type FocusedObject =
+  | { type: "message"; id: string }
+  | { type: "note"; id: string }
+  | { type: "landscape-node"; id: string }
+  | { type: "teaching-window"; id: string }
+  | { type: "work-item"; id: string }
+  | { type: "material"; id: string }
+  | null;
+
+
 export type MaterialMetadata = SharedMaterial;
 export type ConversationMarker = SharedConversationMarker;
 export type ConversationMarkerInput = {

@@ -46,10 +46,23 @@ Erfolgreiche Screenshots bleiben ein technischer Nachweis. Die qualitative Frage
 
 ## Nachweis der Pinnwand-Gedächtnisschicht
 
-DR-03 legt im isolierten Harness einen Gesprächsmarker an. Der Normalzustand prüft den kompakten Zugang ohne permanente Pinnwandkarte. Nach bewusstem Öffnen werden Herkunft, Typ und genau eine aktuelle Spur geprüft; anschließend führt „Im Gespräch aufgreifen“ zurück zur hervorgehobenen Gesprächsstelle. Die Darstellung zeigt höchstens fünf aktuelle Spuren; eine vollständige Historie ist nur als bewusste Aktion vorgesehen.
+DR-03 legt im isolierten Harness einen Gesprächsmarker an. Der Normalzustand prüft den kompakten Zugang ohne permanente Pinnwandkarte. Nach bewusstem Öffnen werden Herkunft, Typ und die kuratierten Spuren geprüft; anschließend führt „Im Gespräch aufgreifen“ beziehungsweise „Zur Herkunft“ zur passenden Gesprächsstelle. Die Darstellung zeigt höchstens fünf aktuelle Spuren; eine vollständige Historie ist kein Bestandteil dieses Fokusmodus.
 
 ## Nachweis der geöffneten Lernlandschaft
 
 DR-07 verwendet ein deterministisches Fixture mit drei Lernmomenten und zwei Übergängen. Der Referenzzustand prüft den Planungsraum-Kontext, die sichtbare Herkunft „aus dem Denkraum“, die eindeutige Rückkehr, die Raumansicht als Canvas sowie die gleichwertige lineare Lesansicht. Node-, Graph-, Schema- und Runtimebegriffe sind kein Bestandteil der teacher-facing Referenztexte.
 
 Die Zustände sind technisch erfasst, aber nicht qualitativ im Browser abgenommen. Die Screenshots ersetzen diese Sichtprüfung nicht.
+
+## Fokusmodus-Abdeckung
+
+Der Harness prüft nun explizit, dass ein Bereich den Hauptarbeitsraum übernimmt und nicht nur ein weiteres Panel einblendet:
+
+- `conversation` bleibt nach dem Perspektivwechsel als klar benannte Rückkehr erreichbar;
+- `pinboard` wird als Hauptfokus geöffnet, eine Spur kann ausgewählt werden und ihre Beschriftung erscheint im Companion;
+- `landscape` wird als Hauptfokus mit Canvas und gleichwertiger linearer Darstellung geöffnet;
+- `timeline`, `preparation` und `materials` werden über „Auf den Tisch“ aktiviert und als Fokusmodi verifiziert;
+- Composer- und Fokusbeschriftungen beziehen sich auf den aktiven Gegenstand;
+- der technische Test prüft die Rückkehr, ersetzt aber keine qualitative Beurteilung von Rhythmus, Materialität und visueller Dominanz.
+
+Der Lauf vom 2026-08-07 erzeugte erfolgreich die neun vorgesehenen Zustände sowie die geöffnete DR-05-Detailansicht. Die Dateien liegen unter `tests/visual/screenshots/`.

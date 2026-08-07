@@ -1,6 +1,6 @@
 # M0 Ist-Analyse und Umsetzungspaket
 
-Stand: 2026-08-06
+Stand: 2026-08-07
 Issue: [#17 – M0: Denkraum-Design absichern – ausdrücklich kein Dashboard](https://github.com/johappel/ptspace-app/issues/17)
 
 ## Prüfgrundlage und Einschränkung
@@ -112,3 +112,17 @@ Die qualitative Nacharbeit konzentrierte sich auf drei eng begrenzte Punkte aus 
 - Die Pinnwand ist eine temporär geöffnete Gedächtnisschicht. Im Ruhezustand bleibt nur „Denkstand · N Spuren festgehalten“ sichtbar. Beim Festhalten wird genau ein neuer Eintrag kurz angekündigt; die geöffnete Ansicht zeigt maximal fünf kuratierte Spuren, Herkunft und Rücksprung. Erst „Später zurückstellen“ legt eine Fokuslage wiederaufrufbar ab.
 
 Der Harness deckt jetzt auch DR-03 und DR-07 ab und prüft die Rückkehr vom Pinnwand-Eintrag beziehungsweise aus der Lernlandschaft in den Denkraum. DR-05 wird im Normalmodus und als bewusste Detailansicht geprüft. Die technische Erfassung ist damit für DR-01 bis DR-09 vorhanden. Die qualitative Sichtprüfung gegen den Design Contract bleibt offen. ROADMAP.md wird nicht geändert; Issue #17 bleibt offen.
+
+## Aktualisierung nach der Fokusmodus-Implementierung vom 2026-08-07
+
+Die zuvor als rechte Perspektive beschriebene Vertiefung ist jetzt als gemeinsames Fokusmodell umgesetzt. `focusMode` und `focusedObject` liegen im bestehenden Frontend-Domainkontext; Runtime-, Session-, Harness- und Kernelarchitektur wurden nicht verändert.
+
+- `conversation` zeigt den vollständigen Gesprächsfaden dominant.
+- `pinboard` legt wenige kuratierte Spuren mit Typ, Herkunft und Rücksprung auf den Tisch.
+- `landscape` und `timeline` übernehmen jeweils Lernlandschaft beziehungsweise Zeit und Dramaturgie als Hauptarbeitsraum.
+- `preparation` öffnet laufende und zurückgekehrte Vorbereitungen bewusst; im Gesprächsmodus bleibt nur die flache Statuszeile.
+- `materials` legt ein Material oder Ergebnis als prüfbaren Gegenstand auf den Tisch.
+
+Das Gespräch wird je nach Perspektive vollständig, kontextuell kompakt oder nur für eine fachliche Klärung eingeblendet. Composer-Texte benennen den ausgewählten Gegenstand. Herkunft und Rückkehr verwenden die vorhandenen Gesprächsmarker und keine zweite Herkunftslogik. Die responsiven Regeln reduzieren auf eine Spalte; der aktive Gegenstand bleibt vor dem optionalen Gespräch sichtbar.
+
+Der Visual-Harness bestätigt die Fokuswechsel technisch für DR-03, DR-05 und DR-07 sowie die Rückkehr in das Gespräch. Die qualitative Browser-Sichtprüfung ist davon getrennt und bleibt offen; Issue #17, Draft-PR #18 und `ROADMAP.md` werden deshalb nicht abgeschlossen.

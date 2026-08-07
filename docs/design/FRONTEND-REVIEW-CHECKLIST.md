@@ -29,6 +29,11 @@ Diese Checkliste gilt für alle sichtbaren oder teacher-facing Änderungen.
 - [ ] Die Rückkehr in das Gespräch ist eindeutig.
 - [ ] Die Ansicht wirkt wie Teil desselben Produkts.
 - [ ] Es entsteht kein zweiter Hauptworkflow.
+- [ ] Der Bereich übernimmt als Fokusmodus den Hauptarbeitsraum statt als dauerhafte Sidebar zu konkurrieren.
+- [ ] Aktiver Modus, konkreter Gegenstand und Gesprächskontext sind sichtbar benannt.
+- [ ] Das Gespräch ist je Fokusmodus unterschiedlich präsent und nicht überall identisch groß.
+- [ ] Der vorherige Fokus und die Herkunft bleiben nachvollziehbar.
+- [ ] Auf schmalen Ansichten steht der aktive Gegenstand vor Navigation und Statusinformationen.
 
 ## Zugänglichkeit
 
