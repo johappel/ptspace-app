@@ -587,7 +587,7 @@ It is not required for the Real Runtime MVP.
 
 Status:
 
-**planned / evaluation**
+**implemented (spike / evaluation); real transport not yet connected**
 
 Its purpose is to evaluate whether DeepSeek Harness can provide the adaptive runtime required for:
 
@@ -601,6 +601,15 @@ Its purpose is to evaluate whether DeepSeek Harness can provide the adaptive run
 * controlled subagents;
 * runtime learning;
 * continuous maintenance.
+
+The adapter implements `checkAvailability`, `createSession` (with resume),
+`sendMessage` (with provider-neutral `RuntimeUsage`), `getEvents`, `stopSession`
+and `simulatePolicy`. All DeepSeek-specific concepts stay behind the injectable
+`DeepSeekRuntimeTransport` boundary. Without a connected transport the adapter
+reports `requires_setup` rather than guessing unstable upstream API details.
+
+Configuration: `PTSPACE_HARNESS=deepseek`, `PTSPACE_DEEPSEEK_VERSION=<pin>`.
+See `docs/harness-deepseek.md`.
 
 The DeepSeek integration must remain behind PTS-owned contracts.
 

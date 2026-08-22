@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { ConversationMessage } from "@ptspace/shared";
+import { ConversationMessage, RuntimeUsage, emptyRuntimeUsage } from "@ptspace/shared";
 import { HarnessPermissionRequest, PermissionPolicy } from "../policy/PermissionPolicy.js";
 import {
   HarnessAdapter,
@@ -41,7 +41,15 @@ import {
 
 export type LlmChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export type LlmClient = (messages: LlmChatMessage[]) => Promise<string>;
+/** Rohe Usage-Daten eines OpenAI-kompatiblen Providers (falls geliefert). */
+export type LlmUsage = { promptTokens?: number; completionTokens?: number; cachedTokens?: number };
+
+/**
+ * Ein LLM-Aufruf. Liefert den Antworttext. Optional kann eine Usage-Struktur
+ * über den zweiten Rückgabewert bereitgestellt werden; ältere Fakes, die nur
+ * einen String liefern, bleiben kompatibel.
+ */
+export type LlmClient = (messages: LlmChatMessage[]) => Promise<string | { text: string; usage?: LlmUsage }>;
 
 export type DirectLlmAdapterOptions = {
   enabled: boolean;
@@ -160,12 +168,37 @@ function defaultLlmClient(options: DirectLlmAdapterOptions): LlmClient {
         signal: controller.signal
       });
       if (!response.ok) throw new Error(`llm_http_${response.status}`);
-      const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-      return payload.choices?.[0]?.message?.content ?? "";
+      const payload = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
+      };
+      const text = payload.choices?.[0]?.message?.content ?? "";
+      const usage: LlmUsage | undefined = payload.usage
+        ? {
+            promptTokens: payload.usage.prompt_tokens,
+            completionTokens: payload.usage.completion_tokens,
+            cachedTokens: payload.usage.prompt_tokens_details?.cached_tokens
+          }
+        : undefined;
+      return { text, usage };
     } finally {
       clearTimeout(timer);
     }
   };
+}
+
+/** Normalisiert das Client-Ergebnis (String oder { text, usage }). */
+function readClientResult(result: string | { text: string; usage?: LlmUsage }): { text: string; usage?: LlmUsage } {
+  return typeof result === "string" ? { text: result } : result;
+}
+
+/** Addiert Provider-Usage in eine providerneutrale RuntimeUsage. */
+function accumulateUsage(target: RuntimeUsage, usage: LlmUsage | undefined): void {
+  target.modelCalls += 1;
+  if (!usage) return;
+  if (usage.promptTokens !== undefined) target.inputTokens = (target.inputTokens ?? 0) + usage.promptTokens;
+  if (usage.completionTokens !== undefined) target.outputTokens = (target.outputTokens ?? 0) + usage.completionTokens;
+  if (usage.cachedTokens !== undefined) target.cachedTokens = (target.cachedTokens ?? 0) + usage.cachedTokens;
 }
 
 export class DirectLlmAdapter implements HarnessAdapter {
@@ -220,6 +253,8 @@ export class DirectLlmAdapter implements HarnessAdapter {
     const projectDir = input.session.workspaceRoot;
     await assertProjectDirectory(projectDir, input.session.workspaceRoot);
     const before = await snapshotProject(projectDir);
+    const startedAt = Date.now();
+    const usage = emptyRuntimeUsage();
 
     let conversationContext = input.conversationContext ?? "";
     if (!conversationContext) {
@@ -239,32 +274,38 @@ export class DirectLlmAdapter implements HarnessAdapter {
 
     let replyText: string;
     try {
-      replyText = await this.llm([
+      const result = readClientResult(await this.llm([
         { role: "system", content: prompt },
         { role: "user", content: workspaceContext ? `Aktueller Planungsraum:\n\n${workspaceContext}\n\nNachricht der Lehrkraft: ${input.message}` : input.message }
-      ]);
+      ]));
+      accumulateUsage(usage, result.usage);
+      replyText = result.text;
     } catch (error) {
-      return this.failedResult(this.teacherFacingError(error));
+      usage.runtimeMs = Date.now() - startedAt;
+      return this.failedResult(this.teacherFacingError(error), usage);
     }
 
     replyText = toTeacherFacingReply(normalizeOutput(replyText));
     if (!replyText) {
-      return this.failedResult("Die geschützte Ausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren.");
+      usage.runtimeMs = Date.now() - startedAt;
+      return this.failedResult("Die geschützte Ausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren.", usage);
     }
 
     // Strukturierter zweiter Aufruf: Das Modell entscheidet, welche kanonischen
     // Denkstand-Dateien mit welchem vollständigen Inhalt aktualisiert werden.
     // Das Backend schreibt selbst und ausschließlich diese Dateien – das Modell
     // erhält keinen Schreibzugriff auf den Workspace.
-    const appliedUpdates = await this.applyThinkingStateUpdates(projectDir, workspaceContext, conversationContext, input.message, replyText);
+    const appliedUpdates = await this.applyThinkingStateUpdates(projectDir, workspaceContext, conversationContext, input.message, replyText, usage);
 
     const after = await snapshotProject(projectDir);
     const changedFiles = diffSnapshots(before, after);
     replyText = guardUnsupportedClaims(replyText, changedFiles);
+    usage.runtimeMs = Date.now() - startedAt;
 
     return {
       reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: replyText, createdAt: new Date().toISOString() } as ConversationMessage,
       workspaceUpdates: [],
+      usage,
       events: [
         { type: "status", status: "ready", message: replyText },
         ...appliedUpdates.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath })),
@@ -279,7 +320,8 @@ export class DirectLlmAdapter implements HarnessAdapter {
     workspaceContext: string,
     conversationContext: string,
     teacherMessage: string,
-    replyText: string
+    replyText: string,
+    usage?: RuntimeUsage
   ): Promise<string[]> {
     const currentState = workspaceContext || "(Der Planungsraum enthält noch keine Denkstand-Dateien.)";
     const instruction = [
@@ -307,10 +349,12 @@ export class DirectLlmAdapter implements HarnessAdapter {
 
     let raw: string;
     try {
-      raw = await this.llm([
+      const result = readClientResult(await this.llm([
         { role: "system", content: instruction },
         { role: "user", content: `Aktueller Stand des Planungsraums:\n\n${currentState}` }
-      ]);
+      ]));
+      if (usage) accumulateUsage(usage, result.usage);
+      raw = result.text;
     } catch (error) {
       // Ein fehlgeschlagener Update-Aufruf darf das Gespräch nicht blockieren;
       // guardUnsupportedClaims kennzeichnet nicht persistierte Behauptungen.
@@ -344,10 +388,10 @@ export class DirectLlmAdapter implements HarnessAdapter {
 
     let output: string;
     try {
-      output = await this.llm([
+      output = readClientResult(await this.llm([
         { role: "system", content: prompt },
         { role: "user", content: `Aktueller Planungsraum:\n\n${workspaceContext}` }
-      ]);
+      ])).text;
     } catch (error) {
       console.error(`Worker task failed: ${error instanceof Error ? error.message : error}`);
       throw new Error("worker_runtime_failed");
@@ -384,10 +428,10 @@ export class DirectLlmAdapter implements HarnessAdapter {
       const prompt = buildReviewPrompt(input, expectedPath);
       let output: string;
       try {
-        output = await this.llm([
+        output = readClientResult(await this.llm([
           { role: "system", content: prompt },
           { role: "user", content: draftContent }
-        ]);
+        ])).text;
       } catch {
         return { status: "blocked", note: "Die fachliche Prüfung konnte noch nicht sicher abgeschlossen werden." };
       }
@@ -419,10 +463,11 @@ export class DirectLlmAdapter implements HarnessAdapter {
     return;
   }
 
-  private failedResult(message: string): HarnessMessageResult {
+  private failedResult(message: string, usage?: RuntimeUsage): HarnessMessageResult {
     return {
       reply: { id: `reply-${Date.now()}`, author: "critical_friend", text: message, createdAt: new Date().toISOString() } as ConversationMessage,
       workspaceUpdates: [],
+      ...(usage ? { usage } : {}),
       events: [{ type: "status", status: "failed", message }]
     };
   }

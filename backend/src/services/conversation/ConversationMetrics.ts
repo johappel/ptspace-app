@@ -6,6 +6,8 @@
  * ein strukturiertes Metrikobjekt sowie ein menschenlesbares Performance-Log.
  */
 
+import type { RuntimeUsage } from "@ptspace/shared";
+
 export type ConversationMetrics = {
   requestStartedAt: string;
   contextBuildMs: number;
@@ -21,6 +23,8 @@ export type ConversationMetrics = {
   promptTokens?: number;
   cacheHits: string[];
   cacheMisses: string[];
+  // L5b.0: providerunabhängige Runtime-Usage der Ausführungsstufe (falls geliefert).
+  runtimeUsage?: RuntimeUsage;
 };
 
 export type MetricPhase =
@@ -54,6 +58,7 @@ export class ConversationMetricsCollector {
   private inputTokens?: number;
   private outputTokens?: number;
   private promptTokens?: number;
+  private runtimeUsage?: RuntimeUsage;
 
   constructor(clock: Clock = () => performance.now()) {
     this.clock = clock;
@@ -104,6 +109,13 @@ export class ConversationMetricsCollector {
     if (input.promptTokens !== undefined) this.promptTokens = input.promptTokens;
   }
 
+  /** Übernimmt providerunabhängige Runtime-Usage einer Ausführungsstufe (L5b.0). */
+  recordRuntimeUsage(usage: RuntimeUsage): void {
+    this.runtimeUsage = usage;
+    if (usage.inputTokens !== undefined) this.inputTokens = usage.inputTokens;
+    if (usage.outputTokens !== undefined) this.outputTokens = usage.outputTokens;
+  }
+
   finish(): ConversationMetrics {
     const round = (value: number | undefined) => (value === undefined ? undefined : Math.round(value));
     return {
@@ -120,7 +132,8 @@ export class ConversationMetricsCollector {
       outputTokens: this.outputTokens,
       promptTokens: this.promptTokens,
       cacheHits: [...this.cacheHits],
-      cacheMisses: [...this.cacheMisses]
+      cacheMisses: [...this.cacheMisses],
+      ...(this.runtimeUsage ? { runtimeUsage: this.runtimeUsage } : {})
     };
   }
 

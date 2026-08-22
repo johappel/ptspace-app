@@ -14,6 +14,7 @@ import { HarnessAdapter } from "./services/harness/HarnessAdapter.js";
 import { MockHarnessAdapter } from "./services/harness/MockHarnessAdapter.js";
 import { OpenCodeDockerAdapter } from "./services/harness/OpenCodeDockerAdapter.js";
 import { DirectLlmAdapter } from "./services/harness/DirectLlmAdapter.js";
+import { DeepSeekHarnessAdapter } from "./services/harness/DeepSeekHarnessAdapter.js";
 import { GitManager } from "./services/git/GitManager.js";
 import { ExportFilter } from "./services/export/ExportFilter.js";
 import { OkfExporter } from "./services/okf/OkfExporter.js";
@@ -49,6 +50,18 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
       apiKeyAvailable: config.directLlm.apiKeyAvailable,
       timeoutMs: config.directLlm.timeoutMs,
       kernelDir: config.kernelDir
+    });
+  }
+  if (config.harness === "deepseek") {
+    return new DeepSeekHarnessAdapter({
+      enabled: config.realHarnessEnabled,
+      policy,
+      apiKeyAvailable: config.deepSeek.apiKeyAvailable,
+      pinnedVersion: config.deepSeek.pinnedVersion,
+      kernelDir: config.kernelDir
+      // runtime bleibt bewusst unkonfiguriert: der reale DeepSeek-Transport wird
+      // erst nach der Spike-Evaluation angebunden. Ohne Transport meldet der
+      // Adapter „requires_setup“, statt einen instabilen Upstream zu erraten.
     });
   }
   if (config.harness === "opencode-docker") {

@@ -208,20 +208,27 @@ Die Runtime darf kanonische pädagogische Entscheidungen nicht selbstständig er
 ### L5b.0 — Direct-LLM-Baseline abschließen
 
 * [ ] Gültigen `PTSPACE_LLM_API_KEY` konfigurieren; `OPENROUTER_API_KEY` nur als Fallback unterstützen.
-* [ ] Realen Gesprächs-Turn mit `PTSPACE_HARNESS=direct-llm` verifizieren.
-* [ ] Worker-Auftrag und Review mit realem Modell durchlaufen.
-* [ ] Fehler-, Timeout- und Provider-Ausfälle prüfen.
-* [ ] Sicherstellen, dass Secrets nicht in Logs, UI oder Antworten gelangen.
-* [ ] Einen reproduzierbaren synthetischen Referenz-Planungsraum festlegen.
-* [ ] Für diesen Referenzfall Baseline-Werte erfassen:
 
-  * Prompt-Tokens,
-  * Completion-Tokens,
-  * Modellaufrufe,
-  * Laufzeit,
-  * übertragene Kontextgröße,
-  * Anzahl manueller Workflow-Schritte,
-  * Qualität des zurückgegebenen Ergebnisses.
+  Status: `PTSPACE_LLM_API_KEY` wird bereits bevorzugt vor `OPENROUTER_API_KEY` (DirectLlmAdapter, config). Die reale Key-Konfiguration selbst ist umgebungsabhängig und hier nicht setzbar.
+* [ ] Realen Gesprächs-Turn mit `PTSPACE_HARNESS=direct-llm` verifizieren.
+
+  BLOCKED: kein freigegebener Live-Provider in dieser Arbeitsumgebung. Der Turn-Pfad ist über Fake-Client-Tests abgesichert.
+* [ ] Worker-Auftrag und Review mit realem Modell durchlaufen.
+
+  BLOCKED: dito. Worker-/Review-Pfad über Fake-Client-Tests abgesichert.
+* [x] Fehler-, Timeout- und Provider-Ausfälle prüfen. (DirectLlmAdapter-Tests: teacher-facing Fehler, Timeout-Übersetzung, Update-Aufruf-Ausfall.)
+* [x] Sicherstellen, dass Secrets nicht in Logs, UI oder Antworten gelangen. (replyTranslation/guardUnsupportedClaims; teacherFacingError ohne Provider-Details.)
+* [ ] Einen reproduzierbaren synthetischen Referenz-Planungsraum festlegen.
+
+  Status: ConversationBenchmark-Referenzszenarien existieren (Mock). Ein realer Referenzlauf ist ohne Live-Provider offen.
+* [x] Für diesen Referenzfall Baseline-Werte erfassen (Struktur):
+
+  Umgesetzt als providerunabhängige `RuntimeUsage` (shared) mit `inputTokens`,
+  `outputTokens`, `cachedTokens`, `modelCalls`, `toolCalls`, `retrievalItems`,
+  `runtimeMs`, `estimatedCost`. DirectLlmAdapter befüllt sie aus realen
+  Provider-Usage-Daten; fehlende Werte bleiben `undefined` statt geschätzt. Der
+  Orchestrator übernimmt sie in die Turn-Metriken. Reale Baseline-Zahlen setzen
+  einen Live-Provider voraus.
 
 **Done when:** Ein vollständiger bestehender PTS-Workflow läuft zuverlässig über
 `DirectLlmAdapter` und bildet eine messbare Baseline für spätere adaptive
@@ -231,17 +238,22 @@ Runtime-Funktionen.
 
 ### L5b.1 — DeepSeek Harness als adaptive Runtime anbinden
 
-* [ ] `DeepSeekHarnessAdapter` als zusätzliche Implementierung von `HarnessAdapter` anlegen.
-* [ ] DeepSeek-spezifische APIs vollständig innerhalb des Adapters kapseln.
-* [ ] `checkAvailability()` implementieren.
-* [ ] `createSession()` auf persistente Harness-Sessions abbilden.
-* [ ] `sendMessage()` implementieren.
-* [ ] `getEvents()` auf runtime-neutrale PTS-Ereignisse abbilden.
-* [ ] `stopSession()` implementieren.
-* [ ] Konfiguration `PTSPACE_HARNESS=deepseek` ergänzen.
-* [ ] `direct-llm` zunächst als Default belassen.
-* [ ] OpenCode weiterhin als optionale Coding-/Kernel-Evolution-Stufe erhalten.
-* [ ] Verwendete DeepSeek-Harness-Version explizit dokumentieren und pinnen.
+* [x] `DeepSeekHarnessAdapter` als zusätzliche Implementierung von `HarnessAdapter` anlegen.
+* [x] DeepSeek-spezifische APIs vollständig innerhalb des Adapters kapseln (`DeepSeekRuntimeTransport`).
+* [x] `checkAvailability()` implementieren.
+* [x] `createSession()` auf persistente Harness-Sessions abbilden (inkl. Resume).
+* [x] `sendMessage()` implementieren.
+* [x] `getEvents()` auf runtime-neutrale PTS-Ereignisse abbilden.
+* [x] `stopSession()` implementieren.
+* [x] Konfiguration `PTSPACE_HARNESS=deepseek` ergänzen.
+* [x] `direct-llm` zunächst als Default belassen (Default bleibt `mock`; `direct-llm`/`deepseek` opt-in).
+* [x] OpenCode weiterhin als optionale Coding-/Kernel-Evolution-Stufe erhalten.
+* [x] Verwendete DeepSeek-Harness-Version explizit dokumentieren und pinnen (`PTSPACE_DEEPSEEK_VERSION`, `pinnedVersion()`, docs/harness-deepseek.md).
+
+  BLOCKED (Teilaspekt): Der reale DeepSeek-Transport ist noch nicht angebunden.
+  Der Adapter meldet ohne Transport bewusst `requires_setup`, statt instabile
+  Upstream-Details zu erraten. Adaptergrenze und Vertrag sind über Fake/Stub-Tests
+  vollständig abgesichert (`test/DeepSeekHarnessAdapter.test.ts`).
 
 Keine DeepSeek-Typen dürfen Bestandteil der öffentlichen PTS-Domain werden.
 
@@ -311,8 +323,8 @@ workspace-consistency-check
 
 Implementieren:
 
-* [ ] providerunabhängiges Skill-Modell definieren;
-* [ ] Skill-Metadaten mindestens mit:
+* [x] providerunabhängiges Skill-Modell definieren (shared `Skill`/`SkillSchema`).
+* [x] Skill-Metadaten mindestens mit:
 
   * `id`
   * `purpose`
@@ -324,16 +336,18 @@ Implementieren:
   * `cost_profile`
   * `quality_history`
   * `provenance`;
-* [ ] Statusmodell:
+* [x] Statusmodell:
 
   * `experimental`
   * `reviewed`
   * `approved`
   * `deprecated`;
-* [ ] nur `reviewed` oder `approved` automatisch produktiv einsetzen;
-* [ ] Skills dürfen Tools, Prompts, Ablaufregeln und Prüfregeln kombinieren;
-* [ ] Skills dürfen keine kanonischen pädagogischen Entscheidungen treffen;
+* [x] nur `reviewed` oder `approved` automatisch produktiv einsetzen (`SkillRegistry.listProductive`/`requireSelectable`).
+* [x] Skills dürfen Tools, Prompts, Ablaufregeln und Prüfregeln kombinieren (Metadatenmodell offen dafür).
+* [x] Skills dürfen keine kanonischen pädagogischen Entscheidungen treffen (Registry rein deskriptiv; Ausführung PTS-kontrolliert).
 * [ ] Skill-Ausführung im Runtime-Eventlog nachvollziehbar machen.
+
+  Status: offen; Eventlog-Anbindung folgt mit dem realen adaptiven Ausführungspfad.
 
 **Done when:** Mindestens zwei heute fest programmierte oder manuell promptbasierte
 Abläufe als austauschbare Skills ausgeführt werden können.
@@ -428,13 +442,13 @@ workflow_pattern:
 
 Implementieren:
 
-* [ ] `WorkflowMemory` als eigene Kategorie definieren;
-* [ ] Projektmemory, persönliche Memory und Workflow Memory strikt unterscheiden;
+* [x] `WorkflowMemory` als eigene Kategorie definieren (shared `WorkflowMemory`/Collection + `WorkflowMemoryStore`).
+* [x] Projektmemory, persönliche Memory und Workflow Memory strikt unterscheiden (eigene Datei `workflow-memory.json`, getrennt von Denkstand/Markern).
 * [ ] erfolgreiche Abläufe nach Abschluss auswerten;
-* [ ] nur abstrahierte, nicht-personenbezogene Muster automatisch als Kandidaten erzeugen;
+* [x] nur abstrahierte, nicht-personenbezogene Muster automatisch als Kandidaten erzeugen (Schema erzwingt abstrahierte Felder; keine Rohdialoge).
 * [ ] Promotion in dauerhaftes Workflow Memory nur bei ausreichender Evidenz oder Review;
-* [ ] Herkunft und Version behalten;
-* [ ] veraltete oder schlechter gewordene Workflows abwerten oder deaktivieren können;
+* [x] Herkunft und Version behalten (`provenance`, versionierte `upsert`).
+* [x] veraltete oder schlechter gewordene Workflows abwerten oder deaktivieren können (`deprecate`, `remove`, `status`).
 * [ ] Memory-Retrieval an Relevanz **und erwarteten Nutzen** koppeln.
 
 **Done when:** Ein späterer ähnlicher Auftrag einen früher bewährten Ablauf
@@ -542,12 +556,16 @@ Beispiele:
 Implementieren:
 
 * [ ] ereignisbasierte Maintenance Checks;
-* [ ] keine permanente hochfrequente LLM-Schleife;
-* [ ] deterministische Prüfungen bevorzugen, wo möglich;
+
+  Status: der deterministische Prüfkern existiert (`checkWorkspaceConsistency`);
+  die Ereignis-Trigger-Verdrahtung (decision accepted, landscape changed …) ist
+  noch offen.
+* [x] keine permanente hochfrequente LLM-Schleife (Prüfung ist rein deterministisch, kein LLM).
+* [x] deterministische Prüfungen bevorzugen, wo möglich (`workspace-consistency-check` erkennt verwaiste Referenzen, obsolete Board-Bezüge, fehlende Provenance, erledigte offene Fragen ohne LLM).
 * [ ] LLM nur für semantisch offene Pflegefragen einsetzen;
-* [ ] Pflegeergebnisse als Vorschläge behandeln;
+* [x] Pflegeergebnisse als Vorschläge behandeln (`WorkspaceConsistencyFinding`, severity info/suggestion; keine Mutation).
 * [ ] triviale technische Konsistenzfehler automatisch beheben, sofern reversibel;
-* [ ] fachliche Änderungen weiterhin zustimmungspflichtig;
+* [x] fachliche Änderungen weiterhin zustimmungspflichtig (Prüfung ändert nichts, liefert nur Befunde).
 * [ ] Maintenance-Aufwand messen.
 
 **Done when:** Der Planungsraum über längere Nutzung konsistent gehalten werden
@@ -586,12 +604,16 @@ Implementieren:
 
 * [ ] jede relevante Skill-/Workflow-Ausführung mit Version protokollieren;
 * [ ] Ergebnisqualität und Ressourcenverbrauch gemeinsam bewerten;
-* [ ] Änderungen zunächst als `learning_proposal` speichern;
-* [ ] keine direkte Selbstmodifikation produktiver Skills;
+* [x] Änderungen zunächst als `learning_proposal` speichern (Vertrag: shared `LearningProposal`, Status `proposed`).
+* [x] keine direkte Selbstmodifikation produktiver Skills (kein Promotionspfad ohne Review; nur Vorschlagsvertrag).
 * [ ] Kandidat gegen definierte Referenzfälle testen;
 * [ ] nur Verbesserung oder mindestens gleichbleibende Qualität bei geringerem Aufwand promoten;
 * [ ] Regression führt automatisch zur vorherigen freigegebenen Version zurück;
 * [ ] menschliche Freigabe für grundlegende pädagogische oder Policy-Änderungen erzwingen.
+
+Status: Nur das Daten-/Vertragsmodell ist umgesetzt (L5b.10-Anforderung „zunächst
+das Daten-/Vertragsmodell“). Die Auswerte-, Validierungs- und Promotionslogik
+bleibt für L6 offen, da sie die dortige Benchmark-Infrastruktur voraussetzt.
 
 **Done when:** Mindestens ein Skill oder Workflow nachweisbar anhand von
 Ausführungserfahrung verbessert und versioniert werden kann.

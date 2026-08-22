@@ -539,3 +539,180 @@ export const PlanningBoardSchema = z.object({
 });
 export type PlanningBoard = z.infer<typeof PlanningBoardSchema>;
 
+// ---------------------------------------------------------------------------
+// L5b — Adaptive Runtime: providerunabhängige Verträge
+//
+// Diese Typen sind bewusst runtime-neutral. Sie enthalten KEINE provider-
+// spezifischen Felder (kein DeepSeek-, OpenCode- oder OpenAI-Detail). Sie
+// beschreiben, was der PTS über eine Ausführung wissen muss, unabhängig davon,
+// welche Ausführungsstufe (Backend, Direct LLM, adaptive Runtime, Coding
+// Harness) sie erbracht hat.
+// ---------------------------------------------------------------------------
+
+/**
+ * Runtime-Usage / Telemetrie einer einzelnen Ausführung (L5b.0 / L6-Vorbereitung).
+ *
+ * Fehlende Providerdaten bleiben `undefined` – es wird nichts geschätzt, wenn
+ * keine verlässliche Berechnung vorliegt. Es dürfen keine Gesprächsinhalte,
+ * Secrets oder personenbezogenen Daten in diese Struktur gelangen.
+ */
+export const RuntimeUsageSchema = z.object({
+  inputTokens: z.number().int().nonnegative().optional(),
+  outputTokens: z.number().int().nonnegative().optional(),
+  cachedTokens: z.number().int().nonnegative().optional(),
+  modelCalls: z.number().int().nonnegative().default(0),
+  toolCalls: z.number().int().nonnegative().default(0),
+  retrievalItems: z.number().int().nonnegative().optional(),
+  runtimeMs: z.number().nonnegative().default(0),
+  estimatedCost: z.number().nonnegative().optional()
+});
+export type RuntimeUsage = z.infer<typeof RuntimeUsageSchema>;
+
+export function emptyRuntimeUsage(): RuntimeUsage {
+  return { modelCalls: 0, toolCalls: 0, runtimeMs: 0 };
+}
+
+/**
+ * Ergebnisindikatoren einer Ausführung (L5b.0 / L6). Diese Signale sind
+ * Beobachtungen, keine objektiven Qualitätsurteile. Akzeptieren ist nicht
+ * gleich „gut“, Ablehnen nicht gleich „schlecht“.
+ */
+export const RuntimeOutcomeSchema = z.object({
+  reviewStatus: z.enum(["pending", "passed", "concerns", "blocked", "unknown"]).default("unknown"),
+  accepted: z.boolean().optional(),
+  edited: z.boolean().optional(),
+  rejected: z.boolean().optional(),
+  followupNeeded: z.boolean().optional()
+});
+export type RuntimeOutcome = z.infer<typeof RuntimeOutcomeSchema>;
+
+/**
+ * Skill-Statusmodell (L5b.3). Nur `reviewed` oder `approved` dürfen automatisch
+ * produktiv eingesetzt werden. Automatisch erzeugte Skills starten immer als
+ * `experimental` und werden nicht ohne Prüfung promotet.
+ */
+export const SkillStatusSchema = z.enum(["experimental", "reviewed", "approved", "deprecated"]);
+export type SkillStatus = z.infer<typeof SkillStatusSchema>;
+
+export const SkillCostProfileSchema = z.object({
+  typicalModelCalls: z.number().int().nonnegative().optional(),
+  typicalToolCalls: z.number().int().nonnegative().optional(),
+  typicalInputTokens: z.number().int().nonnegative().optional(),
+  typicalOutputTokens: z.number().int().nonnegative().optional()
+});
+export type SkillCostProfile = z.infer<typeof SkillCostProfileSchema>;
+
+export const SkillQualityRecordSchema = z.object({
+  at: ISODateString,
+  reviewStatus: z.enum(["pending", "passed", "concerns", "blocked", "unknown"]).default("unknown"),
+  note: z.string().default("")
+});
+export type SkillQualityRecord = z.infer<typeof SkillQualityRecordSchema>;
+
+/**
+ * PTS-eigene Skill-Definition (L5b.3). Die Skill Registry bleibt PTS-owned. Eine
+ * adaptive Runtime darf einen Skill ausführen, aber nicht definieren, was ein
+ * gültiger produktiver PTS-Skill ist.
+ */
+export const SkillSchema = z.object({
+  id: z.string().min(1),
+  purpose: z.string().min(1),
+  status: SkillStatusSchema.default("experimental"),
+  applicableWhen: z.array(z.string()).default([]),
+  inputs: z.array(z.string()).default([]),
+  outputs: z.array(z.string()).default([]),
+  constraints: z.array(z.string()).default([]),
+  provenance: z.string().default(""),
+  costProfile: SkillCostProfileSchema.optional(),
+  qualityHistory: z.array(SkillQualityRecordSchema).default([])
+});
+export type Skill = z.infer<typeof SkillSchema>;
+
+/**
+ * Ergebnis einer offenen, kontrastierenden Recherche (L5b.4, Skill
+ * `contrastive-research`). Keine ungefilterte Trefferliste – jedes Ergebnis
+ * trägt Kontext, Herkunft und Unsicherheit.
+ */
+export const ContrastivePerspectiveSchema = z.object({
+  perspective: z.string().min(1),
+  whyRelevant: z.string().min(1),
+  source: z.string().default(""),
+  sourceType: z.enum(["curated_knowledge", "model_reasoning", "external", "unknown"]).default("unknown"),
+  retrievedAt: z.string().default(""),
+  uncertainty: z.string().default(""),
+  relationshipToCurrentDesign: z.enum(["near_fit", "contrast", "unclear"]).default("unclear")
+});
+export type ContrastivePerspective = z.infer<typeof ContrastivePerspectiveSchema>;
+
+/**
+ * Ein Pflege-/Konsistenzbefund (L5b.5, Skill `workspace-consistency-check`).
+ * Fachlich relevante Änderungen bleiben Vorschläge und werden nie automatisch
+ * angewendet.
+ */
+export const WorkspaceConsistencyFindingSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum([
+    "resolved_open_question",
+    "orphaned_material_reference",
+    "obsolete_board_item",
+    "missing_provenance",
+    "inconsistent_reference",
+    "other"
+  ]),
+  severity: z.enum(["info", "suggestion"]).default("suggestion"),
+  detectedBy: z.enum(["deterministic", "semantic"]).default("deterministic"),
+  message: z.string().min(1),
+  targetType: z.string().default(""),
+  targetId: z.string().default("")
+});
+export type WorkspaceConsistencyFinding = z.infer<typeof WorkspaceConsistencyFindingSchema>;
+
+/**
+ * Abstrahiertes Prozesswissen (L5b.6). Speichert KEINE Chattranskripte, keine
+ * personenbezogenen Lehrkraft- oder Lernendenprofile und keine sensiblen
+ * Beobachtungen – nur wiederverwendbare Arbeitsmuster. PTS-owned.
+ */
+export const WorkflowMemorySchema = z.object({
+  id: z.string().min(1),
+  taskType: z.string().min(1),
+  version: z.number().int().nonnegative().default(1),
+  observations: z.array(z.string()).default([]),
+  useWhen: z.array(z.string()).default([]),
+  provenance: z.string().default(""),
+  status: z.enum(["active", "deprecated"]).default("active"),
+  createdAt: ISODateString,
+  updatedAt: ISODateString
+});
+export type WorkflowMemory = z.infer<typeof WorkflowMemorySchema>;
+
+export const WorkflowMemoryCollectionSchema = z.object({
+  schema: z.literal("ptspace.workflow-memory/v1"),
+  entries: z.array(WorkflowMemorySchema).default([])
+});
+export type WorkflowMemoryCollection = z.infer<typeof WorkflowMemoryCollectionSchema>;
+
+/**
+ * Kontrollierte Runtime-Lernschleife (L5b.10). Ein Learning Proposal wird nur
+ * gespeichert; produktive Skills modifizieren sich nicht selbst. Promotion
+ * benötigt Evidenz (Benchmark aus L6) und ggf. menschliche Freigabe.
+ */
+export const LearningProposalSchema = z.object({
+  id: z.string().min(1),
+  targetType: z.enum(["skill", "workflow_memory", "prompt", "model_choice", "retrieval"]),
+  targetId: z.string().default(""),
+  change: z.enum([
+    "shorten_prompt",
+    "narrow_retrieval",
+    "remove_step",
+    "switch_model",
+    "change_skill_flow",
+    "new_skill_candidate"
+  ]),
+  rationale: z.string().min(1),
+  status: z.enum(["proposed", "validated", "promoted", "rejected"]).default("proposed"),
+  usage: RuntimeUsageSchema.optional(),
+  outcome: RuntimeOutcomeSchema.optional(),
+  createdAt: ISODateString
+});
+export type LearningProposal = z.infer<typeof LearningProposalSchema>;
+

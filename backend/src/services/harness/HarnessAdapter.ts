@@ -1,4 +1,4 @@
-import { ConversationMessage, PlanningSpace, PolicyDecision } from "@ptspace/shared";
+import { ConversationMessage, PlanningSpace, PolicyDecision, RuntimeUsage } from "@ptspace/shared";
 import { HarnessPermissionRequest } from "../policy/PermissionPolicy.js";
 
 export type HarnessMode = "mock" | "docker" | "host-bridge" | "external";
@@ -36,6 +36,9 @@ export type HarnessMessageResult = {
   workspaceUpdates: HarnessWorkspaceUpdate[];
   events: HarnessEvent[];
   suggestedAction?: SuggestedAction;
+  // L5b.0: providerunabhängige Runtime-Usage. Optional, weil nicht jede
+  // Ausführungsstufe verlässliche Providerdaten liefert.
+  usage?: RuntimeUsage;
 };
 
 export type SuggestedAction = {

@@ -206,6 +206,9 @@ export class ConversationOrchestrator {
     metrics.markFirstToken();
     metrics.end("generation");
     metrics.recordTokens({ outputTokens: estimateTokens(result.reply.text) });
+    // L5b.0: providerunabhängige Runtime-Usage übernehmen, sofern der Adapter
+    // sie liefert (Direct LLM: reale Providerdaten; Mock: keine).
+    if (result.usage) metrics.recordRuntimeUsage(result.usage);
 
     const failed = result.events.some((event) => event.type === "status" && event.status === "failed");
     if (failed) {
