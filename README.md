@@ -3,7 +3,7 @@
 
 Der aktuelle MVP ist ein lokaler Mock-Harness-Prototyp. Er enthält eine SvelteKit-Oberfläche, ein Fastify-Backend, gemeinsame Domain-Schemas, isolierte Planungsraum-Workspaces, interne Git-Versionierung und einen gefilterten Markdown-Export.
 
-Echte `opencode`-Ausführung ist noch nicht aktiviert. Sie bleibt an die Gates in `TASKS.md` Abschnitt 1.5 gekoppelt.
+Echte Modellkonversation ist über den direkten Modellzugriff (`PTSPACE_HARNESS=direct-llm`, siehe `docs/harness-direct-llm.md`) aktivierbar. Die opencode-Runtime bleibt als optionale Agenten-Stufe erhalten (siehe `docs/harness-opencode.md`).
 
 ### Lokal starten
 

@@ -16,6 +16,25 @@ import {
   HarnessTaskResult,
   SendHarnessMessageInput
 } from "./HarnessAdapter.js";
+import {
+  buildCriticalFriendPrompt,
+  buildReviewPrompt,
+  buildWorkerPrompt,
+  type PromptContext
+} from "./prompts.js";
+import {
+  guardUnsupportedClaims,
+  normalizeOutput,
+  parseReviewReply,
+  toTeacherFacingReply
+} from "./replyTranslation.js";
+import {
+  assertProjectDirectory,
+  copyProjectForReview,
+  diffSnapshots,
+  safeRelativeOutputPath,
+  snapshotProject
+} from "./workspaceDiff.js";
 
 export type OpenCodeRunnerKind = "docker" | "local";
 
@@ -61,10 +80,6 @@ type DockerSecretMount = {
 
 function nowIso(): string {
   return new Date().toISOString();
-}
-
-function normalizeOutput(value: string): string {
-  return value.replace(/\u001b\[[0-9;]*m/g, "").trim();
 }
 
 export class OpenCodeDockerAdapter implements HarnessAdapter {
@@ -293,106 +308,24 @@ export class OpenCodeDockerAdapter implements HarnessAdapter {
   }
 
   private buildCommand(projectDir: string, message: string, secretMount?: DockerSecretMount, conversationContext?: string): { command: string; args: string[]; cwd: string } {
-    const criticalFriendInstructions = `
-## CRITICAL FRIEND – ROLLE UND HALTUNG
-
-Du bist der Critical Friend in einem pädagogischen Denkraum.
-
-### Deine Aufgabe
-- Begleite die Lehrkraft in professionellem pädagogischem Denken
-- Halte Denkprozesse sichtbar und strukturiert
-- Fasse zusammen, markiere Dissens, hebe offene Entscheidungen hervor
-- Schütze vor vorschneller Produktion und unreflektierten Entscheidungen
-
-### Deine Haltung
-- Kollegial, ruhig, erfahren
-- Nicht: technischer Agent, Materialgenerator, Chatbot
-- Sprich aus dem Schulalltag, nicht aus Agenten-/IT-Logik
-- Keine generische KI-Floskeln
-
-### Was du fragst und moderierst
-✓ pädagogische Intention und Sinn
-✓ Lernprozesse und -momente
-✓ Zielgruppe und Kontexte
-✓ Entscheidungen und Begründungen
-✓ offene Fragen und Unsicherheiten
-✓ Ton, Freigabe, Unterrichtseinsatz
-
-### Was du NICHT fragst oder tust
-✗ technische Risks und Permissions
-✗ Shell-, Docker-, Paketbefehle
-✗ API-Keys, Tokens, Secrets
-✗ Provider-Freigaben
-✗ Installation oder System-Konfiguration
-
-### Sprache und Begriffe
-- Nutze: Gespräch, Denkstand, Entscheidung, Entwurf, Material, Lernreise
-- Nicht: Task, Agent, Render, Artifact, Service Request, Repository, Branch
-- Nicht: "Soll ich das installieren?", "Docker ausführen?", "pip install?"
-
-### Konversation führen
-- Immer nur EIN sinnvoller nächster Schritt
-- Keine Listenflut, keine Automationsvorschläge
-- Behalte Kontext und Konsistenz
-- Erkenne, wenn die Lehrkraft sich wiederholt oder widerspricht
-`;
-
-    const guardedMessage = [
-      criticalFriendInstructions,
-      "",
-      "Arbeite ausschließlich im aktuellen Planungsraum.",
-      `Nutze den pädagogischen Kernel als Engine-Kontext: ${this.kernelReferencePath()}.`,
-      `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`,
-      `Beschreibbare Kernel-Arbeitsbereiche: ${this.kernelWritableDescription()}. Änderungen dort benötigen weiterhin den vorgesehenen Freigabe-Workflow.`,
-      "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
-      "Wenn sich der pädagogische Denkstand verändert, aktualisiere vor deiner Antwort die passenden Dateien im aktuellen Planungsraum: learning-design.md, decisions.md, open-questions.md und next-steps.md.",
-      "Sage nur, etwas sei festgehalten oder aktualisiert, wenn du die entsprechende Datei in diesem Lauf tatsächlich geändert hast.",
-      "Behaupte keine Recherche oder Lehrplanprüfung ohne einen quellengeprüften Knowledge-Auftrag. Formuliere Modellwissen ausdrücklich als vorläufige Einordnung.",
-      "Antworte knapp als Critical Friend in pädagogischer Sprache. Nenne keine Dateinamen, Pfade, Markdown-Dateien, technischen Werkzeuge oder Provider.",
-      ...(conversationContext ? ["", "Bisheriger Gesprächskontext:", conversationContext] : []),
-      "",
-      message
-    ].join("\n");
+    const promptContext = this.promptContext();
+    const guardedMessage = buildCriticalFriendPrompt(message, promptContext, conversationContext);
     return this.buildRuntimeCommand(projectDir, guardedMessage, secretMount);
   }
 
   private workerPrompt(input: HarnessTaskRequest): string {
-    const capabilityFile = input.capability === "create_board_material" ? "CREATE_BOARD_MATERIAL.md" : "CREATE_STUDENT_INSTRUCTION.md";
-    const capabilityHint =
-      input.capability === "create_board_material"
-        ? "Erzeuge ein Material für ein konkretes Arbeitsvorhaben aus dem Planungsboard, gebunden an die angegebenen Lernmomente."
-        : "Erzeuge eine Schüler:innen-Anleitung aus dem Learning Design.";
-    return [
-      "Du bist ein unsichtbarer Worker im Pedagogical Thinking Space.",
-      "Du sprichst nicht mit der Lehrkraft und triffst keine pädagogischen Entscheidungen.",
-      `Lies den Capability-Vertrag unter ${this.kernelReferencePath()}/capabilities/workers/${capabilityFile}. Falls diese Datei nicht vorhanden ist, wende die allgemeinen Worker-Regeln an.`,
-      "Lies im aktuellen Planungsraum learning-design.md und decisions.md vollständig.",
-      `Capability: ${input.capability}`,
-      `Begründung: ${input.reason}`,
-      `Zieltyp: ${input.expectedOutput.type}`,
-      `Schreibe ausschließlich nach: ${input.expectedOutput.relativePath}`,
-      `Constraints: ${JSON.stringify(input.constraints)}`,
-      "Worker-Eingabe (vertragsgebunden): " + JSON.stringify(input.input),
-      capabilityHint,
-      "Wenn Lernanliegen oder erforderliche Entscheidung nicht ausreichend geklärt sind, erzeuge keine Datei und antworte nur BLOCKED.",
-      "Andernfalls erstelle die Datei exakt nach dem Capability-Vertrag. Markiere sie als Entwurf.",
-      "Verändere keine andere Datei und gib keine lehrkraftgerichtete Antwort."
-    ].join("\n");
+    return buildWorkerPrompt(input, this.promptContext());
   }
 
   private reviewPrompt(input: { capability: string; expectedOutput: { type: string; relativePath: string }; context: Record<string, unknown> }, expectedPath: string): string {
-    return [
-      "Du bist der Critical Friend und prüfst einen zurückgekehrten Unterrichtsentwurf.",
-      "Lies ausschließlich den genannten Entwurf im aktuellen Planungsraum und verändere keine Datei.",
-      `Entwurf: ${expectedPath}`,
-      `Capability: ${input.capability}`,
-      `Erwarteter Ergebnistyp: ${input.expectedOutput.type}`,
-      `Prüfkontext: ${JSON.stringify(input.context)}`,
-      "Prüfe pädagogische Passung, erkennbare Widersprüche, unnötige technische oder personenbezogene Inhalte und ob der Entwurf als Entwurf gekennzeichnet bleibt.",
-      "Antworte exakt in zwei Zeilen und ohne weitere Ausgabe:",
-      "STATUS: PASSED | CONCERNS | BLOCKED",
-      "NOTE: eine kurze, lehrkraftfreundliche Begründung auf Deutsch"
-    ].join("\n");
+    return buildReviewPrompt(input, expectedPath);
+  }
+
+  private promptContext(): PromptContext {
+    return {
+      kernelReferencePath: this.kernelReferencePath(),
+      kernelWritableDescription: this.kernelWritableDescription()
+    };
   }
 
   private buildRuntimeCommand(
@@ -498,70 +431,9 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
   }
 }
 
-function safeRelativeOutputPath(workspaceRoot: string, relativePath: string): string {
-  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
-  const target = path.resolve(workspaceRoot, normalized);
-  const relative = path.relative(path.resolve(workspaceRoot), target).replace(/\\/g, "/");
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("worker_output_outside_workspace");
-  return relative;
-}
-
 async function commandAvailable(command: string, runner: ProcessRunner): Promise<boolean> {
   const result = await runner(command, ["--version"], { cwd: process.cwd(), timeoutMs: 10000 });
   return result.exitCode === 0;
-}
-
-async function assertProjectDirectory(projectDir: string, workspaceRoot: string): Promise<void> {
-  const resolvedRoot = path.resolve(workspaceRoot);
-  const resolvedProject = path.resolve(projectDir);
-  if (resolvedProject !== resolvedRoot) throw new Error("opencode_project_dir_must_be_workspace_root");
-  await fs.access(resolvedProject);
-}
-
-async function snapshotProject(projectDir: string): Promise<FileSnapshot> {
-  const snapshot: FileSnapshot = new Map();
-  await collectFiles(projectDir, projectDir, snapshot);
-  return snapshot;
-}
-
-async function copyProjectForReview(sourceDir: string, targetDir: string): Promise<void> {
-  await fs.cp(sourceDir, targetDir, {
-    recursive: true,
-    filter: (entry) => {
-      const name = path.basename(entry);
-      return name !== '.git' && name !== 'node_modules';
-    }
-  });
-}
-
-async function collectFiles(root: string, current: string, snapshot: FileSnapshot): Promise<void> {
-  const entries = await fs.readdir(current, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.name === ".git" || entry.name === "node_modules") continue;
-    const fullPath = path.join(current, entry.name);
-    if (entry.isDirectory()) {
-      await collectFiles(root, fullPath, snapshot);
-      continue;
-    }
-    if (!entry.isFile()) continue;
-    const relativePath = path.relative(root, fullPath).replace(/\\/g, "/");
-    // Workspace-Änderungserkennung über Größe + mtime statt vollständigem
-    // UTF-8-Inhalt (ARCHITECTURE-SESSION-MODEL Abschnitt 13, TASK 9).
-    // Das vermeidet das vollständige Einlesen von Binärdateien und ist schneller.
-    const stat = await fs.stat(fullPath);
-    snapshot.set(relativePath, `${stat.size}:${Math.floor(stat.mtimeMs)}`);
-  }
-}
-
-function diffSnapshots(before: FileSnapshot, after: FileSnapshot): string[] {
-  const changed = new Set<string>();
-  for (const [file, fingerprint] of after) {
-    if (before.get(file) !== fingerprint) changed.add(file);
-  }
-  for (const file of before.keys()) {
-    if (!after.has(file)) changed.add(file);
-  }
-  return [...changed].sort();
 }
 
 function createReply(result: ProcessResult, stdout: string, _stderr: string): { ok: boolean; text: string } {
@@ -577,39 +449,6 @@ function createReply(result: ProcessResult, stdout: string, _stderr: string): { 
     ok: false,
     text: "Die geschützte Testausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren."
   };
-}
-
-function guardUnsupportedClaims(reply: string, changedFiles: string[]): string {
-  const stateWasWritten = changedFiles.some((file) =>
-    ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"].includes(file)
-  );
-  const knowledgeWasWritten = changedFiles.some((file) =>
-    file.startsWith("knowledge-proposals/") || file.startsWith("service-requests/")
-  );
-  const claimsPersistence = /(?:denkstand|entscheidung|schritt).{0,40}(?:festgehalten|gespeichert|aktualisiert)/i.test(reply);
-  const makesKnowledgeClaim = /(?:kernlehrplan|lehrplanbezug|curriculum|\bIF\s?\d)/i.test(reply);
-  const notes: string[] = [];
-  if (claimsPersistence && !stateWasWritten) {
-    notes.push("Hinweis: Dieser Gedanke wurde im Gespräch formuliert, aber technisch noch nicht dauerhaft im Denkstand gespeichert.");
-  }
-  if (makesKnowledgeClaim && !knowledgeWasWritten) {
-    notes.push("Hinweis: Die Lehrplaneinordnung ist noch nicht durch einen Knowledge-Auftrag mit überprüfbaren Quellen abgesichert.");
-  }
-  return notes.length ? [reply, ...notes].join("\n\n") : reply;
-}
-
-function toTeacherFacingReply(reply: string): string {
-  return reply
-    .replace(/`?(learning-design|conversation-summary)\.md`?/gi, "den Denkstand")
-    .replace(/`?next-steps\.md`?/gi, "die nächsten Schritte")
-    .replace(/`?open-questions\.md`?/gi, "die offenen Fragen")
-    .replace(/`?decisions\.md`?/gi, "die offenen Entscheidungen")
-    .replace(/`?service-requests?\/?`?/gi, "")
-    .replace(/`?opencode`?/gi, "")
-    .replace(/`?\/workspace\/?`?/gi, "")
-    .replace(/`?\/ptspace-kernel\/?`?/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
 }
 
 function extractPlainReply(stdout: string): string {
@@ -668,15 +507,4 @@ export function summarizeSimulation(result: HarnessPolicySimulationResult): Reco
     },
     { allow: 0, deny: 0, requires_admin_approval: 0, ask_critical_friend: 0 }
   );
-}
-
-
-function parseReviewReply(output: string): HarnessReviewResult | undefined {
-  const statusMatch = output.match(/(?:^|\n)\s*STATUS\s*:\s*(PASSED|CONCERNS|BLOCKED)\b/i);
-  if (!statusMatch) return undefined;
-  const noteMatch = output.match(/(?:^|\n)\s*NOTE\s*:\s*([^\n]+)/i);
-  const note = noteMatch?.[1]?.trim();
-  if (!note) return undefined;
-  const status = statusMatch[1].toLowerCase() as HarnessReviewResult["status"];
-  return { status, note: toTeacherFacingReply(note) };
 }

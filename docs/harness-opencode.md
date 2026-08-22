@@ -1,6 +1,8 @@
 # Harness-Adapter: opencode
 
-Status: produktionsnaher Docker-Dialogtest mit OpenRouter erfolgreich durchgeführt. Echte Ausführung bleibt standardmäßig deaktiviert und muss bewusst konfiguriert werden.
+Status: optionale Agenten-Stufe. Für den Standardpfad echter Modellkonversation wird jetzt der direkte Modellzugriff verwendet (siehe `harness-direct-llm.md`). opencode bleibt für echte Agentenläufe (z. B. Kernel-Evolution) erhalten und muss bewusst konfiguriert werden.
+
+> **Hinweis (2026-08-22):** Die produktionsnahen Docker-Tests mit OpenRouter waren wiederholt durch Transportprobleme blockiert (Provider-/Modell-Trap der CLI, JSONL-Parsing, Secret-Mount, Windows-Spawn-Probleme). Die harness-unabhängige Pädagogik-Logik wurde deshalb in gemeinsame Module (`prompts.ts`, `workspaceDiff.ts`, `replyTranslation.ts`) ausgelagert und steht nun allen Adaptern zur Verfügung.
 
 ## Zweck
 

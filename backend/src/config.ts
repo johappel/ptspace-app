@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export type HarnessKind = "mock" | "opencode-docker";
+export type HarnessKind = "mock" | "opencode-docker" | "direct-llm";
 export type OpenCodeRunnerKind = "docker" | "local";
 
 export type AppConfig = {
@@ -22,6 +22,12 @@ export type AppConfig = {
   kernelWritableDirs: string[];
   harness: HarnessKind;
   realHarnessEnabled: boolean;
+  directLlm: {
+    baseUrl: string;
+    model?: string;
+    apiKeyAvailable: boolean;
+    timeoutMs: number;
+  };
   openCode: {
     runner: OpenCodeRunnerKind;
     dockerImage: string;
@@ -108,6 +114,12 @@ export function loadConfig(): AppConfig {
     kernelWritableDirs: (process.env.PTSPACE_KERNEL_WRITABLE_DIRS ?? "capabilities,knowledge,queue,services,workspace").split(",").map((entry) => entry.trim()).filter(Boolean),
     harness: (process.env.PTSPACE_HARNESS as HarnessKind | undefined) ?? "mock",
     realHarnessEnabled: booleanEnv("PTSPACE_REAL_HARNESS_ENABLED", false),
+    directLlm: {
+      baseUrl: process.env.PTSPACE_DIRECT_LLM_BASE_URL ?? "https://openrouter.ai/api/v1",
+      model: process.env.PTSPACE_DIRECT_LLM_MODEL,
+      apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY),
+      timeoutMs: Number(process.env.PTSPACE_DIRECT_LLM_TIMEOUT_MS ?? 120000)
+    },
     openCode: {
       runner: (process.env.PTSPACE_OPENCODE_RUNNER as OpenCodeRunnerKind | undefined) ?? "docker",
       dockerImage: process.env.PTSPACE_OPENCODE_DOCKER_IMAGE ?? "ptspace/opencode-test:1.17.13",

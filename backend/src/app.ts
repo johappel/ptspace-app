@@ -13,6 +13,7 @@ import { WorkspaceManager } from "./services/workspace/WorkspaceManager.js";
 import { HarnessAdapter } from "./services/harness/HarnessAdapter.js";
 import { MockHarnessAdapter } from "./services/harness/MockHarnessAdapter.js";
 import { OpenCodeDockerAdapter } from "./services/harness/OpenCodeDockerAdapter.js";
+import { DirectLlmAdapter } from "./services/harness/DirectLlmAdapter.js";
 import { GitManager } from "./services/git/GitManager.js";
 import { ExportFilter } from "./services/export/ExportFilter.js";
 import { OkfExporter } from "./services/okf/OkfExporter.js";
@@ -39,6 +40,17 @@ import { conversationMarkerRoutes } from "./routes/conversationMarkers.js";
 import { guidedWorkflowRoutes } from "./routes/guidedWorkflow.js";
 
 function createHarness(config: ReturnType<typeof loadConfig>, policy: PermissionPolicy): HarnessAdapter {
+  if (config.harness === "direct-llm") {
+    return new DirectLlmAdapter({
+      enabled: config.realHarnessEnabled,
+      policy,
+      baseUrl: config.directLlm.baseUrl,
+      model: config.directLlm.model,
+      apiKeyAvailable: config.directLlm.apiKeyAvailable,
+      timeoutMs: config.directLlm.timeoutMs,
+      kernelDir: config.kernelDir
+    });
+  }
   if (config.harness === "opencode-docker") {
     return new OpenCodeDockerAdapter({
       enabled: config.realHarnessEnabled,

@@ -31,7 +31,8 @@ Verbindliches Design-Gate: [`docs/design/DENKRAUM-DESIGN-CONTRACT.md`](docs/desi
   Gestuften Kontext und ein nicht-kanonisches Runtime-Read-Model für lange Gespräche implementieren.
 
 - [ ] **M4 – Real-Harness-Referenzablauf**  
-  Den vorhandenen Kernprozess ohne manuelle Workspace-Korrekturen mit einem echten Harness ausführen, ohne technische Zustände zur dominanten Oberfläche zu machen.
+  Den vorhandenen Kernprozess ohne manuelle Workspace-Korrekturen mit einem echten Harness ausführen, ohne technische Zustände zur dominanten Oberfläche zu machen.  
+  *Stand 2026-08-22: Der Referenzablauf wird über den direkten Modellzugriff (`direct-llm`, siehe `docs/harness-direct-llm.md`) gefahren. Die opencode-Runtime bleibt optionale Agenten-Stufe.*
 
 - [ ] **M5 – Browser-E2E, visuelle Regression und CI-Gates**  
   Den zentralen Ablauf, Recovery-Fälle, Datenintegrität und die verbindlichen Denkraum-Referenzzustände automatisiert absichern.

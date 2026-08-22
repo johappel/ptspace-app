@@ -776,7 +776,8 @@ export interface HarnessAdapter {
 Recommended initial adapters:
 
 ```text
-OpenCodeDockerAdapter
+DirectLlmAdapter        (default for real model conversation, OpenAI-compatible HTTP)
+OpenCodeDockerAdapter   (optional agent-runtime stage, e.g. kernel evolution)
 HostBridgeHarnessAdapter
 MockHarnessAdapter
 ```

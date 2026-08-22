@@ -27,7 +27,19 @@ pnpm build
 
 ## Wichtige Grenze
 
-Der aktive Entwicklungsmodus nutzt weiter den `MockHarnessAdapter`. Der `OpenCodeDockerAdapter` ist nur aktiv, wenn er ausdrücklich über Umgebungsvariablen eingeschaltet wird.
+Der aktive Entwicklungsmodus nutzt weiter den `MockHarnessAdapter`. Echte Modellzugriffe sind nur aktiv, wenn sie ausdrücklich über Umgebungsvariablen eingeschaltet werden.
+
+## Echter Modellzugriff (empfohlener Standardpfad)
+
+Für echte Modellkonversation wird der direkte Modellzugriff ohne Agenten-Runtime empfohlen (Details: `harness-direct-llm.md`):
+
+```powershell
+$env:PTSPACE_HARNESS="direct-llm"
+$env:PTSPACE_REAL_HARNESS_ENABLED="true"
+$env:PTSPACE_DIRECT_LLM_MODEL="tencent/hy3:free"
+# API-Key in .env: PTSPACE_LLM_API_KEY oder OPENROUTER_API_KEY
+pnpm --filter @ptspace/backend dev
+```
 
 ## Produktionsnaher opencode-Test
 
