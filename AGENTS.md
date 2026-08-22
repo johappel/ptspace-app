@@ -293,11 +293,27 @@ Nextcloud
 = externe Ablage fertiger Dateien im Schulalltag
 ```
 
-### Entscheidung 18: opencode ist austauschbarer Harness, aber im Ziel-MVP Kerninfrastruktur
+### Entscheidung 18: Ausführung ist capability-driven, nicht Harness-first
 
-`opencode` oder ein kompatibler Harness ist für das Zielprodukt nicht bloß ein späteres optionales Add-on. Die App wird als lehrkräftefreundliche Oberfläche und Schutzschicht für einen harness-basierten Pedagogical Thinking Space entwickelt.
+`ptspace-app` setzt keinen allgemeinen Harness für jede reale Modelloperation voraus.
 
-Die App darf trotzdem nicht zu einer opencode-Oberfläche werden. Die Harness-Schicht muss austauschbar bleiben und hinter einem Backend-Adapter liegen.
+Die Ausführungsstufe richtet sich nach der tatsächlichen Aufgabe:
+
+- deterministischer Backend-Code, wenn kein Modell erforderlich ist;
+- `DirectLlmAdapter` für klar begrenzte semantische Aufgaben und normale
+  Companion-Turns;
+- eine adaptive Agent-Runtime für offene Recherche, Skill-Nutzung,
+  selbstorganisierte Workflows, Hintergrundarbeit und Runtime-Lernen;
+- ein Coding Harness wie OpenCode für Code-, Repository- und Kernel-Evolution.
+
+Die einfachste ausreichend leistungsfähige Ausführungsstufe ist zu bevorzugen.
+
+Coding-Agenten dürfen keine Funktion künstlich an einen Harness koppeln, wenn
+sie über eine einfachere Ausführungsstufe zuverlässig erbracht werden kann.
+Umgekehrt sollen offene adaptive Fähigkeiten nicht als immer größere Menge
+hart codierter Sonderfälle im Backend nachgebaut werden.
+
+Die verbindliche Architektur steht in `EXECUTION_ARCHITECTURE.md`.
 
 ### Entscheidung 19: Runtime-Permissions werden nicht an Lehrkräfte durchgereicht
 
