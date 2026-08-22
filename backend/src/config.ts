@@ -32,7 +32,7 @@ export type AppConfig = {
     apiKeyAvailable: boolean;
     pinnedVersion: string;
     webUrl?: string;
-    rpcPath: string;
+    apiPrefix: string;
     timeoutMs: number;
   };
   openCode: {
@@ -134,7 +134,7 @@ export function loadConfig(): AppConfig {
       apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY) || Boolean(process.env.PTSPACE_DEEPSEEK_WEB_URL),
       pinnedVersion: process.env.PTSPACE_DEEPSEEK_VERSION ?? "unpinned-evaluation",
       webUrl: process.env.PTSPACE_DEEPSEEK_WEB_URL,
-      rpcPath: process.env.PTSPACE_DEEPSEEK_RPC_PATH ?? "/rpc",
+      apiPrefix: process.env.PTSPACE_DEEPSEEK_API_PREFIX ?? "/api",
       timeoutMs: Number(process.env.PTSPACE_DEEPSEEK_TIMEOUT_MS ?? 120000)
     },
     openCode: {

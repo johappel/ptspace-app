@@ -63,7 +63,7 @@ Credential hinterlegen. Danach ptspace-app konfigurieren:
 PTSPACE_HARNESS=deepseek
 PTSPACE_REAL_HARNESS_ENABLED=true
 PTSPACE_DEEPSEEK_WEB_URL=http://localhost:3080
-PTSPACE_DEEPSEEK_RPC_PATH=/rpc            # Default; bei abweichender dsh-Version anpassen
+PTSPACE_DEEPSEEK_API_PREFIX=/api        # Default; bei abweichender dsh-Version anpassen
 PTSPACE_DEEPSEEK_TIMEOUT_MS=120000
 PTSPACE_DEEPSEEK_VERSION=<gepinnte Version/Commit>
 ```
@@ -77,23 +77,32 @@ weiterhin ohne `runtime`, sodass er `requires_setup` meldet.
 
 ### Realer Transport: `DshWebRuntimeTransport`
 
-`backend/src/services/harness/DshWebRuntimeTransport.ts` spricht **JSON-RPC 2.0**
-gegen die laufende dsh-web-Instanz. Er ist die einzige Stelle mit
-DSH-spezifischem Transportwissen und bleibt hinter der
-`DeepSeekRuntimeTransport`-Grenze.
+`backend/src/services/harness/DshWebRuntimeTransport.ts` spricht das **Unary-API-
+Protokoll der dsh-web-Instanz** (live gegen dsh web rev `8b2404a806ca`
+verifiziert). Er ist die einzige Stelle mit DSH-spezifischem Transportwissen und
+bleibt hinter der `DeepSeekRuntimeTransport`-Grenze.
+
+Wire-Format:
+
+```text
+POST /api/<method>   Body: { type:"client-request", rpcId:<uuid>, method, payload }
+Antwort:             { type:"server-response", rpcId, result:{ ok, value } | { ok:false, error } }
+```
 
 - `isAvailable()` prüft per HTTP-GET auf die Basis-URL, ob dsh-web läuft.
-- `createSession()` leitet eine stabile Session-ID (`pts-<planningSpaceId>`) ab –
-  DSH-Session-IDs sind aufruferseitig gewählt, wodurch ein Resume dieselbe
-  Session anspricht.
-- `sendTurn()` ruft `session.run` (konfigurierbar) auf und übersetzt
-  `final_response`/`finish_reason`/`usage` in die PTS-neutrale Antwort.
+- `createSession()` ruft `session.create` mit `{ cwd: <workspaceRoot> }` auf und
+  übernimmt die vom Host gemintete `sessionId`; ein Resume nutzt dieselbe ID.
+- `sendTurn()` sendet `session.prompt` (`{ sessionId, mode:"queue",
+  content:[{type:"text",text}], clientTimeZone }`) und pollt dann
+  `session.history`, bis ein `turn/end`-Event erscheint. Die Antwort wird aus
+  dem letzten `assistant/message`-Event gelesen (Textblöcke), die Usage aus
+  `assistant/chunk` mit `chunk.type === "usage"`.
 - Antwort- und Usage-Auswertung ist tolerant (mehrere plausible Feldnamen).
 
 **Developer-Preview-Risiko:** DSH kündigt kompatibilitätsbrechende Änderungen an.
-RPC-Pfad und Methodennamen sind deshalb konfigurierbar (Defaults `/rpc`,
-`session.run`/`session.resume`/`session.stop`), damit der Betrieb sie ohne
-Codeänderung an die laufende Version angleichen kann.
+API-Pfadpräfix und Methodennamen sind deshalb konfigurierbar (Defaults `/api`,
+`session.create`/`session.prompt`/`session.history`/`session.cancel`), damit der
+Betrieb sie ohne Codeänderung an die laufende Version angleichen kann.
 
 ## 4. Session Mapping
 
@@ -141,9 +150,10 @@ keine Gesprächsinhalte, Secrets oder personenbezogenen Daten.
 - DeepSeek Harness befindet sich in aktiver Entwicklung; die verwendete Version
   ist über `PTSPACE_DEEPSEEK_VERSION` zu pinnen.
 - Der reale Transport (`DshWebRuntimeTransport`) ist gegen eine lokale
-  `dsh web`-Instanz angebunden. RPC-Pfad und Methodennamen sind developer-preview-
-  bedingt konfigurierbar; weichen sie in der laufenden dsh-Version ab, sind sie
-  über `PTSPACE_DEEPSEEK_RPC_PATH` bzw. die `methods`-Optionen anzugleichen.
+  `dsh web`-Instanz angebunden. API-Pfadpräfix und Methodennamen sind developer-
+  preview-bedingt konfigurierbar; weichen sie in der laufenden dsh-Version ab,
+  sind sie über `PTSPACE_DEEPSEEK_API_PREFIX` bzw. die `methods`-Optionen
+  anzugleichen.
 - Skills, Workflow Memory und Runtime-Lernen sind als PTS-owned Verträge
   vorbereitet, aber noch nicht über DeepSeek ausgeführt.
 

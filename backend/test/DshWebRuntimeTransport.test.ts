@@ -3,27 +3,46 @@ import { DshWebRuntimeTransport } from "../src/services/harness/DshWebRuntimeTra
 
 type FetchArgs = { url: string; init?: RequestInit };
 
-/** Baut einen Fake-fetch, der GET (Erreichbarkeit) und POST (JSON-RPC) unterscheidet. */
+type PostedRequest = {
+  type: string;
+  rpcId: string;
+  method: string;
+  payload: Record<string, unknown>;
+};
+
+/** Baut einen Fake-fetch, der GET (Erreichbarkeit) und POST (/api/<method>) unterscheidet. */
 function fakeFetch(handlers: {
   get?: () => Response | Promise<Response>;
-  rpc?: (body: { method: string; params: Record<string, unknown> }) => Response | Promise<Response>;
-}): { fetchImpl: typeof fetch; calls: FetchArgs[] } {
+  call?: (request: PostedRequest) => Response | Promise<Response>;
+}): { fetchImpl: typeof fetch; calls: FetchArgs[]; requests: PostedRequest[] } {
   const calls: FetchArgs[] = [];
+  const requests: PostedRequest[] = [];
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     calls.push({ url, init });
     if ((init?.method ?? "GET") === "GET") {
       return handlers.get ? handlers.get() : new Response("<html></html>", { status: 200 });
     }
-    const body = JSON.parse(String(init?.body ?? "{}")) as { method: string; params: Record<string, unknown> };
-    if (handlers.rpc) return handlers.rpc(body);
-    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { final_response: "ok" } }), { status: 200 });
+    const request = JSON.parse(String(init?.body ?? "{}")) as PostedRequest;
+    requests.push(request);
+    if (handlers.call) return handlers.call(request);
+    return serverResponse(request.rpcId, { ok: true, value: {} });
   }) as unknown as typeof fetch;
-  return { fetchImpl, calls };
+  return { fetchImpl, calls, requests };
 }
 
-function jsonRpc(result: unknown): Response {
-  return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200, headers: { "content-type": "application/json" } });
+function serverResponse(rpcId: string, result: unknown): Response {
+  return new Response(JSON.stringify({ type: "server-response", rpcId, result }), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+}
+
+function historyResponse(rpcId: string, events: Array<{ type: string; seq: number; data?: unknown }>): Response {
+  return serverResponse(rpcId, {
+    ok: true,
+    value: { events: events.map((event) => ({ event })), hasMore: false }
+  });
 }
 
 describe("DshWebRuntimeTransport", () => {
@@ -41,105 +60,219 @@ describe("DshWebRuntimeTransport", () => {
     expect(await transport.isAvailable()).toBe(false);
   });
 
-  it("leitet eine stabile, persistente Session-ID pro Planungsraum ab", async () => {
-    const { fetchImpl } = fakeFetch({});
-    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
-    const session = await transport.createSession({ planningSpaceId: "space-1", workspaceRoot: "/tmp/space-1" });
-    expect(session.sessionId).toBe("pts-space-1");
-  });
-
-  it("sendet einen JSON-RPC-Turn und übersetzt final_response + usage", async () => {
-    const { fetchImpl, calls } = fakeFetch({
-      rpc: (body) => {
-        expect(body.method).toBe("session.run");
-        expect(body.params.session_id).toBe("pts-space-1");
-        expect(String(body.params.prompt)).toContain("Welche Perspektive fehlt?");
-        return jsonRpc({
-          final_response: "Ich schaue nach einer bewusst anderen Perspektive.",
-          finish_reason: "completed",
-          usage: { input_tokens: 200, output_tokens: 60, tool_calls: 2 }
-        });
+  it("legt eine Session über session.create mit cwd an und übernimmt die Host-Session-ID", async () => {
+    const { fetchImpl, requests } = fakeFetch({
+      call: (request) => {
+        expect(request.type).toBe("client-request");
+        expect(request.method).toBe("session.create");
+        expect(request.payload.cwd).toBe("/tmp/space-1");
+        return serverResponse(request.rpcId, { ok: true, value: { sessionId: "session-abc" } });
       }
     });
     const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
-    const turn = await transport.sendTurn({ sessionId: "pts-space-1", message: "Welche Perspektive fehlt?" });
-    expect(turn.text).toContain("andere");
-    expect(turn.usage).toEqual({ inputTokens: 200, outputTokens: 60, cachedTokens: undefined, toolCalls: 2 });
-    expect(calls.some((call) => call.url === "http://localhost:3080/rpc")).toBe(true);
+    const session = await transport.createSession({ planningSpaceId: "space-1", workspaceRoot: "/tmp/space-1" });
+    expect(session.sessionId).toBe("session-abc");
+  });
+
+  it("wirft, wenn session.create keine Session-ID liefert", async () => {
+    const { fetchImpl } = fakeFetch({
+      call: (request) => serverResponse(request.rpcId, { ok: true, value: {} })
+    });
+    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
+    await expect(transport.createSession({ planningSpaceId: "s", workspaceRoot: "/tmp" })).rejects.toThrow(
+      "deepseek_create_no_session_id"
+    );
+  });
+
+  it("führt einen Turn aus: prompt akzeptieren, History pollen, Text + Usage extrahieren", async () => {
+    let promptSeen: Record<string, unknown> | undefined;
+    let historyCalls = 0;
+    const { fetchImpl, requests } = fakeFetch({
+      call: (request) => {
+        if (request.method === "session.prompt") {
+          promptSeen = request.payload;
+          return serverResponse(request.rpcId, { ok: true, value: { accepted: true } });
+        }
+        if (request.method === "session.history") {
+          historyCalls += 1;
+          return historyResponse(request.rpcId, [
+            { type: "turn/start", seq: 1 },
+            {
+              type: "assistant/chunk",
+              seq: 2,
+              data: { chunk: { type: "usage", usage: { inputTokens: 12238, outputTokens: 39 } } }
+            },
+            {
+              type: "assistant/message",
+              seq: 3,
+              data: {
+                message: {
+                  role: "assistant",
+                  content: [
+                    { type: "reasoning", text: "Gedanke" },
+                    { type: "text", text: "Ich prüfe eine bewusst andere Perspektive." }
+                  ]
+                }
+              }
+            },
+            { type: "turn/end", seq: 4, data: { reason: { kind: "completed" } } }
+          ]);
+        }
+        return serverResponse(request.rpcId, { ok: true, value: {} });
+      }
+    });
+    const transport = new DshWebRuntimeTransport({
+      baseUrl: "http://localhost:3080",
+      pollIntervalMs: 1,
+      fetchImpl
+    });
+    const turn = await transport.sendTurn({ sessionId: "session-abc", message: "Welche Perspektive fehlt?" });
+    expect(turn.text).toBe("Ich prüfe eine bewusst andere Perspektive.");
+    expect(turn.usage).toEqual({
+      inputTokens: 12238,
+      outputTokens: 39,
+      cachedTokens: undefined,
+      toolCalls: undefined
+    });
+    expect(promptSeen?.sessionId).toBe("session-abc");
+    expect(promptSeen?.mode).toBe("queue");
+    expect(JSON.stringify(promptSeen?.content)).toContain("Welche Perspektive fehlt?");
+    expect(historyCalls).toBe(1);
+    expect(requests.every((request) => request.type === "client-request")).toBe(true);
   });
 
   it("faltet den Gesprächskontext vor die Nachricht", async () => {
-    let seenPrompt = "";
+    let seenText = "";
     const { fetchImpl } = fakeFetch({
-      rpc: (body) => {
-        seenPrompt = String(body.params.prompt);
-        return jsonRpc({ final_response: "ok" });
+      call: (request) => {
+        if (request.method === "session.prompt") {
+          seenText = JSON.stringify(request.payload.content);
+          return serverResponse(request.rpcId, { ok: true, value: { accepted: true } });
+        }
+        return historyResponse(request.rpcId, [
+          {
+            type: "assistant/message",
+            seq: 1,
+            data: { message: { content: [{ type: "text", text: "ok" }] } }
+          },
+          { type: "turn/end", seq: 2 }
+        ]);
       }
     });
-    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
+    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", pollIntervalMs: 1, fetchImpl });
     await transport.sendTurn({ sessionId: "s", message: "Frage", context: "Bisheriger Denkstand" });
-    expect(seenPrompt.startsWith("Bisheriger Denkstand")).toBe(true);
-    expect(seenPrompt).toContain("Frage");
+    expect(seenText.startsWith("[{\"type\":\"text\",\"text\":\"Bisheriger Denkstand")).toBe(true);
+    expect(seenText).toContain("Frage");
   });
 
-  it("wirft bei finish_reason=error ohne Text", async () => {
-    const { fetchImpl } = fakeFetch({ rpc: () => jsonRpc({ finish_reason: "error" }) });
-    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
-    await expect(transport.sendTurn({ sessionId: "s", message: "x" })).rejects.toThrow("deepseek_run_finished_error");
-  });
-
-  it("wirft eine generische Fehlermeldung bei JSON-RPC-Error", async () => {
+  it("pollt weiter, bis turn/end erscheint", async () => {
+    let historyCalls = 0;
     const { fetchImpl } = fakeFetch({
-      rpc: () => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32601, message: "method not found" } }), { status: 200 })
+      call: (request) => {
+        if (request.method === "session.prompt") {
+          return serverResponse(request.rpcId, { ok: true, value: { accepted: true } });
+        }
+        historyCalls += 1;
+        if (historyCalls === 1) {
+          return historyResponse(request.rpcId, [{ type: "turn/start", seq: 1 }]);
+        }
+        return historyResponse(request.rpcId, [
+          {
+            type: "assistant/message",
+            seq: 2,
+            data: { message: { content: [{ type: "text", text: "fertig" }] } }
+          },
+          { type: "turn/end", seq: 3 }
+        ]);
+      }
+    });
+    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", pollIntervalMs: 1, fetchImpl });
+    const turn = await transport.sendTurn({ sessionId: "s", message: "x" });
+    expect(turn.text).toBe("fertig");
+    expect(historyCalls).toBe(2);
+  });
+
+  it("wirft deepseek_turn_timeout, wenn der Turn nicht endet", async () => {
+    vi.useFakeTimers();
+    const { fetchImpl } = fakeFetch({
+      call: (request) => {
+        if (request.method === "session.prompt") {
+          return serverResponse(request.rpcId, { ok: true, value: { accepted: true } });
+        }
+        return historyResponse(request.rpcId, [{ type: "turn/start", seq: 1 }]);
+      }
+    });
+    const transport = new DshWebRuntimeTransport({
+      baseUrl: "http://localhost:3080",
+      timeoutMs: 50,
+      pollIntervalMs: 10,
+      fetchImpl
+    });
+    const pending = transport.sendTurn({ sessionId: "s", message: "x" });
+    const expectation = expect(pending).rejects.toThrow("deepseek_turn_timeout");
+    await vi.advanceTimersByTimeAsync(300);
+    await expectation;
+    vi.useRealTimers();
+  });
+
+  it("wirft, wenn session.prompt nicht akzeptiert wird", async () => {
+    const { fetchImpl } = fakeFetch({
+      call: (request) => serverResponse(request.rpcId, { ok: true, value: { accepted: false } })
     });
     const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
-    await expect(transport.sendTurn({ sessionId: "s", message: "x" })).rejects.toThrow(/deepseek_rpc/);
+    await expect(transport.sendTurn({ sessionId: "s", message: "x" })).rejects.toThrow("deepseek_prompt_not_accepted");
   });
 
-  it("wirft bei HTTP-Fehlerstatus des RPC-Aufrufs", async () => {
-    const { fetchImpl } = fakeFetch({ rpc: () => new Response("nope", { status: 500 }) });
+  it("wirft eine generische Fehlermeldung bei RPC-Error", async () => {
+    const { fetchImpl } = fakeFetch({
+      call: (request) =>
+        serverResponse(request.rpcId, { ok: false, error: { code: "session-not-found", message: "nope" } })
+    });
+    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
+    await expect(transport.sendTurn({ sessionId: "s", message: "x" })).rejects.toThrow(
+      /deepseek_rpc_session-not-found/
+    );
+  });
+
+  it("wirft bei HTTP-Fehlerstatus des Aufrufs", async () => {
+    const { fetchImpl } = fakeFetch({ call: () => new Response("nope", { status: 500 }) });
     const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
     await expect(transport.sendTurn({ sessionId: "s", message: "x" })).rejects.toThrow("deepseek_http_500");
   });
 
-  it("toleriert ein fehlendes stop (kein harter Fehler)", async () => {
+  it("toleriert ein fehlendes cancel (kein harter Fehler)", async () => {
     const { fetchImpl } = fakeFetch({
-      rpc: (body) => body.method === "session.stop"
-        ? new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32601 } }), { status: 200 })
-        : jsonRpc({ final_response: "ok" })
+      call: (request) =>
+        request.method === "session.cancel"
+          ? serverResponse(request.rpcId, { ok: false, error: { code: "bad-request" } })
+          : serverResponse(request.rpcId, { ok: true, value: {} })
     });
     const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", fetchImpl });
     await expect(transport.stopSession("s")).resolves.toBeUndefined();
   });
 
-  it("erlaubt konfigurierbaren RPC-Pfad und Methodennamen", async () => {
+  it("erlaubt konfigurierbaren API-Pfadpräfix und Methodennamen", async () => {
     const { fetchImpl, calls } = fakeFetch({
-      rpc: (body) => {
-        expect(body.method).toBe("agent.prompt");
-        return jsonRpc({ text: "fertig" });
+      call: (request) => {
+        if (request.method === "agent.prompt") {
+          return serverResponse(request.rpcId, { ok: true, value: { accepted: true } });
+        }
+        return historyResponse(request.rpcId, [
+          { type: "assistant/message", seq: 1, data: { message: { content: [{ type: "text", text: "fertig" }] } } },
+          { type: "turn/end", seq: 2 }
+        ]);
       }
     });
     const transport = new DshWebRuntimeTransport({
       baseUrl: "http://localhost:3080",
-      rpcPath: "/jsonrpc",
-      methods: { run: "agent.prompt" },
+      apiPrefix: "/v2",
+      pollIntervalMs: 1,
+      methods: { prompt: "agent.prompt", history: "agent.history" },
       fetchImpl
     });
     const turn = await transport.sendTurn({ sessionId: "s", message: "x" });
     expect(turn.text).toBe("fertig");
-    expect(calls.some((call) => call.url === "http://localhost:3080/jsonrpc")).toBe(true);
-  });
-
-  it("bricht einen hängenden Turn nach dem Timeout ab", async () => {
-    vi.useFakeTimers();
-    const fetchImpl = ((_url: RequestInfo | URL, init?: RequestInit) => new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
-    })) as unknown as typeof fetch;
-    const transport = new DshWebRuntimeTransport({ baseUrl: "http://localhost:3080", timeoutMs: 50, fetchImpl });
-    const pending = transport.sendTurn({ sessionId: "s", message: "x" });
-    const expectation = expect(pending).rejects.toThrow();
-    await vi.advanceTimersByTimeAsync(60);
-    await expectation;
-    vi.useRealTimers();
+    expect(calls.some((call) => call.url === "http://localhost:3080/v2/agent.prompt")).toBe(true);
+    expect(calls.some((call) => call.url === "http://localhost:3080/v2/agent.history")).toBe(true);
   });
 });

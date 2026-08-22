@@ -60,10 +60,8 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
     const runtime = config.deepSeek.webUrl
       ? new DshWebRuntimeTransport({
           baseUrl: config.deepSeek.webUrl,
-          rpcPath: config.deepSeek.rpcPath,
-          timeoutMs: config.deepSeek.timeoutMs,
-          model: config.directLlm.model,
-          apiKey: process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY
+          apiPrefix: config.deepSeek.apiPrefix,
+          timeoutMs: config.deepSeek.timeoutMs
         })
       : undefined;
     return new DeepSeekHarnessAdapter({

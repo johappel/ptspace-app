@@ -607,15 +607,17 @@ The adapter implements `checkAvailability`, `createSession` (with resume),
 and `simulatePolicy`. All DeepSeek-specific concepts stay behind the injectable
 `DeepSeekRuntimeTransport` boundary.
 
-`DshWebRuntimeTransport` is the real transport: it speaks JSON-RPC 2.0 against a
-running `dsh web` instance (`npx @deepseek-ai/dsh web`, default port 3080). RPC
-path and method names are configurable because DSH is a developer preview that
-announces compatibility-breaking changes. Without a configured
+`DshWebRuntimeTransport` is the real transport: it speaks the dsh-web unary API
+(`POST /api/<method>` with `client-request` envelopes; verified live against
+dsh web rev `8b2404a806ca`) against a running `dsh web` instance
+(`npx @deepseek-ai/dsh web`, default port 3080). API prefix and method names are
+configurable because DSH is a developer preview that announces
+compatibility-breaking changes. Without a configured
 `PTSPACE_DEEPSEEK_WEB_URL` the adapter is constructed without a transport and
 reports `requires_setup`.
 
 Configuration: `PTSPACE_HARNESS=deepseek`, `PTSPACE_DEEPSEEK_WEB_URL`,
-`PTSPACE_DEEPSEEK_RPC_PATH`, `PTSPACE_DEEPSEEK_VERSION=<pin>`.
+`PTSPACE_DEEPSEEK_API_PREFIX`, `PTSPACE_DEEPSEEK_VERSION=<pin>`.
 See `docs/harness-deepseek.md`.
 
 The DeepSeek integration must remain behind PTS-owned contracts.
