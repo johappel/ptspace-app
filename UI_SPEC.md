@@ -375,3 +375,14 @@ Der Hauptbildschirm ist abgenommen, wenn:
 - die Anwendung ohne Illustration, Animation und Ton funktioniert,
 - keine technischen Interna sichtbar werden,
 - kein zusätzlicher Pflichtklick im Zwei-Häkchen-Workflow entsteht.
+
+## 17. Dramaturgische Fokuslage
+
+Die Priorität unter Jetzt wichtig beschreibt einen zeitlichen Zustand, keine dauerhaft sichtbare Karte:
+
+1. Im Normalzustand steht das Gespräch im Zentrum; Sidebar und Pinnwand sind Ablage und Wiederzugang.
+2. Bei einer notwendigen offenen Entscheidung oder Ergebnisprüfung erscheint genau dieser Gegenstand unmittelbar im Gespräch als temporäre Fokuslage.
+3. Die Fokuslage bietet Passt beziehungsweise die fachliche Freigabe, Weiterreden und Später zurückstellen.
+4. Währenddessen treten alle sekundären Bereiche zurück und bilden keinen parallelen Handlungsort.
+5. Erst Später zurückstellen verschiebt den Gegenstand in Sidebar/Pinnwand. Danach kehrt die Oberfläche in den ruhigen Gesprächszustand zurück.
+6. Dieselbe Folge gilt bei 640 px Breite und bei Reduced Motion; die Darstellung darf nicht bloß alle Karten untereinander stapeln.

@@ -1,6 +1,6 @@
 # Denkraum Design Contract
 
-Stand: 2026-08-04  
+Stand: 2026-08-07
 Status: verbindliches, meilensteinübergreifendes Design-Gate
 
 ## 1. Zweck
@@ -144,3 +144,65 @@ Das Design-Gate ist erfüllt, wenn:
 - `docs/milestones/REAL-RUNTIME-MVP.md` bindet diese Gates in den aktuellen Meilenstein ein.
 - `REFACTOR-AGENTS.md` verpflichtet Coding-Agenten zur Anwendung.
 - GitHub-Issues dokumentieren Umsetzung, Screenshots, Tests und Abnahme.
+
+## 12. Fokuslage als Zustandsvertrag
+
+Jetzt wichtig ist keine dauerhaft sichtbare Zusatzkarte. Der Vertrag beschreibt die Dramaturgie des Blicks:
+
+Gespräch
+→ ein entscheidungsreifer Gegenstand
+→ temporäre Fokuslage im Gespräch
+→ Passt | Weiterreden | Später zurückstellen
+→ Übernahme oder Gesprächsbezug beziehungsweise bewusste Ablage
+→ Gespräch wieder alleiniger Primärfokus
+
+Das Design-Gate ist verletzt, wenn eine offene Entscheidung oder ein zurückgekehrtes Ergebnis gleichzeitig als gleichgewichtige Seitenkarte neben dem Gespräch steht. Während der Fokuslage werden sekundäre Bereiche zurückgenommen; sie sind nicht der primäre Ort der Entscheidung. Erst Später zurückstellen beziehungsweise eine gleichwertige bewusste Aktion darf den Gegenstand in Sidebar oder Pinnwand ablegen. Der Harness muss diese Zustände und die Rückkehr in den ruhigen Gesprächszustand prüfen, nicht nur Screenshot-Erzeugung.
+
+## 13. Fokusmodi als Hauptarbeitsraum
+
+Der Denkraum hat einen gemeinsamen Gesprächskontext, aber immer nur einen primären Gegenstand auf dem Tisch. Ein Bereich wird deshalb nicht als dauerhaftes Zusatzpanel geöffnet, sondern als expliziter Fokusmodus:
+
+```ts
+type FocusMode =
+  | "conversation"
+  | "pinboard"
+  | "landscape"
+  | "timeline"
+  | "preparation"
+  | "materials";
+```
+
+Die UI darf zusätzlich vorhandene fachliche Perspektiven wie Knowledge anbinden, solange sie dieselbe Fokuslogik verwenden. Ein konkreter Gegenstand wird über die bestehende Auswahl-/Herkunftsverknüpfung referenziert, nicht über ein zweites paralleles Domänenmodell:
+
+```ts
+type FocusedObject =
+  | { type: "message"; id: string }
+  | { type: "note"; id: string }
+  | { type: "landscape-node"; id: string }
+  | { type: "teaching-window"; id: string }
+  | { type: "work-item"; id: string }
+  | { type: "material"; id: string }
+  | null;
+```
+
+Jeder Modus benennt sichtbar den aktiven Bereich, den Gegenstand und den Gesprächskontext. Der Wechsel setzt den Tastaturfokus auf den Hauptbereich, bewahrt den Rückkehrpunkt und funktioniert ohne Animation funktionsgleich. Das Gespräch bleibt je nach Modus vollständig, kontextuell kompakt oder nur für eine fachliche Klärung sichtbar:
+
+| Modus | Hauptgegenstand | Rolle des Gesprächs |
+|---|---|---|
+| `conversation` | vollständiger Gesprächsfaden | dominant, mit Composer und aktuellem Fokus |
+| `pinboard` | wenige kuratierte Spuren mit Herkunft | kompakt auf die ausgewählte Spur bezogen; vollständiger Faden nur bewusst |
+| `landscape` | Lernlandschaft, Lernmoment oder Übergang | kontextuelle Begleitung zum Lernmoment |
+| `timeline` | Unterrichtsfenster und Dramaturgie | Begleitung zu Zeit, Übergängen und Gewichtung |
+| `preparation` | laufende oder zurückgekehrte Vorbereitung | nur für Prüfung, Rückfrage und fachliche Klärung |
+| `materials` | ausgewähltes Material oder Ergebnis | materialbezogene kompakte Begleitung |
+
+Verbindlich gilt für die Modi:
+
+- `conversation`: Gesprächsverlauf, Composer und aktueller Fokus bleiben vollständig und dominant sichtbar. Denkstand und andere Perspektiven sind nur als zurückhaltende Zugänge präsent.
+- `pinboard`: wenige kuratierte Spuren liegen als Hauptgegenstand auf dem Tisch. Jede Spur benennt ihren Typ und ihre Herkunft; „Im Gespräch aufgreifen“ und „Zur Herkunft“ führen nachvollziehbar zurück. Der vollständige Faden wird nur bewusst eingeblendet.
+- `landscape`: Lernlandschaft und Planungsraum-Kontext bilden die Hauptansicht. Raumansicht und lineare Lesansicht bleiben gleichwertig; ein ausgewählter Lernmoment oder Übergang aktualisiert die Begleitung.
+- `timeline`: Unterrichtsfenster, Übergänge und Gewichtung bilden den Hauptgegenstand. Ein ausgewähltes Zeitfenster wird in Überschrift und Composer sichtbar benannt.
+- `preparation`: laufende, wartende und zurückgekehrte Vorbereitungen übernehmen erst nach bewusstem Öffnen den Hauptarbeitsraum. Im Gespräch bleibt nur die flache Statuszeile.
+- `materials`: ein ausgewähltes Material oder Ergebnis liegt prüfbar auf dem Tisch. Prüfen, kommentieren, freigeben und Weiterreden bleiben fachlich unterscheidbar.
+
+Die Zugänge heißen teacher-facing beispielsweise „Perspektive wechseln“, „Auf den Tisch“ oder „Im Gespräch aufgreifen“. Eine dauerhafte Sidebar mit parallel sichtbaren Inhaltskarten ist kein zulässiger Ersatz für diesen Perspektivwechsel. Auf schmalen Ansichten steht der aktive Gegenstand zuerst; die Begleitung folgt darunter oder wird über eine explizite Aktion geöffnet.

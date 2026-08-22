@@ -4,6 +4,7 @@
 
 - [`../../REFACTOR-UX.md`](../../REFACTOR-UX.md) – vollständiges UX-Zielbild, räumliche Semantik und atmosphärische Referenz.
 - [`DENKRAUM-DESIGN-CONTRACT.md`](DENKRAUM-DESIGN-CONTRACT.md) – prüfbare Design-Gates und Dashboard-Ausschlusskriterien.
+- [`QUALITATIVE-ABNAHME-VORLAGE.md`](QUALITATIVE-ABNAHME-VORLAGE.md) – getrennte Browserprüfung für Fokusmodi, Accessibility und qualitative Abnahme.
 - [`../milestones/REAL-RUNTIME-MVP-DESIGN-GATE.md`](../milestones/REAL-RUNTIME-MVP-DESIGN-GATE.md) – aktuelles Arbeitspaket M0.
 
 ## Grundsatz

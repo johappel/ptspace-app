@@ -141,8 +141,10 @@ Im Ruhezustand darf die Pinnwand atmosphärisch unscharf und kontrastarm sein. �
 Die Pinnwand ist keine vollständige Dokumentansicht. Sie zeigt im Normalzustand nur wenige aktuelle Gegenstände:
 
 - den zuletzt festgehaltenen relevanten Gedanken,
-- genau eine aktuell wichtige Entscheidung oder ein Ergebnis zur Prüfung,
+- bewusst zurückgestellte Entscheidungen oder Ergebnisse zur Prüfung,
 - optional einen ruhigen Hinweis auf weitere Einträge.
+
+Ein aktuell notwendiger Entscheidungs- oder Prüfgegenstand gehört nicht hierher: Er erscheint vorübergehend unmittelbar im Gespräch und wird erst durch Später zurückstellen als wiederaufrufbare Spur abgelegt.
 
 Vollständige Listen und der vollständige gemeinsame Denkstand öffnen sich in einer vertieften Ansicht.
 
@@ -345,3 +347,26 @@ Der UX-Refactor ist fachlich abgenommen, wenn:
 - Navigation und Statusleiste diskret bleiben und teacher-facing beschriftet sind,
 - die Pinnwand im Hintergrund liegt, aber als interaktiver Bereich erkennbar bleibt,
 - Gesprächsnotizen haptisch wirken, ohne wieder eine dominante Kartenwand zu bilden.
+
+## 16. Verbindliche dramaturgische Fokuslogik
+
+Die visuelle Hierarchie ist eine Zustandslogik und keine reine Reduktion von Kartenbreiten:
+
+Gespräch läuft
+→ entscheidungsreifer Gegenstand entsteht
+→ genau eine temporäre Fokuslage unmittelbar im Gespräch
+→ Passt | Weiterreden | Später zurückstellen
+→ Passt: Zustand übernehmen, Fokus schließen
+→ Weiterreden: Gegenstand als Gesprächsbezug weiterführen
+→ Später: Gegenstand bewusst in Sidebar/Pinnwand ablegen
+→ ruhiger Gesprächszustand
+
+Verbindlich gilt:
+
+- Im Normalzustand ist das Gespräch die einzige primäre Fokuslage. Pinnwand, Denkstand, offene Spuren und Hintergrundarbeit bleiben Ablage beziehungsweise diskrete Zugänge.
+- Ein aktuell notwendiger Entscheidungs- oder Prüfgegenstand wird nicht dauerhaft als Seitenkarte gerendert, sondern unmittelbar über beziehungsweise im Gespräch gezeigt.
+- Während dieser Fokuslage treten sekundäre Bereiche visuell und semantisch zurück. Es gibt genau einen handlungsrelevanten Gegenstand.
+- Passt, Weiterreden und Später zurückstellen sind die drei sinnvollen Handlungsrichtungen. Später ist eine ausdrückliche Aktion und darf nicht durch Navigation, Reload oder bloßes Wegsehen implizit ausgelöst werden.
+- Erst nach Später, Zurückstellen oder einer gleichwertigen bewussten Ablage darf der Gegenstand als wiederaufrufbare Spur in Sidebar/Pinnwand erscheinen.
+- Nach Passt oder Später kehrt die Hauptansicht in den ruhigen Gesprächszustand zurück. Weiterreden führt den Gegenstand als Fokusbezug im Composer/Gespräch weiter.
+- Diese Logik gilt identisch für offene Entscheidungen, Ergebnisprüfungen und andere entscheidungsreife Projektionen sowie in schmaler Darstellung. Mobile Ansichten stapeln keine konkurrierenden Fokusblöcke untereinander.

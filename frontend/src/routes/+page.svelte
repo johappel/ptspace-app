@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, ShieldCheck, Settings, TriangleAlert, X } from "lucide-svelte";
-  import { api, type ConversationMarker, type ConversationMessage, type ExportApproval, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
+  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, Folder, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, Search, Settings, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
+  import { api, type ConversationMarker, type ConversationMessage, type ExportApproval, type FocusedObject, type FocusMode, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow, type Connection, type Edge, type Node, type NodeTypes } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import LearningMomentNode from "$lib/LearningMomentNode.svelte";
@@ -46,6 +46,12 @@
   let renderedMessages: UiMessage[] = [];
   let draftMessage = "";
   let activeFocus: PedagogicalFocus | null = null;
+  let focusMode: FocusMode = "conversation";
+  let focusedObject: FocusedObject = null;
+  let previousFocusMode: FocusMode = "conversation";
+  let previousFocusedObject: FocusedObject = null;
+  let companionExpanded = false;
+  let companionStrip = false;
   let designNotes = "";
   let editingDesign = false;
   let savingDesign = false;
@@ -64,11 +70,10 @@
   let simulatedMode = false;
   let workspaceElement: HTMLElement | null = null;
   let railCollapsed = true;
-  let primaryWidth = 74;
+  let primaryWidth = 78;
   let newRoom = { title: "", subject: "", targetGroup: "", initialIdea: "" };
   let planningModal = false;
   let createRoomModal = false;
-  let roomView: "conversation" | "landscape" | "timeline" | "board" | "materials" | "knowledge" = "conversation";
   let planningTab: "landscape" | "board" = "landscape";
   let landscapeMode: "canvas" | "linear" = "canvas";
   let learningLandscape: LearningLandscape | null = null;
@@ -95,7 +100,28 @@
   let materialMessage = "";
   let expandedMaterialId = "";
   let roomAccessOpen = false;
+  let roomSearch = "";
+  let roomCategories: Record<string, string> = {};
+  let roomCategoryNames: string[] = [];
+  let openRoomCategories: Record<string, boolean> = {};
+  let roomMenuOpenId = "";
+  let draggedSpaceId = "";
+  let newCategoryModal = false;
+  let newCategoryName = "";
+  let roomCategoryError = "";
   let pinnwandOpen = false;
+  let recentMarkerId = "";
+  let recentMarkerTimer: number | null = null;
+  let deferredAttentionId = "";
+  let continuedAttentionId = "";
+  let attentionFocused = false;
+  let attentionDeferred = false;
+  let visiblePinnwandMarkers: ConversationMarker[] = [];
+  let pinnwandThoughts: ConversationMarker[] = [];
+  let pinnwandOpenQuestions: ConversationMarker[] = [];
+  let pinnwandDecisions: ConversationMarker[] = [];
+  let pinnwandSections: Array<{ id: string; title: string; hint: string; items: ConversationMarker[] }> = [];
+  let focusRegionElement: HTMLElement | null = null;
   let messageFilter: "all" | "captured" | "decisions" | "work" = "all";
   let highlightedMessageId = "";
   let markerReturnMessageId = "";
@@ -109,6 +135,8 @@
   let spaceLoadVersion = 0;
   let workflowRefreshInFlight = false;
   const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
+  const roomCategoriesStorageKey = "ptspace.room-categories";
+  const roomCategoryNamesStorageKey = "ptspace.room-category-names";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
     { id: "clarify", label: "Noch klären", hint: "Entscheidungen und Recherche" },
     { id: "prepare", label: "Vorbereiten", hint: "Dramaturgie und Materialien" },
@@ -121,6 +149,16 @@
   onMount(() => {
     soundsEnabled = localStorage.getItem("ptspace.sounds-enabled") === "true";
     reducedMotion = localStorage.getItem("ptspace.reduced-motion") === "true";
+    try {
+      const storedCategories = JSON.parse(localStorage.getItem(roomCategoriesStorageKey) ?? "{}");
+      if (storedCategories && typeof storedCategories === "object" && !Array.isArray(storedCategories)) roomCategories = storedCategories as Record<string, string>;
+      const storedNames = JSON.parse(localStorage.getItem(roomCategoryNamesStorageKey) ?? "[]");
+      const savedNames = Array.isArray(storedNames) ? storedNames.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
+      roomCategoryNames = [...new Set([...savedNames, ...Object.values(roomCategories).filter(Boolean)])];
+    } catch {
+      roomCategories = {};
+      roomCategoryNames = [];
+    }
     void (async () => {
       try {
         await refreshSpaces();
@@ -157,6 +195,83 @@
     }
   }
 
+  function roomCategoryFor(space: PlanningSpace) {
+    return roomCategories[space.id] ?? "";
+  }
+
+  function persistRoomCategories() {
+    localStorage.setItem(roomCategoriesStorageKey, JSON.stringify(roomCategories));
+  }
+
+  function persistRoomCategoryNames() {
+    localStorage.setItem(roomCategoryNamesStorageKey, JSON.stringify(roomCategoryNames));
+  }
+
+  function assignRoomCategory(spaceId: string, category: string) {
+    roomCategories = { ...roomCategories, [spaceId]: category };
+    if (category && !roomCategoryNames.includes(category)) {
+      roomCategoryNames = [...roomCategoryNames, category];
+      persistRoomCategoryNames();
+    }
+    persistRoomCategories();
+    roomMenuOpenId = "";
+  }
+
+  function toggleRoomCategory(category: string) {
+    openRoomCategories = { ...openRoomCategories, [category]: !(openRoomCategories[category] ?? true) };
+  }
+
+  function createRoomCategory() {
+    const category = newCategoryName.trim();
+    roomCategoryError = "";
+    if (!category) {
+      roomCategoryError = "Bitte gib der Kategorie einen Namen.";
+      return;
+    }
+    if (category.toLocaleLowerCase("de-DE") === "unkategorisiert" || roomCategoryNames.some((name) => name.toLocaleLowerCase("de-DE") === category.toLocaleLowerCase("de-DE"))) {
+      roomCategoryError = "Diese Kategorie gibt es bereits.";
+      return;
+    }
+    roomCategoryNames = [...roomCategoryNames, category];
+    openRoomCategories = { ...openRoomCategories, [category]: true };
+    persistRoomCategoryNames();
+    newCategoryName = "";
+    newCategoryModal = false;
+  }
+
+  function startRoomDrag(spaceId: string, event: DragEvent) {
+    draggedSpaceId = spaceId;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", spaceId);
+    }
+  }
+
+  function allowRoomDrop(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function dropSpaceInCategory(category: string, event: DragEvent) {
+    event.preventDefault();
+    const spaceId = event.dataTransfer?.getData("text/plain") || draggedSpaceId;
+    if (spaceId) assignRoomCategory(spaceId, category);
+    draggedSpaceId = "";
+  }
+
+  function dropSpaceUncategorized(event: DragEvent) {
+    dropSpaceInCategory("", event);
+  }
+
+  function openKnowledgebase() {
+    roomAccessOpen = false;
+    if (activeSpace) {
+      void chooseRoomView("knowledge");
+      return;
+    }
+    createRoomModal = true;
+  }
+
   async function createSpace() {
     error = "";
     if (newRoom.title.trim().length < 3) {
@@ -181,11 +296,19 @@
     const loadVersion = ++spaceLoadVersion;
     activeSpace = space;
     localStorage.setItem(lastOpenedSpaceKey, space.id);
-    roomView = "conversation";
+    focusMode = "conversation";
+    focusedObject = null;
+    previousFocusMode = "conversation";
+    previousFocusedObject = null;
     roomAccessOpen = false;
     pinnwandOpen = false;
+    recentMarkerId = "";
+    deferredAttentionId = "";
+    continuedAttentionId = "";
     statusDetailsOpen = false;
     activeFocus = null;
+    companionExpanded = false;
+    companionStrip = false;
     learningLandscape = null;
     planningBoard = null;
     temporalPlan = null;
@@ -248,6 +371,7 @@
       serviceMessage = "";
       findings = [];
       roomOverview = await api.getRoomOverview(space.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
       await loadMaterials(space.id, loadVersion);
       if (!isCurrentSpaceLoad(space.id, loadVersion)) return;
@@ -269,6 +393,23 @@
 
   function isCurrentSpaceLoad(spaceId: string, loadVersion = spaceLoadVersion) {
     return activeSpace?.id === spaceId && spaceLoadVersion === loadVersion;
+  }
+
+  function deferredAttentionStorageKey(spaceId: string) {
+    return `ptspace.deferred-attention.${spaceId}`;
+  }
+
+  function syncAttentionDisposition(card: import("@ptspace/shared").AttentionCard) {
+    if (!activeSpace) return;
+    const storedId = localStorage.getItem(deferredAttentionStorageKey(activeSpace.id));
+    deferredAttentionId = storedId === card.id && card.kind !== "continue_conversation" ? storedId : "";
+    if (continuedAttentionId && continuedAttentionId !== card.id) continuedAttentionId = "";
+    if (!deferredAttentionId && storedId) localStorage.removeItem(deferredAttentionStorageKey(activeSpace.id));
+  }
+
+  async function returnFocusToConversation() {
+    await tick();
+    composerElement?.focus();
   }
 
   function hasActiveBackgroundWork() {
@@ -311,6 +452,7 @@
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       serviceRequests = requests.requests;
       roomOverview = overview;
+      syncAttentionDisposition(overview.attentionCard);
       if (overview.attentionCard.kind === "result_review") await loadMaterials(spaceId, loadVersion);
     } catch {
       // The closed status bar remains usable if a transient poll fails.
@@ -337,7 +479,9 @@
         await loadMaterials(activeSpace.id);
       }
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       playFeedbackSound();
+      await returnFocusToConversation();
     } catch (err) {
       error = err instanceof Error ? err.message : "Dieser Schritt konnte noch nicht gespeichert werden.";
     } finally {
@@ -348,7 +492,29 @@
   function discussAttention() {
     const card = roomOverview?.attentionCard;
     if (!card) return;
+    continuedAttentionId = card.id;
+    deferredAttentionId = "";
     focusConversation(`Lass uns das gemeinsam weiterdenken: ${card.title} `, card.discussAction.focus);
+  }
+
+  async function deferAttention() {
+    if (!activeSpace || !roomOverview || roomOverview.attentionCard.kind === "continue_conversation") return;
+    const card = roomOverview.attentionCard;
+    deferredAttentionId = card.id;
+    continuedAttentionId = "";
+    localStorage.setItem(deferredAttentionStorageKey(activeSpace.id), card.id);
+    pinnwandOpen = false;
+    await returnFocusToConversation();
+  }
+
+  async function reopenDeferredAttention() {
+    if (!roomOverview || !activeSpace) return;
+    deferredAttentionId = "";
+    continuedAttentionId = "";
+    localStorage.removeItem(deferredAttentionStorageKey(activeSpace.id));
+    closePinnwand();
+    await tick();
+    focusRegionElement?.focus();
   }
 
   function availableMaterialTargets() {
@@ -370,6 +536,11 @@
 
   function boardTitle(id: string) {
     return planningBoard?.items.find((item) => item.id === id)?.title ?? "Arbeitsvorhaben";
+  }
+  function openBoardItemDetail(item: PlanningBoardItem) {
+    focusedObject = { type: "work-item", id: item.id };
+    companionExpanded = false;
+    boardDetail = item;
   }
 
   function materialKindLabel(kind: string) {
@@ -393,6 +564,8 @@
   }
 
   async function toggleMaterialContent(material: MaterialMetadata) {
+    focusedObject = { type: "material", id: material.id };
+    companionExpanded = false;
     if (expandedMaterialId === material.id) {
       expandedMaterialId = "";
       return;
@@ -431,6 +604,7 @@
       makeCanvas();
       materialMessage = result.changed ? "Der pädagogische Bezug wurde gemeinsam gespeichert." : "Dieser Bezug besteht bereits.";
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
       playFeedbackSound();
     } catch (err) {
       materialMessage = err instanceof Error ? err.message : "Die Materialzuordnung konnte nicht gespeichert werden.";
@@ -473,6 +647,26 @@
 
   function isContextMessage(message: UiMessage) {
     return messageFilter !== "all" && !messageMatchesFilter(message);
+  }
+
+  function contextualMessages() {
+    if (!focusedObject) return messages.slice(-5);
+    const object = focusedObject;
+    const markerMessageIds = (roomOverview?.conversationMarkers ?? [])
+      .filter((marker) => marker.id === object.id || marker.sourceMessageId === object.id || marker.targetId === object.id)
+      .map((marker) => marker.sourceMessageId);
+    const matchingIndexes = messages.map((message, index) => {
+      if (object.type === "message" && message.id === object.id) return index;
+      return markerMessageIds.includes(message.id) ? index : -1;
+    }).filter((index) => index >= 0);
+    if (matchingIndexes.length === 0) return messages.slice(-5);
+    const indexes = new Set(matchingIndexes.flatMap((index) => [index - 1, index, index + 1]).filter((index) => index >= 0 && index < messages.length));
+    return messages.filter((_message, index) => indexes.has(index));
+  }
+
+  function companionStripMessages() {
+    const latestCompanionMessage = [...messages].reverse().find((message) => message.author === "critical_friend");
+    return latestCompanionMessage ? [latestCompanionMessage] : messages.slice(-1);
   }
 
   function formatMessageTime(message: UiMessage) {
@@ -521,6 +715,9 @@
         label: markerLabel.trim() || markerKindLabel(markerKind)
       });
       roomOverview = roomOverview ? { ...roomOverview, conversationMarkers: [...roomOverview.conversationMarkers, result.marker] } : await api.getRoomOverview(activeSpace.id);
+      recentMarkerId = result.marker.id;
+      if (recentMarkerTimer !== null) window.clearTimeout(recentMarkerTimer);
+      recentMarkerTimer = window.setTimeout(() => { recentMarkerId = ""; recentMarkerTimer = null; }, 4200);
       markerMessageId = "";
       serviceMessage = "Der Bezug ist im Gespräch festgehalten.";
       playFeedbackSound();
@@ -534,24 +731,39 @@
   async function openMarkerTarget(marker: ConversationMarker) {
     markerReturnMessageId = marker.sourceMessageId;
     highlightedMessageId = marker.sourceMessageId;
-    pinnwandOpen = marker.targetType === "thinking_state";
+    if (marker.targetType === "thinking_state") {
+      await returnToConversation();
+      return;
+    }
     if (marker.targetType === "board_item") {
-      await selectPerspective("board");
+      await selectPerspective("preparation", { type: "work-item", id: marker.targetId });
       boardDetail = planningBoard?.items.find((item) => item.id === marker.targetId) ?? null;
     } else if (marker.targetType === "material") {
-      await selectPerspective("materials");
+      await selectPerspective("materials", { type: "material", id: marker.targetId });
       expandedMaterialId = marker.targetId;
     } else if (marker.targetType === "service_request") {
       statusDetailsOpen = true;
+      focusMode = "preparation";
+      focusedObject = { type: "work-item", id: marker.targetId };
       roomAccessOpen = false;
     } else {
-      roomView = "conversation";
+      focusMode = "conversation";
+      focusedObject = null;
     }
   }
 
+  async function openMarkerOrigin(marker: ConversationMarker) {
+    markerReturnMessageId = marker.sourceMessageId;
+    highlightedMessageId = marker.sourceMessageId;
+    await returnToConversation();
+  }
+
   async function returnToConversation() {
-    roomView = "conversation";
+    focusMode = "conversation";
+    focusedObject = markerReturnMessageId ? { type: "message", id: markerReturnMessageId } : null;
+    previousFocusMode = "conversation";
     roomAccessOpen = false;
+    pinnwandOpen = false;
     messageFilter = "all";
     await tick();
     const target = Array.from(messagesElement?.querySelectorAll<HTMLElement>("[data-message-id]") ?? []).find((element) => element.dataset.messageId === markerReturnMessageId);
@@ -578,12 +790,22 @@
     }
   }
 
-  function backgroundStatusLabel() {
-    if (sending) return "Critical Friend antwortet";
-    const activeRequest = roomOverview?.backgroundWork.find((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet");
+  function backgroundStatusLabel(backgroundWork: { title: string; status: string }[] | undefined, requests: ServiceRequest[], message: string) {
+    if (sending) return "Pedagogical Companion antwortet";
+    const activeRequest = backgroundWork?.find((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet");
     if (activeRequest) return activeRequest.title + " wird vorbereitet";
-    if (serviceMessage) return serviceMessage;
+    const activeServiceRequest = requests.find((request) => request.status === "approved" || request.status === "queued" || request.status === "in_progress");
+    if (activeServiceRequest) return "Vorbereitung wird vorbereitet";
+    if (message) return message;
     return "Gespräch bereit";
+  }
+
+  function backgroundWorkTeacherStatus(status: string) {
+    if (status === "wartet_kurz") return "wartet kurz";
+    if (status === "wird_vorbereitet" || status === "in_progress") return "wird vorbereitet";
+    if (status === "liegt_zur_pruefung_bereit" || status === "returned") return "liegt zur Pr\u00fcfung bereit";
+    if (status === "konnte_noch_nicht_erstellt_werden" || status === "failed") return "braucht Aufmerksamkeit";
+    return "bereit";
   }
 
   function serviceRequestTeacherLabel(request: ServiceRequest) {
@@ -600,14 +822,111 @@
     if (marker.targetType === "decision") return roomOverview?.decisions.find((decision) => decision.id === marker.targetId)?.title ?? "Entscheidung";
     return marker.label;
   }
-  function chooseRoomView(view: "conversation" | "landscape" | "timeline" | "board" | "materials" | "knowledge") {
+  function markerOriginLabel(marker: ConversationMarker) {
+    const source = messages.find((message) => message.id === marker.sourceMessageId);
+    const time = source ? formatMessageTime(source) : "";
+    return time ? `Aus dem Gespräch · ${time}` : "Aus dem Gespräch";
+  }
+  function isConfirmedDecisionMarker(marker: ConversationMarker, decisionIds: Set<string>) {
+    return marker.kind === "open_decision" && marker.targetType === "decision" && decisionIds.has(marker.targetId);
+  }
+  function pinboardTraceType(marker: ConversationMarker, decisionIds: Set<string>) {
+    return isConfirmedDecisionMarker(marker, decisionIds) ? "Entscheidung" : markerKindLabel(marker.kind);
+  }
+  function focusedObjectFromFocus(focus: PedagogicalFocus | null): FocusedObject {
+    if (!focus) return null;
+    if (focus.kind === "learning_moment" || focus.kind === "transition") return { type: "landscape-node", id: focus.id };
+    if (focus.kind === "teaching_window" || focus.kind === "placement") return { type: "teaching-window", id: focus.id };
+    if (focus.kind === "planning_item") return { type: "work-item", id: focus.id };
+    return { type: "material", id: focus.id };
+  }
+  function focusModeLabel(mode: FocusMode) {
+    return { conversation: "Gespräch", pinboard: "Pinnwand", "thinking-state": "Denkstand", landscape: "Lernlandschaft", timeline: "Zeit & Dramaturgie", preparation: "Vorbereitungen", materials: "Materialien", knowledge: "Knowledge & Quellen" }[mode];
+  }
+  function focusedObjectLabel(mode: FocusMode, object: FocusedObject, overview: typeof roomOverview, landscape: typeof learningLandscape, plan: typeof temporalPlan, board: typeof planningBoard, availableMaterials: MaterialMetadata[], availableMessages: UiMessage[]) {
+    if (!object) {
+      if (mode === "landscape") return landscape?.title ?? "gemeinsamer Lernweg";
+      if (mode === "timeline") return "Unterrichtsfenster und Übergänge";
+      if (mode === "preparation") return "laufende und zurückgekehrte Vorbereitungen";
+      if (mode === "materials") return "Unterrichtsmaterialien und Ergebnisse";
+      if (mode === "thinking-state") return "strukturierter aktueller Denkstand";
+      if (mode === "pinboard") return "kuratierten Spuren";
+      return "der gemeinsame Denkstand";
+    }
+    if (object.type === "note") return overview?.conversationMarkers.find((marker) => marker.id === object.id)?.label ?? "ausgewählte Spur";
+    if (object.type === "landscape-node") return landscape?.moments.find((moment) => moment.id === object.id)?.title ?? "ausgewählter Lernmoment";
+    if (object.type === "teaching-window") return plan?.windows.find((window) => window.id === object.id)?.title ?? "ausgewähltes Zeitfenster";
+    if (object.type === "work-item") return board?.items.find((item) => item.id === object.id)?.title ?? "Arbeitsvorhaben";
+    if (object.type === "material") return availableMaterials.find((material) => material.id === object.id)?.title ?? "ausgewähltes Material";
+    return availableMessages.find((message) => message.id === object.id)?.text ?? "ausgewählter Gesprächsbeitrag";
+  }
+  function companionPrompt(mode: FocusMode, object: FocusedObject) {
+    if (mode === "pinboard" && object?.type === "note") return "Was möchtest du an diesem Gedanken weiterdenken?";
+    if (mode === "pinboard") return "Welche Spur möchtest du aufgreifen?";
+    if (mode === "thinking-state") return "Was möchtest du an diesem Denkstand weiterdenken?";
+    if (mode === "landscape") return "Was möchtest du an diesem Lernmoment weiterdenken?";
+    if (mode === "timeline") return "Was möchtest du an diesem Zeitfenster weiterdenken?";
+    if (mode === "preparation") return "Was möchtest du an dieser Vorbereitung klären oder prüfen?";
+    if (mode === "materials") return "Was möchtest du an diesem Material ändern oder prüfen?";
+    return "Beschreibe kurz deine Unterrichtsidee oder die offene Frage.";
+  }
+  function chooseRoomView(view: FocusMode) {
     roomAccessOpen = false;
+    statusDetailsOpen = false;
     if (view === "conversation") {
+      previousFocusMode = focusMode;
+      focusMode = "conversation";
+      focusedObject = null;
+      companionStrip = false;
       pinnwandOpen = false;
-      roomView = "conversation";
+      void returnFocusToConversation();
       return;
     }
+    pinnwandOpen = false;
     void selectPerspective(view);
+  }
+
+  function handleCompanionDoubleClick(event: MouseEvent) {
+    if (focusMode === "conversation") return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, textarea, select, input, a, summary")) return;
+    void chooseRoomView("conversation");
+  }
+  function openPinnwand() {
+    void selectPerspective("pinboard");
+    pinnwandOpen = true;
+    statusDetailsOpen = false;
+    roomAccessOpen = false;
+  }
+  function closePinnwand() {
+    pinnwandOpen = false;
+    focusMode = "conversation";
+    focusedObject = null;
+    void returnFocusToConversation();
+  }
+  function selectPinnwandTrace(marker: ConversationMarker) {
+    focusedObject = { type: "note", id: marker.id };
+    companionExpanded = false;
+  }
+  function toggleBackgroundWork() {
+    statusDetailsOpen = !statusDetailsOpen;
+    if (statusDetailsOpen) {
+      previousFocusMode = focusMode;
+      focusMode = "preparation";
+      focusedObject = null;
+    } else {
+      focusMode = "conversation";
+      focusedObject = null;
+    }
+  }
+  async function openSettings() {
+    roomAccessOpen = false;
+    settingsOpen = true;
+    try {
+      runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage;
+    } catch {
+      runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden.";
+    }
   }
   async function scrollConversationToEnd(behavior: ScrollBehavior = "smooth") {
     await tick();
@@ -663,6 +982,7 @@ async function sendMessage() {
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
       cards = state.cards;
       roomOverview = await api.getRoomOverview(spaceId);
+      syncAttentionDisposition(roomOverview.attentionCard);
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
@@ -798,7 +1118,8 @@ async function sendMessage() {
 
   async function openPlanning() {
     if (!activeSpace) return;
-    roomView = "conversation";
+    focusMode = "conversation";
+    focusedObject = null;
     planningLoading = true;
     planningError = "";
     try {
@@ -860,16 +1181,29 @@ async function sendMessage() {
     finally { savingDesign = false; }
   }
 
-  async function selectPerspective(view: "conversation" | "landscape" | "timeline" | "board" | "materials" | "knowledge") {
-    roomView = view;
-    if (view === "conversation" || !activeSpace) return;
+  async function selectPerspective(view: FocusMode, object: FocusedObject = null) {
+    previousFocusMode = focusMode;
+    previousFocusedObject = focusedObject;
+    focusMode = view;
+    focusedObject = object;
+    pinnwandOpen = view === "pinboard";
+    companionExpanded = false;
+    companionStrip = false;
+    if (view === "conversation" || !activeSpace) {
+      await returnFocusToConversation();
+      return;
+    }
     planningLoading = true; planningError = "";
     try { const [artifacts, layout, plan] = await Promise.all([api.getPlanningArtifacts(activeSpace.id), api.getLearningLandscapeLayout(activeSpace.id), api.getTemporalPlan(activeSpace.id)]); applyLandscapeLayout(layout); learningLandscape = artifacts.learningLandscape; planningBoard = artifacts.planningBoard; temporalPlan = plan; makeCanvas(); if (view === "materials") await loadMaterials(activeSpace.id); }
     catch (err) { planningError = err instanceof Error ? err.message : "Die Planung konnte nicht geladen werden."; }
-    finally { planningLoading = false; }
+    finally { planningLoading = false; await tick(); focusRegionElement?.focus(); }
   }
   async function focusConversation(prompt: string, focus?: PedagogicalFocus) {
     if (focus) activeFocus = focus;
+    focusedObject = focusedObjectFromFocus(focus ?? activeFocus);
+    previousFocusMode = focusMode;
+    focusMode = "conversation";
+    pinnwandOpen = false;
     draftMessage = prompt;
     await tick();
     composerElement?.focus();
@@ -896,6 +1230,7 @@ async function sendMessage() {
       await focusConversation(`Wir haben festgehalten: ${decisionToRecord.trim()} (Begründung: ${decisionReason.trim()}). Lass uns prüfen, was daraus als Nächstes folgt.`);
       cards = (await api.getThinkingState(activeSpace.id)).cards;
       roomOverview = await api.getRoomOverview(activeSpace.id);
+      syncAttentionDisposition(roomOverview.attentionCard);
     } catch (err) { error = err instanceof Error ? err.message : "Die Entscheidung konnte nicht festgehalten werden."; }
   }
   function decisionParts(item: string) {
@@ -1057,7 +1392,11 @@ async function sendMessage() {
     return learningLandscape?.transitions.filter((transition) => transition.from === momentId) ?? [];
   }
   function handleCanvasNodeClick(node: Node) {
-    if (node.type === "learningMoment") openMomentDetail(node.id);
+    if (node.type === "learningMoment") {
+      focusedObject = { type: "landscape-node", id: node.id };
+      companionExpanded = false;
+      openMomentDetail(node.id);
+    }
     else openGroupForm(landscapeGroups.find((group) => group.id === node.id));
   }
 
@@ -1100,6 +1439,8 @@ async function sendMessage() {
 
   // T-500: Lernmoment-Detailansicht. Änderungen werden erst nach Speichern kanonisch.
   function openMomentDetail(id: string) {
+    focusedObject = { type: "landscape-node", id };
+    companionExpanded = false;
     momentDetail = learningLandscape?.moments.find((moment) => moment.id === id) ?? null;
     momentEditing = false;
     momentDraft = null;
@@ -1435,6 +1776,11 @@ async function sendMessage() {
       ? { id: existing.id, title: existing.title, kind: existing.kind, durationMinutes: existing.durationMinutes, note: existing.note }
       : { id: null, title: "", kind: "lesson", durationMinutes: windowKindDurations.lesson, note: "" };
   }
+  function openWindowDetail(window: TeachingWindow) {
+    focusedObject = { type: "teaching-window", id: window.id };
+    companionExpanded = false;
+    windowDetail = window;
+  }
   function onWindowKindChange() {
     if (windowForm && !windowForm.id) windowForm.durationMinutes = windowKindDurations[windowForm.kind];
   }
@@ -1496,6 +1842,8 @@ async function sendMessage() {
 
   // T-704: Reihenfolge, Dauer, Rolle und Modus bearbeiten.
   function openPlacementEditor(placement: TimePlacement) {
+    focusedObject = { type: "teaching-window", id: placement.windowId };
+    companionExpanded = false;
     placementDraft = { ...placement };
   }
   function focusPlacementInConversation(placement: TimePlacement) {
@@ -1583,13 +1931,43 @@ async function sendMessage() {
     focusConversation(`Ich möchte diesen Vorschlag gemeinsam anpassen: ${current.rationale} `);
   }
 
-  $: renderedMessages = messageFilter === "all"
-    ? messages
-    : roomOverview ? visibleMessages() : [];
+  $: renderedMessages = focusMode === "conversation"
+    ? messageFilter === "all" ? messages : roomOverview ? visibleMessages() : []
+    : companionStrip ? companionStripMessages()
+      : companionExpanded ? (messageFilter === "all" ? messages : roomOverview ? visibleMessages() : []) : contextualMessages();
+  $: currentFocusedObjectLabel = focusedObjectLabel(focusMode, focusedObject, roomOverview, learningLandscape, temporalPlan, planningBoard, materials, messages);
+  $: currentComposerPrompt = companionPrompt(focusMode, focusedObject);
   $: hasBlockingFinding = findings.some((finding) => finding.severity === "block_export");
+  $: attentionFocused = !!roomOverview?.attentionCard
+    && roomOverview.attentionCard.kind !== "continue_conversation"
+    && roomOverview.attentionCard.id !== deferredAttentionId
+    && roomOverview.attentionCard.id !== continuedAttentionId;
+  $: attentionDeferred = !!roomOverview?.attentionCard
+    && roomOverview.attentionCard.kind !== "continue_conversation"
+    && roomOverview.attentionCard.id === deferredAttentionId;
+  $: visiblePinnwandMarkers = (roomOverview?.conversationMarkers ?? [])
+    .filter((marker) => marker.kind === "captured_note" || marker.kind === "open_decision")
+    .slice(-5)
+    .reverse();
+  $: confirmedDecisionIds = new Set((roomOverview?.decisions ?? []).map((decision) => decision.id));
+  $: pinnwandThoughts = visiblePinnwandMarkers.filter((marker) => marker.kind === "captured_note").slice(0, 3);
+  $: pinnwandOpenQuestions = visiblePinnwandMarkers.filter((marker) => marker.kind === "open_decision" && !isConfirmedDecisionMarker(marker, confirmedDecisionIds)).slice(0, 2);
+  $: pinnwandDecisions = visiblePinnwandMarkers.filter((marker) => isConfirmedDecisionMarker(marker, confirmedDecisionIds)).slice(0, 2);
+  $: pinnwandSections = [
+    { id: "supports", title: "Was trägt gerade?", hint: "Bewusst festgehaltene Gedanken", items: pinnwandThoughts },
+    { id: "open", title: "Was ist noch offen?", hint: "Fragen und Spannungen", items: pinnwandOpenQuestions },
+    { id: "decisions", title: "Was wurde entschieden?", hint: "Begründet festgehalten", items: pinnwandDecisions }
+  ].filter((section) => section.items.length > 0);
+  $: filteredSpaces = spaces.filter((space) => {
+    const query = roomSearch.trim().toLocaleLowerCase("de-DE");
+    const matchesQuery = !query || [space.title, space.subject, space.targetGroup].filter(Boolean).some((value) => value?.toLocaleLowerCase("de-DE").includes(query));
+    return matchesQuery;
+  });
+  $: roomCategoryFolders = roomCategoryNames.map((category) => ({ category, spaces: filteredSpaces.filter((space) => roomCategories[space.id] === category) }));
+  $: uncategorizedSpaces = filteredSpaces.filter((space) => !roomCategories[space.id]);
 </script>
 
-<svelte:head><title>ptspace-app</title></svelte:head>
+<svelte:head><title>{activeSpace?.title ?? "Pädagogischer Denkraum"} · ptspace</title></svelte:head>
 
 <div class:rail-collapsed={railCollapsed} class:reduce-motion={reducedMotion} class="app-shell">
   <aside class="room-rail" aria-label="Planungsräume">
@@ -1598,19 +1976,41 @@ async function sendMessage() {
       <div><strong>Planungsräume</strong><span>ptspace</span></div>
     </div>
 
-    <button class="new-room-button" on:click={() => (createRoomModal = true)}><Plus size={16} /> Neuen Planungsraum beginnen</button>
+    <nav class="rail-primary" aria-label="Planungsraum-Navigation">
+      <button class="new-room-button" on:click={() => (createRoomModal = true)}><Plus size={16} /><span>Neuen Planungsraum</span></button>
+      <button class="rail-link" on:click={openKnowledgebase}><BookOpen size={16} /><span>Knowledgebase</span></button>
+    </nav>
 
-    <div class="room-list">
+    <section class="room-browser" aria-labelledby="room-browser-title">
+      <div class="rail-section-heading"><strong id="room-browser-title">Planungsräume</strong><small>{filteredSpaces.length}</small></div>
+      <label class="room-search"><Search size={15} aria-hidden="true" /><span class="sr-only">Planungsräume durchsuchen</span><input bind:value={roomSearch} placeholder="Planungsräume durchsuchen" /></label>
+      <div class="room-list">
       {#if loading}<p>Planungsräume werden geladen.</p>
-      {:else if spaces.length === 0}<p>Noch kein Planungsraum. Lege links einen ersten Raum an.</p>
       {:else}
-        {#each spaces as space}
-          <button class:active={activeSpace?.id === space.id} on:click={() => openSpace(space)}>
-            <span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small>
-          </button>
+        {#if spaces.length === 0}<p>Noch kein Planungsraum. Lege links einen ersten Raum an.</p>
+        {:else if filteredSpaces.length === 0}<p>Kein Planungsraum passt zu deiner Suche.</p>{/if}
+        <section class:drop-target={!!draggedSpaceId} class="room-category-folder uncategorized-folder" on:dragover={allowRoomDrop} on:drop={dropSpaceUncategorized} aria-labelledby="uncategorized-folder-title">
+          <button class="folder-heading" on:click={() => toggleRoomCategory("")}><ChevronDown class={openRoomCategories[""] === false ? "folder-closed" : ""} size={14} aria-hidden="true" /><Folder size={15} aria-hidden="true" /><strong id="uncategorized-folder-title">Unkategorisiert</strong><small>{uncategorizedSpaces.length}</small></button>
+          {#if openRoomCategories[""] !== false}<div class="room-folder-items">{#each uncategorizedSpaces as space}<article class:active={activeSpace?.id === space.id} class="room-entry" draggable="true" on:dragstart={(event) => startRoomDrag(space.id, event)}>
+            <button class="room-entry-open" on:click={() => openSpace(space)}><span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small></button>
+            <button class="room-entry-menu" on:click={() => (roomMenuOpenId = roomMenuOpenId === space.id ? "" : space.id)} aria-label={`Kategorie für ${space.title} ändern`} aria-expanded={roomMenuOpenId === space.id}><MoreHorizontal size={15} /></button>
+            {#if roomMenuOpenId === space.id}<div class="room-entry-menu-popover" role="menu"><span>Zu Kategorie verschieben</span>{#each roomCategoryNames as category}<button role="menuitem" on:click={() => assignRoomCategory(space.id, category)}>{category}</button>{/each}<button role="menuitem" on:click={() => assignRoomCategory(space.id, "")}>Unkategorisiert</button></div>{/if}
+          </article>{/each}{#if uncategorizedSpaces.length === 0}<p class="folder-empty">Keine passenden Räume</p>{/if}</div>{/if}
+        </section>
+        {#each roomCategoryFolders as folder}
+          <section class:drop-target={!!draggedSpaceId} class="room-category-folder" on:dragover={allowRoomDrop} on:drop={(event) => dropSpaceInCategory(folder.category, event)} aria-labelledby={`folder-${folder.category}`}>
+            <button class="folder-heading" on:click={() => toggleRoomCategory(folder.category)}><ChevronDown class={openRoomCategories[folder.category] === false ? "folder-closed" : ""} size={14} aria-hidden="true" /><Folder size={15} aria-hidden="true" /><strong id={`folder-${folder.category}`}>{folder.category}</strong><small>{folder.spaces.length}</small></button>
+            {#if openRoomCategories[folder.category] !== false}<div class="room-folder-items">{#each folder.spaces as space}<article class:active={activeSpace?.id === space.id} class="room-entry" draggable="true" on:dragstart={(event) => startRoomDrag(space.id, event)}>
+              <button class="room-entry-open" on:click={() => openSpace(space)}><span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small></button>
+              <button class="room-entry-menu" on:click={() => (roomMenuOpenId = roomMenuOpenId === space.id ? "" : space.id)} aria-label={`Kategorie für ${space.title} ändern`} aria-expanded={roomMenuOpenId === space.id}><MoreHorizontal size={15} /></button>
+              {#if roomMenuOpenId === space.id}<div class="room-entry-menu-popover" role="menu"><span>Zu Kategorie verschieben</span>{#each roomCategoryNames as category}<button role="menuitem" on:click={() => assignRoomCategory(space.id, category)}>{category}</button>{/each}<button role="menuitem" on:click={() => assignRoomCategory(space.id, "")}>Unkategorisiert</button></div>{/if}
+            </article>{/each}{#if folder.spaces.length === 0}<p class="folder-empty">Ordner ist leer</p>{/if}</div>{/if}
+          </section>
         {/each}
       {/if}
-    </div>
+      </div>
+      <button class="new-category-button" on:click={() => { roomCategoryError = ""; newCategoryName = ""; newCategoryModal = true; }}><Plus size={14} /> Neue Kategorie</button>
+    </section>
   </aside>
 
   {#if createRoomModal}
@@ -1627,49 +2027,104 @@ async function sendMessage() {
       </dialog>
     </div>
   {/if}
+  {#if newCategoryModal}
+    <div class="planning-overlay" role="presentation" on:click={() => (newCategoryModal = false)}>
+      <dialog class="start-modal category-modal" open aria-label="Neue Kategorie anlegen" on:click|stopPropagation>
+        <header><div><span>Planungsräume sortieren</span><h2>Neue Kategorie</h2></div><button class="icon-button" on:click={() => (newCategoryModal = false)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={createRoomCategory}>
+          <label>Kategoriename<input bind:value={newCategoryName} placeholder="z. B. Unterrichtsentwürfe" /></label>
+          {#if roomCategoryError}<p class="category-error" role="alert">{roomCategoryError}</p>{/if}
+          <button type="submit"><Plus size={16} /> Kategorie anlegen</button>
+        </form>
+      </dialog>
+    </div>
+  {/if}
   <main class="planning-room">
     <header class="topbar">
       <div><span>Planungsräume</span><h1>{activeSpace?.title ?? "Neuer pädagogischer Denkraum"}</h1></div>
       <div class="topbar-actions">
-        {#if activeSpace}<button class="room-access-toggle" on:click={() => (roomAccessOpen = !roomAccessOpen)} aria-expanded={roomAccessOpen} aria-controls="room-access"><MoreHorizontal size={16} /> Bereiche <span>{roomAccessOpen ? "schließen" : "öffnen"}</span></button>{/if}
-        <button class="planning-open" on:click={openPlanning}><MapIcon size={16} /> Unterrichtsplanung</button>
-        <button class="settings-button" on:click={async () => { settingsOpen = true; try { runtimeStatus = (await api.getRuntimeStatus()).harnessAvailability.teacherFacingMessage; } catch { runtimeStatus = "Die Runtime-Konfiguration konnte nicht geprüft werden."; } }}><Settings size={16} /> Einstellungen</button>
+        {#if activeSpace}<button class="room-access-toggle" on:click={() => (roomAccessOpen = !roomAccessOpen)} aria-label="Perspektive wechseln" aria-expanded={roomAccessOpen} aria-controls="room-access"><MoreHorizontal size={16} /> Perspektive <span>{roomAccessOpen ? "schließen" : "wechseln"}</span></button>{/if}
         {#if activeSpace && roomAccessOpen}
           <nav id="room-access" class="room-nav" aria-label="Bereiche im Planungsraum">
-            <button class:active={roomView === "conversation" && !pinnwandOpen} on:click={() => chooseRoomView("conversation")}>Gespräch</button>
-            <button class:active={pinnwandOpen} on:click={() => { pinnwandOpen = true; chooseRoomView("conversation"); }}>Pinnwand</button>
-            <button class:active={roomView === "landscape"} on:click={() => chooseRoomView("landscape")}>Lernlandschaft</button>
-            <button class:active={roomView === "timeline"} on:click={() => chooseRoomView("timeline")}>Zeit &amp; Dramaturgie</button>
-            <button class:active={roomView === "board"} on:click={() => chooseRoomView("board")}>Vorbereitungen</button>
-            <button class:active={roomView === "knowledge"} on:click={() => chooseRoomView("knowledge")}>Knowledge &amp; Quellen</button>
-            <button class:active={roomView === "materials"} on:click={() => chooseRoomView("materials")}>Materialien</button>
+            <button class:active={focusMode === "conversation"} on:click={() => chooseRoomView("conversation")}>Gespräch</button>
+            <button class:active={focusMode === "pinboard"} on:click={openPinnwand}>Auf den Tisch: Pinnwand</button>
+            <button class:active={focusMode === "thinking-state"} on:click={() => chooseRoomView("thinking-state")}>Auf den Tisch: Denkstand</button>
+            <button class:active={focusMode === "landscape"} on:click={() => chooseRoomView("landscape")}>Auf den Tisch: Lernlandschaft</button>
+            <button class:active={focusMode === "timeline"} on:click={() => chooseRoomView("timeline")}>Auf den Tisch: Zeit &amp; Dramaturgie</button>
+            <button class:active={focusMode === "preparation"} on:click={() => chooseRoomView("preparation")}>Auf den Tisch: Vorbereitungen</button>
+            <button class:active={focusMode === "knowledge"} on:click={() => chooseRoomView("knowledge")}>Auf den Tisch: Knowledge &amp; Quellen</button>
+            <button class:active={focusMode === "materials"} on:click={() => chooseRoomView("materials")}>Auf den Tisch: Materialien</button>
+            <button on:click={() => { roomAccessOpen = false; openPlanning(); }}>Unterrichtsplanung</button>
+            <button on:click={openSettings}>Einstellungen</button>
           </nav>
         {/if}
+        {#if activeSpace && simulatedMode}<button class="runtime-status-access" on:click={openSettings} aria-haspopup="dialog">Vorbereitete Antworten <span>Details</span></button>{/if}
       </div>
     </header>
-    {#if statusDetailsOpen && roomOverview}
-      <section id="background-work" class="status-details" aria-label="Hintergrundarbeit und Verlauf">
-        <div class="workshop-summary"><strong>Im Hintergrund</strong><span>{roomOverview.backgroundWork.filter((work) => work.status === "wartet_kurz" || work.status === "wird_vorbereitet").length} Vorbereitungen aktiv</span>{#each roomOverview.backgroundWork as work}<span class="workshop-request">{work.title} · {work.status === "wartet_kurz" ? "wartet kurz" : work.status === "wird_vorbereitet" ? "wird vorbereitet" : work.status === "liegt_zur_pruefung_bereit" ? "liegt zur Prüfung bereit" : work.status === "konnte_noch_nicht_erstellt_werden" ? "braucht Aufmerksamkeit" : "bereit"}</span>{/each}</div>
-        <div class="workshop-summary"><strong>Zuletzt festgehalten</strong>{#each roomOverview.activity.slice(0, 3) as activity}<span>{activity.label}</span>{/each}</div>
-        <button class="workshop-board-link" on:click={() => chooseRoomView("board")}>Vorbereitungen und Planungsboard öffnen <ArrowRight size={14} /></button>
-      </section>
-    {/if}
-
     {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
 
     {#if activeSpace}
-      <section class="workspace-grid" bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
-        <section class="conversation-panel" aria-label="Gespräch mit Critical Friend">
-          <div class="conversation-heading">
-            <MessageSquareText size={18} />
-            <div><strong>Gespräch mit Critical Friend</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
-            <div class="conversation-tools">
-              <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
-              {#if pinnwandOpen}<button class="quiet-button" on:click={() => (pinnwandOpen = false)}>Pinnwand schließen</button>{/if}
-            </div>
+      {#if statusDetailsOpen && roomOverview}
+        <section id="background-work" class="background-work-view" aria-label="Im Hintergrund">
+          <header class="background-work-heading">
+            <div><span>Vorbereitungen · Auf den Tisch</span><h2>Im Hintergrund</h2><p>Wir sprechen gerade über laufende und zurückgekehrte Vorbereitungen. Sie bleiben an dasselbe Gespräch und diesen Planungsraum gebunden.</p></div>
+          </header>
+          <div class="background-work-list" aria-label="Vorbereitungen">
+            {#each roomOverview.backgroundWork as work}
+              <article class="background-work-item">
+                <div><span>Aus dem Gespr&auml;ch</span><h3>{work.title}</h3><p>Ein fachlicher Arbeitsauftrag wird f&uuml;r den n&auml;chsten Gespr&auml;chsschritt vorbereitet.</p></div>
+                <strong>{backgroundWorkTeacherStatus(work.status)}</strong>
+              </article>
+            {:else}
+              <p class="background-work-empty">Im Hintergrund ist gerade keine Vorbereitung sichtbar.</p>
+            {/each}
           </div>
+          <div class="background-work-actions"><button on:click={() => chooseRoomView("preparation")}><ArrowRight size={15} /> Vorbereitungen ansehen</button><button class="ghost" on:click={toggleBackgroundWork}>Im Gespr&auml;ch weiterdenken</button></div>
+        </section>
+      {:else}
+      <section class:attention-is-focused={focusMode === "conversation" && attentionFocused} class:pinnwand-open={pinnwandOpen} class:focus-mode-active={focusMode !== "conversation"} class={`workspace-grid focus-mode-${focusMode}`} bind:this={workspaceElement} style={`--primary-width: ${primaryWidth}%`}>
+        <section class:companion-strip={focusMode !== "conversation" && companionStrip} class="conversation-panel" aria-label="Gespräch im pädagogischen Denkraum" on:dblclick={handleCompanionDoubleClick}>
+          {#if focusMode === "conversation" || !companionStrip}
+           <div class="conversation-heading">
+            <MessageSquareText size={18} />
+            <div><strong>Gespräch</strong><span>Gemeinsam weiterdenken · Herkunft bleibt sichtbar</span></div>
+            <div class="conversation-tools">
+              {#if focusMode === "conversation"}<details class="conversation-options">
+                <summary>Ansicht</summary>
+                <label class="message-filter"><span>Gespräch anzeigen</span><select bind:value={messageFilter} aria-label="Gespräch filtern"><option value="all">Alle Beiträge</option><option value="captured">Festgehaltenes</option><option value="decisions">Offene Entscheidungen</option><option value="work">Vorbereitungen &amp; Ergebnisse</option></select></label>
+              </details>{/if}
+
+             </div>
+           </div>
+          {/if}
+          {#if focusMode !== "conversation"}
+            <div class:companion-strip-heading={companionStrip} class="companion-heading">
+              <div><strong>{companionStrip ? "Companion" : "Begleitendes Gespräch"}</strong><span>Wir sprechen gerade über: {currentFocusedObjectLabel}</span></div>
+              <div class="companion-actions">
+                <button class="quiet-button" on:click={() => chooseRoomView("conversation")}>Gespräch groß öffnen</button>
+                {#if !companionStrip}<button class="quiet-button" on:click={() => (companionExpanded = !companionExpanded)} aria-expanded={companionExpanded}>{companionExpanded ? "Kontext zeigen" : "Vollständigen Faden öffnen"}</button><button class="quiet-button" on:click={() => (companionStrip = true)}>Begleitung verkleinern</button>{:else}<button class="quiet-button" on:click={() => (companionStrip = false)}>Kontext zeigen</button>{/if}
+              </div>
+            </div>
+          {/if}
+            {#if roomOverview && focusMode === "conversation" && attentionFocused}
+            {@const attention = roomOverview.attentionCard}
+            <section class="conversation-focus-layer" bind:this={focusRegionElement} tabindex="-1" aria-live="assertive" aria-labelledby="conversation-focus-heading" aria-describedby="conversation-focus-rationale">
+              <div class="conversation-focus-kicker"><Lightbulb size={17} /><span>Jetzt wichtig</span><small>Aus dem Gespräch hervorgegangen</small></div>
+              <h2 id="conversation-focus-heading">{attention.title}</h2>
+              <p id="conversation-focus-rationale">{attention.rationale}</p>
+              {#if attention.preview}<details class="attention-preview"><summary>Entwurf ansehen{attention.preview.truncated ? " · gekürzt" : ""}</summary><pre>{attention.preview.content}</pre></details>{/if}
+              {#if attention.automaticCheck || attention.criticalFriendCheck}<div class="review-checks">
+                {#if attention.automaticCheck}<span><strong>Automatische Vorprüfung:</strong> {attention.automaticCheck.status === "passed" ? "bestanden" : attention.automaticCheck.status === "failed" ? "nicht bestanden" : "ausstehend"}</span>{/if}
+                {#if attention.criticalFriendCheck}<span><strong>Begleitende Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
+              </div>{/if}
+              <div class="attention-actions conversation-focus-actions">
+                {#if attention.primaryAction}<button on:click={actOnAttention} disabled={attentionBusy}>{attentionBusy ? "Speichert …" : attention.primaryAction.label}</button>{/if}
+                <button class="ghost" on:click={discussAttention}>Weiterreden</button>
+                <button class="quiet-action" on:click={deferAttention}>Später zurückstellen</button>
+              </div>
+            </section>
+          {/if}
           <div class="messages" bind:this={messagesElement} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
-            {#if simulatedMode}<p class="conversation-status simulated" role="status">Simulierter Modus: Antworten sind feste Platzhalter, kein echtes Modell. Für echte Antworten den Harness in <code>.env</code> aktivieren (siehe <code>docs/analysis-2026-07-21.md</code>).</p>{/if}
             {#if conversationLoading}<p class="conversation-status" aria-live="polite">Gesprächsverlauf wird geladen …</p>{/if}
             {#if conversationLoadError}<p class="conversation-status error" role="status">{conversationLoadError}</p>{/if}
             {#if renderedMessages.length === 0}<p class="conversation-empty">Für diesen Filter gibt es noch keine markierte Gesprächsstelle.</p>{/if}
@@ -1678,7 +2133,7 @@ async function sendMessage() {
               <article class:teacher={message.author === "teacher"} class:context-message={isContextMessage(message)} class:highlighted={highlightedMessageId === message.id} class="message" data-message-id={message.id}>
                 <div class="avatar" aria-hidden="true">{message.author === "teacher" ? "L" : "CF"}</div>
                 <div class="message-content">
-                  <div class="message-meta"><strong>{message.author === "teacher" ? "Lehrkraft" : "Critical Friend"}</strong>{#if formatMessageTime(message)}<time>{formatMessageTime(message)}</time>{/if}</div>
+                  <div class="message-meta"><strong>{message.author === "teacher" ? "Lehrkraft" : "Pedagogical Companion"}</strong>{#if formatMessageTime(message)}<time>{formatMessageTime(message)}</time>{/if}</div>
                   <div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div>
                   {#if messageMarkers.length > 0}<div class="message-markers" aria-label="Gesprächsbezüge">{#each messageMarkers as marker}<button class="message-marker" on:click={() => openMarkerTarget(marker)} title="{markerKindLabel(marker.kind)} öffnen"><span aria-hidden="true">{markerGlyph(marker.kind)}</span> {markerKindLabel(marker.kind)} · {marker.label}</button>{/each}</div>{/if}
                   <div class="message-actions"><button class="message-action" disabled={message.id === "welcome"} on:click={() => openMarkerComposer(message)}>Gedanken festhalten</button></div>
@@ -1687,54 +2142,63 @@ async function sendMessage() {
             {/each}
             {#if sending}<article class="message thinking"><div class="avatar" aria-hidden="true">CF</div><p><span class="thinking-dots" aria-hidden="true"></span>{thinkingStatus || "Ich prüfe deine Frage und halte den Denkstand gleich sichtbar fest."}</p></article>{/if}
           </div>
-          <div class="composer-wrap">{#if activeFocus}<div class="focus-chip"><span>Bezug: {focusKindLabels[activeFocus.kind]} · {activeFocus.label}</span><button on:click={() => (activeFocus = null)} aria-label="Fokus aufheben"><X size={13} /></button></div>{/if}<div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder="Beschreibe kurz deine Unterrichtsidee oder die offene Frage." on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
+          {#if focusMode === "conversation"}<div class="conversation-traces-access"><button class="traces-access" on:click={openPinnwand} aria-label={"Pinnwand öffnen: " + (roomOverview?.conversationMarkers.length ?? 0) + " kuratierte Spuren"}><span class="traces-access-label">Pinnwand</span><strong>{roomOverview?.conversationMarkers.length ?? 0} kuratierte Spuren</strong><ArrowRight size={15} /></button>{#if recentMarkerId}{@const recentMarker = roomOverview?.conversationMarkers.find((marker) => marker.id === recentMarkerId)}{#if recentMarker}<div class="trace-echo" role="status" aria-live="polite"><span>Gerade festgehalten</span><strong>{recentMarker.label}</strong><small>{markerKindLabel(recentMarker.kind)} · aus dem Gespräch</small></div>{/if}{/if}</div>{/if}
+          <div class="composer-wrap">{#if activeFocus}<div class="focus-chip"><span>Bezug: {focusKindLabels[activeFocus.kind]} · {activeFocus.label}</span><button on:click={() => (activeFocus = null)} aria-label="Fokus aufheben"><X size={13} /></button></div>{/if}<div class="privacy-hint"><ShieldCheck size={15} /> Für die Planung reichen Beschreibungen ohne Namen einzelner Schüler:innen.</div><form class="composer" on:submit|preventDefault={sendMessage}><textarea bind:this={composerElement} bind:value={draftMessage} rows="3" placeholder={currentComposerPrompt} on:keydown={handleComposerKeydown}></textarea><button type="submit" disabled={sending || !draftMessage.trim()} aria-label="Nachricht senden"><ArrowUp size={18} /></button></form></div>
         </section>
         <button class="resize-handle" aria-label="Breite der Arbeitsbereiche anpassen" on:pointerdown={startResize}><GripVertical size={18} /></button>
-        <aside class="perspective-panel" aria-label="Gewählte Perspektive">
-          {#if markerReturnMessageId}<button class="marker-return" on:click={returnToConversation}>Zur auslösenden Gesprächsstelle zurück <ArrowRight size={14} /></button>{/if}
-          {#if roomView === "conversation"}
-            <div class="panel-heading"><Lightbulb size={18} /><div><strong>Denkstand</strong><span>Gemeinsam festhalten, was das weitere Gespräch trägt.</span></div><div class="panel-menu"><button on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={`${api.backendUrl}/api/planning-spaces/${activeSpace.id}/export/markdown`} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div></div>
-            <section class="pinnwand-projection" aria-label="Pinnwand">
-              <div class="pinnwand-heading"><div><span>Pinnwand</span><strong>Was aus dem Gespräch bleibt</strong></div><button class="quiet-button" on:click={() => (pinnwandOpen = !pinnwandOpen)}>{pinnwandOpen ? "Weniger anzeigen" : "Öffnen"}</button></div>
-              {#if roomOverview?.conversationMarkers.length}
-                {@const pinMarker = roomOverview.conversationMarkers[roomOverview.conversationMarkers.length - 1]}
-                <button class="pinnwand-note" on:click={() => openMarkerTarget(pinMarker)}><span aria-hidden="true">{markerGlyph(pinMarker.kind)}</span><strong>{pinMarker.label}</strong><small>{markerKindLabel(pinMarker.kind)} · {markerTargetDisplay(pinMarker)}</small></button>
-                {#if pinnwandOpen}<div class="pinnwand-list">{#each roomOverview.conversationMarkers as marker}<button on:click={() => openMarkerTarget(marker)}><span aria-hidden="true">{markerGlyph(marker.kind)}</span><span><strong>{marker.label}</strong><small>{markerKindLabel(marker.kind)} · {markerTargetDisplay(marker)}</small></span></button>{/each}</div>{/if}
-              {:else}<p class="pinnwand-empty">Noch kein Gedanke ist hier festgehalten. Im Gespräch kannst du eine Stelle als Denkstand markieren.</p>{/if}
-            </section>            <section class="thinking-card design-pad"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
-             <div class="conversation-perspective">
-               {#if roomOverview}
-                 {@const attention = roomOverview.attentionCard}
-                 <section class="thinking-card attention-card" aria-labelledby="attention-heading">
-                   <div class="action-card-heading"><Lightbulb size={18} /><div><span>Jetzt wichtig</span><strong id="attention-heading">{attention.title}</strong></div></div>
-                   <p>{attention.rationale}</p>
-                   {#if attention.preview}<details class="attention-preview"><summary>Entwurf ansehen{attention.preview.truncated ? " · gekürzt" : ""}</summary><pre>{attention.preview.content}</pre></details>{/if}
-                   {#if attention.automaticCheck || attention.criticalFriendCheck}<div class="review-checks">
-                     {#if attention.automaticCheck}<span><strong>Automatische Vorprüfung:</strong> {attention.automaticCheck.status === "passed" ? "bestanden" : attention.automaticCheck.status === "failed" ? "nicht bestanden" : "ausstehend"}</span>{/if}
-                     {#if attention.criticalFriendCheck}<span><strong>Critical-Friend-Prüfung:</strong> {attention.criticalFriendCheck.status === "passed" ? "keine blockierende Abweichung" : attention.criticalFriendCheck.status === "blocked" ? "blockiert" : attention.criticalFriendCheck.status === "concerns" ? "mit Rückfragen" : "ausstehend"}</span>{/if}
-                   </div>{/if}
-                   <div class="attention-actions">
-                     {#if attention.primaryAction}<button on:click={actOnAttention} disabled={attentionBusy}>{attentionBusy ? "Speichert …" : attention.primaryAction.label}</button>{/if}
-                     <button class="ghost" on:click={discussAttention}>Weiterreden</button>
-                   </div>
-                 </section>
-               {/if}
-               {#if findings.length > 0}<section class="sensitive-card" class:blocking={hasBlockingFinding}><div class="sensitive-heading"><TriangleAlert size={18} /><strong>Sensible Hinweise prüfen</strong></div><ul>{#each findings as finding}<li><span>{finding.message}</span><small>{finding.suggestion}</small></li>{/each}</ul></section>{/if}
-              {#each cards.filter((card) => card.id === "offene-entscheidungen" || card.id === "nächste-schritte") as card}
-                <section class="thinking-card action-card" class:decision-card={card.id === "offene-entscheidungen"} class:next-step-card={card.id === "nächste-schritte"}>
-                  <div class="action-card-heading">{#if card.id === "offene-entscheidungen"}<Scale size={18} />{:else}<ListChecks size={18} />{/if}<div><strong>{card.title}</strong><span>{card.id === "offene-entscheidungen" ? `${card.previewItems.length} noch zu klären` : "Ein sinnvoller nächster Schritt"}</span></div></div>
-                  {#if card.id === "offene-entscheidungen"}<p>{card.summary}</p><div class="decision-list">{#each card.previewItems as item}{@const decision = decisionParts(item)}<article class="decision-item"><span class="decision-chip">{decision.category}</span><strong>{decision.question}</strong><div><button class="decide-action" on:click={() => focusConversation(`Lass uns diese offene Entscheidung klären: ${decision.question}`)}><Scale size={15} /> Jetzt entscheiden</button><button class="record-action" on:click={() => openDecisionDialog(decision.question)}><Check size={15} /> Begründet festhalten</button></div></article>{/each}</div>
-                  {:else}{#each card.previewItems.slice(0, 1) as item}<article class="next-step-item"><strong>{item}</strong><button on:click={() => focusConversation(`Ich möchte den nächsten Schritt „${item}“ im Gespräch aufgreifen: `)}>Im Gespräch aufgreifen <ArrowRight size={14} /></button></article>{/each}{/if}
-                </section>
-              {/each}
-            </div>
-          {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
+         <section class="perspective-panel" aria-label="Aktiver Fokusbereich" aria-hidden={focusMode === "conversation" && attentionFocused ? "true" : undefined}>
+           {#if focusMode !== "conversation"}<section class="focus-mode-heading" tabindex="-1" bind:this={focusRegionElement} aria-labelledby="focus-mode-title"><span class="focus-mode-kicker">{focusModeLabel(focusMode)} · Auf den Tisch</span><h2 id="focus-mode-title">{currentFocusedObjectLabel}</h2><p><strong>Auf dem Tisch liegt:</strong> {focusModeLabel(focusMode)}</p><p><strong>Wir sprechen gerade über:</strong> {currentFocusedObjectLabel}</p><div class="focus-mode-actions"><button class="focus-return" on:click={() => chooseRoomView("conversation")}><MessageSquareText size={14} /> Darüber sprechen</button><button class="focus-return quiet-button" on:click={() => chooseRoomView("conversation")}>Zurück zum Gespräch</button></div></section>{/if}
+           {#if markerReturnMessageId}<button class="marker-return" on:click={returnToConversation}>Zur auslösenden Gesprächsstelle zurück <ArrowRight size={14} /></button>{/if}
+            {#if focusMode === "thinking-state"}
+              <section class="thinking-state-view" aria-label="Strukturierter Denkstand">
+                <header class="thinking-state-intro"><span>Strukturierte Zusammenfassung</span><h2>Der aktuelle Denkstand</h2><p>Hier liegt die verdichtete Planung. Die Pinnwand bewahrt davon getrennt nur wenige Spuren des Denkprozesses.</p></header>
+                <div class="thinking-state-grid">
+                  <section class="thinking-state-field"><span>Thema</span><strong>{activeSpace?.title ?? "Noch offen"}</strong></section>
+                  <section class="thinking-state-field"><span>Fach / Lernbereich</span><strong>{activeSpace?.subject || "Noch offen"}</strong></section>
+                  <section class="thinking-state-field"><span>Zielgruppe</span><strong>{activeSpace?.targetGroup || "Noch offen"}</strong></section>
+                  <section class="thinking-state-field thinking-state-wide"><span>Aktuelle Intention</span><p>{activeSpace?.initialIdea || cards.find((card) => card.id === "denkstand")?.summary || "Die pädagogische Intention wird im Gespräch weiter geschärft."}</p></section>
+                  <section class="thinking-state-field thinking-state-wide"><span>Bestätigte Entscheidungen</span>{#if roomOverview?.decisions.length}<ul>{#each roomOverview.decisions.slice(-4).reverse() as decision}<li>{decision.title}</li>{/each}</ul>{:else}<p>Noch keine Entscheidung ist begründet festgehalten.</p>{/if}</section>
+                  <section class="thinking-state-field thinking-state-wide"><span>Offene Fragen</span>{#if (cards.find((card) => card.id === "offene-entscheidungen")?.previewItems.length ?? 0) > 0}<ul>{#each (cards.find((card) => card.id === "offene-entscheidungen")?.previewItems ?? []).slice(0, 4) as item}<li>{decisionParts(item).question}</li>{/each}</ul>{:else}<p>Derzeit ist keine offene Frage festgehalten.</p>{/if}</section>
+                  <section class="thinking-state-field thinking-state-wide"><span>Relevante Lernreise</span>{#if learningLandscape}<strong>{learningLandscape.title}</strong><ul>{#each learningLandscape.moments.slice(0, 4) as moment}<li>{moment.title}</li>{/each}</ul>{:else}<p>Die Lernlandschaft ist noch nicht geöffnet.</p>{/if}</section>
+                </div>
+                <section class="thinking-card design-pad thinking-state-notes"><div class="pad-heading"><div><strong>Gemeinsamer Denkstand</strong><span>Bewusst speichern erstellt eine nachvollziehbare Version und wird im nächsten Gespräch berücksichtigt.</span></div><button on:click={() => (editingDesign = !editingDesign)}>{editingDesign ? "Lesen" : "Gemeinsam schreiben"}</button></div>{#if editingDesign}<div class="tiptap-editor" use:tiptap aria-label="Gemeinsamer Denkstand"></div><div class="pad-actions"><button on:click={saveDesignNotes} disabled={savingDesign}>{savingDesign ? "Speichert …" : "Änderung festhalten"}</button></div>{:else}<div class="design-preview markdown-preview">{@html markdownToHtml(designNotes)}</div>{/if}</section>
+              </section>
+            {:else if focusMode === "pinboard"}
+              <section class="pinnwand-drawer" aria-label="Geöffnete Pinnwand">
+                <header class="pinnwand-drawer-heading">
+                  <div><span>Gedächtnisschicht</span><h2>Pinnwand</h2><p>Was für das gegenwärtige Weiterdenken noch trägt.</p></div>
+                  <button class="quiet-button" on:click={closePinnwand}>Schließen</button>
+                  <div class="pinnwand-drawer-actions"><button class="quiet-button" on:click={() => (exportMenuOpen = !exportMenuOpen)}>Mehr</button>{#if exportMenuOpen}<div class="export-menu"><button on:click={() => approve("markdown")} disabled={hasBlockingFinding}>Markdown freigeben</button><button on:click={() => approve("okf_markdown")} disabled={hasBlockingFinding}>Zum Teilen vormerken</button>{#if markdownApproval}<a href={api.backendUrl + "/api/planning-spaces/" + activeSpace.id + "/export/markdown"} target="_blank" rel="noreferrer">Markdown ansehen</a>{/if}</div>{/if}</div>
+                </header>
+                {#if attentionDeferred && roomOverview}<button class="pinnwand-deferred" on:click={reopenDeferredAttention}><span aria-hidden="true">?</span><span><strong>Später zurückgestellt</strong><small>{roomOverview.attentionCard.title}</small></span><ArrowRight size={14} /></button>{/if}
+                {#if pinnwandSections.length > 0}
+                  <div class="pinnwand-sections" aria-label="Kuratierte Pinnwandspuren">
+                    {#each pinnwandSections as section}
+                      <section class="pinnwand-section" aria-labelledby={`pinnwand-section-${section.id}`}>
+                        <header><div><h3 id={`pinnwand-section-${section.id}`}>{section.title}</h3><span>{section.hint}</span></div><small>{section.items.length}</small></header>
+                        <div class="pinnwand-traces">
+                          {#each section.items as marker}
+                            <article class:selected={focusedObject?.type === "note" && focusedObject.id === marker.id} class="pinnwand-trace">
+                              <button type="button" class="pinnwand-trace-select" on:click={() => selectPinnwandTrace(marker)}><span class="trace-type">{pinboardTraceType(marker, confirmedDecisionIds)}</span><strong>{marker.label}</strong><small>{markerOriginLabel(marker)}</small></button>
+                              <div class="pinnwand-trace-actions"><button on:click={() => openMarkerTarget(marker)}>Im Gespräch aufgreifen</button><button on:click={() => openMarkerOrigin(marker)}>Zur Herkunft</button></div>
+                            </article>
+                          {/each}
+                        </div>
+                      </section>
+                    {/each}
+                  </div>
+                {:else}
+                  <p class="pinnwand-empty">Noch keine kuratierte Spur trägt das gegenwärtige Weiterdenken. Im Gespräch kannst du einen Gedanken bewusst festhalten.</p>
+                {/if}
+                <button class="thinking-state-access" on:click={() => chooseRoomView("thinking-state")}><span>Strukturierte Planung</span><strong>Gemeinsamen Denkstand ansehen</strong><ArrowRight size={15} /></button>
+              </section>
+            {:else if planningLoading}<p class="planning-empty">Planung wird geöffnet …</p>
           {:else if planningError}<p class="planning-error">{planningError}</p>
-          {:else if roomView === "knowledge"}
+          {:else if focusMode === "knowledge"}
             <div class="knowledge-view">
               <div class="perspective-title"><span>Knowledge &amp; Quellen</span><h2>Geprüfte Bezugsquellen</h2><p>Quellen und fachliche Bezüge erhalten hier einen eigenen, ruhigen Zugang. Die Recherche bleibt an das Gespräch und den gemeinsamen Denkstand gebunden.</p></div>
               <div class="knowledge-empty"><BookOpen size={22} /><strong>Noch keine Quelle festgehalten</strong><p>Wenn eine Quelle im Gespräch relevant wird, greifen wir sie gemeinsam auf und halten ihren pädagogischen Bezug fest.</p><button on:click={() => focusConversation("Welche Quelle oder welcher fachliche Bezug sollte für unseren Denkstand geprüft werden? ")}>Im Gespräch anstoßen</button></div>
-            </div>          {:else if roomView === "landscape" && learningLandscape}
+            </div>          {:else if focusMode === "landscape" && learningLandscape}
             <div class="perspective-title landscape-heading">
               <span>Lernlandschaft</span>
               <h2>{learningLandscape.title}</h2>
@@ -1772,15 +2236,15 @@ async function sendMessage() {
                 {/each}
               </div>
             {/if}
-          {:else if roomView === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Ziehe Lernmomente aus der Ablage in ein Unterrichtsfenster. Erst deine Bestätigung legt eine zeitliche Platzierung an.</p><div class="title-actions"><button class="add-moment-button" on:click={() => openWindowForm()}><Plus size={15} /> Unterrichtsfenster hinzufügen</button>{#if temporalPlan.windows.length > 0 && unplacedMoments().length > 0}<button class="add-moment-button ghost-action" on:click={() => requestProposal("temporal_placement")} disabled={proposalLoading}><Lightbulb size={15} /> Platzierung vorschlagen lassen</button>{/if}</div></header>
+          {:else if focusMode === "timeline" && temporalPlan}<div class="timeline-view"><header><span>Zeit & Dramaturgie</span><h2>Unterrichtsfenster</h2><p>Ziehe Lernmomente aus der Ablage in ein Unterrichtsfenster. Erst deine Bestätigung legt eine zeitliche Platzierung an.</p><div class="title-actions"><button class="add-moment-button" on:click={() => openWindowForm()}><Plus size={15} /> Unterrichtsfenster hinzufügen</button>{#if temporalPlan.windows.length > 0 && unplacedMoments().length > 0}<button class="add-moment-button ghost-action" on:click={() => requestProposal("temporal_placement")} disabled={proposalLoading}><Lightbulb size={15} /> Platzierung vorschlagen lassen</button>{/if}</div></header>
             {#each timelineNotices() as notice}<p class="timeline-notice"><TriangleAlert size={14} /> {notice}</p>{/each}
             <section class="unplaced-tray" aria-label="Noch nicht eingeplante Lernmomente"><h3>Ablage · noch nicht eingeplant</h3>{#if unplacedMoments().length === 0}<p class="muted">Alle Lernmomente sind mindestens einmal eingeplant.</p>{:else}<div class="tray-moments">{#each unplacedMoments() as moment}<button class="tray-moment" draggable="true" on:dragstart={() => (draggedMomentId = moment.id)} on:click={() => openMomentDetail(moment.id)}><strong>{moment.title}</strong><small>{momentKindLabels[moment.kind] ?? moment.kind}</small></button>{/each}</div>{/if}</section>
-            {#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lege oben ein erstes Fenster an, um Lernmomente zeitlich zu platzieren.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}{@const conflicts = windowConflicts(window)}<section class="teaching-window" class:has-conflict={conflicts.length > 0} role="group" aria-label={window.title} on:dragover|preventDefault on:drop={() => onWindowDrop(window)}><div class="window-head"><div><button class="window-title-link" on:click={() => (windowDetail = window)}>{window.title}</button><span>{windowKindLabels[window.kind]} · {window.durationMinutes} min</span></div><div class="window-tools"><button on:click={() => openWindowForm(window)} aria-label="Fenster bearbeiten"><Settings size={14} /></button><button on:click={() => requestDeleteWindow(window)} aria-label="Fenster löschen"><X size={14} /></button></div></div>
+            {#if temporalPlan.windows.length === 0}<p class="planning-empty">Noch keine Unterrichtsfenster. Lege oben ein erstes Fenster an, um Lernmomente zeitlich zu platzieren.</p>{:else}<div class="timeline-track">{#each temporalPlan.windows as window}{@const conflicts = windowConflicts(window)}<section class="teaching-window" class:has-conflict={conflicts.length > 0} role="group" aria-label={window.title} on:dragover|preventDefault on:drop={() => onWindowDrop(window)}><div class="window-head"><div><button class="window-title-link" on:click={() => openWindowDetail(window)}>{window.title}</button><span>{windowKindLabels[window.kind]} · {window.durationMinutes} min</span></div><div class="window-tools"><button on:click={() => openWindowForm(window)} aria-label="Fenster bearbeiten"><Settings size={14} /></button><button on:click={() => requestDeleteWindow(window)} aria-label="Fenster löschen"><X size={14} /></button></div></div>
                     {#if conflicts.length > 0}<ul class="window-conflicts">{#each conflicts as conflict}<li><TriangleAlert size={12} /> {conflict}</li>{/each}</ul>{/if}
                     <div class="window-moments">{#if placementsInWindow(window.id).length === 0}<p class="drop-hint">Lernmoment hierher ziehen</p>{:else}{#each placementsInWindow(window.id) as placement}<button class="placement-block" class:mode-parallel={placement.mode === "parallel"} class:mode-choice={placement.mode === "choice"} class:mode-individual={placement.mode === "individual"} class:mode-group={placement.mode === "group"} on:click={() => openPlacementEditor(placement)}><span class="placement-time">{formatMinute(placement.startMinute)}–{formatMinute(placement.startMinute + placement.durationMinutes)}</span><strong>{momentTitle(placement.momentId)}</strong><span class="placement-tags"><em class="tag-role">{dramaturgicalRoleLabels[placement.dramaturgicalRole]}</em><em class="tag-mode tag-mode-{placement.mode}">{placementModeLabels[placement.mode]}</em></span></button>{/each}{/if}</div></section>{/each}</div>{/if}</div>
-          {:else if roomView === "timeline"}<p class="planning-empty">Die Zeitplanung wird vorbereitet …</p>
-          {:else if roomView === "board" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => (boardDetail = item)}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>
-                    {:else if roomView === "materials"}
+          {:else if focusMode === "timeline"}<p class="planning-empty">Die Zeitplanung wird vorbereitet …</p>
+          {:else if focusMode === "preparation" && planningBoard}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label} on:dragover|preventDefault on:drop={() => moveBoardItem(column.id)}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard.items.filter((item) => item.column === column.id) as item}<button class="board-card" draggable="true" on:dragstart={() => (draggedBoardItem = item.id)} on:click={() => openBoardItemDetail(item)}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>
+                    {:else if focusMode === "materials"}
             <div class="materials-view">
               <header class="perspective-title">
                 <span>Materialien</span>
@@ -1805,9 +2269,10 @@ async function sendMessage() {
               {#if materialMessage}<p class="material-feedback" aria-live="polite">{materialMessage}</p>{/if}
             </div>
           {/if}
-        </aside>
+        </section>
       </section>
-      {#if activeSpace}<button class="statusbar" on:click={() => (statusDetailsOpen = !statusDetailsOpen)} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>Im Hintergrund</span><strong>{backgroundStatusLabel()}</strong><span>{roomOverview?.conversationMarkers.length ?? 0} Gesprächsbezüge</span></button>{/if}
+    {/if}
+    {#if activeSpace}<button class="statusbar" on:click={toggleBackgroundWork} aria-live="polite" aria-expanded={statusDetailsOpen} aria-controls="background-work"><span>{statusDetailsOpen ? "Zur&uuml;ck im Gespr&auml;ch" : "Im Hintergrund"}</span><strong>{statusDetailsOpen ? "Gespr&auml;ch &ouml;ffnen" : backgroundStatusLabel(roomOverview?.backgroundWork, serviceRequests, serviceMessage)}</strong></button>{/if}
     {:else}
       <section class="empty-state"><MessageSquareText size={34} /><h2>Lege einen Planungsraum an.</h2><p>Der erste Umsetzungsschnitt arbeitet mit einer geschützten Backend-Grenze und einem simulierten Gegenüber.</p></section>
     {/if}
@@ -1873,7 +2338,7 @@ async function sendMessage() {
             <section class="detail-block"><strong>Materialbedarf</strong>{#if moment.materialNeeds.length === 0}<p class="muted">Noch kein Materialbedarf festgehalten.</p>{:else}<ul class="need-list">{#each moment.materialNeeds as need}<li><span>{need}</span><button class="link-action" on:click={() => openBoardProposal(moment.id, need)}>Als Arbeitsvorhaben vorschlagen</button></li>{/each}</ul>{/if}</section>
             {#if moment.openQuestions.length}<section class="detail-block"><strong>Offene Fragen</strong><ul>{#each moment.openQuestions as question}<li>{question}</li>{/each}</ul></section>{/if}
             <section class="detail-block"><strong>Zeitliche Platzierungen</strong>{#if placementsFor(moment.id).length === 0}<p class="muted">Noch nicht zeitlich eingeplant.</p>{:else}<ul>{#each placementsFor(moment.id) as placement}<li>{windowTitle(placement.windowId)} · {placement.durationMinutes} min</li>{/each}</ul>{/if}</section>
-            <div class="detail-actions"><button on:click={() => { const target = moment; closeMomentDetail(); focusConversation(`Zu „${target.title}“ weiterdenken: `, { kind: "learning_moment", id: target.id, label: target.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
+            <div class="detail-actions"><button on:click={() => { const target = moment; closeMomentDetail(); focusConversation(`Zu „${target.title}“ weiterdenken: `, { kind: "learning_moment", id: target.id, label: target.title }); }}><MessageSquareText size={15} /> Mit dem Companion weiterdenken</button><button on:click={startEditMoment}>Bearbeiten</button><button on:click={() => { closeMomentDetail(); selectPerspective("timeline"); }}>Zeitlich einplanen</button></div>
           </div>
         {/if}
       </dialog>
@@ -1890,7 +2355,7 @@ async function sendMessage() {
           <label>Didaktische Funktion <small>optional</small><textarea bind:value={newMomentForm.didacticPurpose} rows="2" placeholder="Wozu dient dieser Moment?"></textarea></label>
           <label>Lernaktivität <small>optional</small><textarea bind:value={newMomentForm.learningActivity} rows="2" placeholder="Was tun die Lernenden?"></textarea></label>
           <label>Erwartete Lernerfahrung <small>optional</small><textarea bind:value={newMomentForm.expectedExperience} rows="2" placeholder="Was soll spürbar oder erkennbar werden?"></textarea></label>
-          <div class="pad-actions"><button type="button" class="ghost" on:click={developMomentWithCriticalFriend}>Mit Critical Friend entwickeln</button><button type="submit" disabled={newMomentForm.title.trim().length < 2}>Lernmoment aufnehmen</button></div>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={developMomentWithCriticalFriend}>Mit dem Companion entwickeln</button><button type="submit" disabled={newMomentForm.title.trim().length < 2}>Lernmoment aufnehmen</button></div>
         </form>
       </dialog>
     </div>
@@ -1910,7 +2375,7 @@ async function sendMessage() {
         {:else}
           <div class="detail-body">
             <dl><dt>Übergangstyp</dt><dd>{transitionKindLabels[transition.kind] ?? transition.kind}</dd><dt>Pädagogische Begründung</dt><dd>{transition.rationale || "—"}</dd></dl>
-            <div class="detail-actions"><button on:click={startEditTransition}>Bearbeiten</button><button on:click={checkTransitionWithCriticalFriend}><MessageSquareText size={15} /> Mit Critical Friend prüfen</button><button on:click={proposeMissingMoment}>Fehlenden Lernmoment vorschlagen</button><button class="danger" on:click={removeTransition}>Entfernen</button></div>
+            <div class="detail-actions"><button on:click={startEditTransition}>Bearbeiten</button><button on:click={checkTransitionWithCriticalFriend}><MessageSquareText size={15} /> Mit dem Companion prüfen</button><button on:click={proposeMissingMoment}>Fehlenden Lernmoment vorschlagen</button><button class="danger" on:click={removeTransition}>Entfernen</button></div>
           </div>
         {/if}
       </dialog>
@@ -1986,7 +2451,7 @@ async function sendMessage() {
         <header><div><span>Fachliche Freigabe</span><h2>„{item.title}“ freigeben?</h2></div><button class="icon-button" on:click={() => (approvalConfirm = null)} aria-label="Schließen"><X size={20} /></button></header>
         <div class="detail-body">
           <p>Die Freigabe kennzeichnet das Material als „für den Unterricht bereit“. Sie wird mit Zeitpunkt und prüfender Rolle festgehalten und lässt sich nicht durch Verschieben der Karte ersetzen.</p>
-          {#if workerMaterial}<button class="link-action" on:click={() => { approvalConfirm = null; roomView = "materials"; }}>Entwurf zuerst ansehen</button>{/if}
+          {#if workerMaterial}<button class="link-action" on:click={() => { approvalConfirm = null; focusMode = "materials"; }}>Entwurf zuerst ansehen</button>{/if}
           <label class="review-check"><input type="checkbox" bind:checked={approvalReviewed} /> Ich habe den Entwurf fachlich geprüft und gebe ihn für den Unterricht frei.</label>
           <div class="detail-actions"><button on:click={() => (approvalConfirm = null)}>Abbrechen</button><button disabled={!approvalReviewed} on:click={confirmBoardApproval}><Check size={15} /> Fachlich freigeben</button></div>
         </div>
@@ -2048,7 +2513,7 @@ async function sendMessage() {
           <label>Dramaturgische Rolle<select bind:value={draft.dramaturgicalRole}>{#each Object.entries(dramaturgicalRoleLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
           <label>Modus<select bind:value={draft.mode}>{#each Object.entries(placementModeLabels) as [value, label]}<option value={value}>{label}</option>{/each}</select></label>
           <label>Notiz <small>optional</small><textarea bind:value={draft.note} rows="2"></textarea></label>
-          <div class="pad-actions"><button type="button" class="ghost" on:click={() => focusPlacementInConversation(draft)}>Mit Critical Friend weiterdenken</button><button type="button" class="danger" on:click={() => removePlacement(draft)}>Platzierung entfernen</button><button type="submit">Änderung festhalten</button></div>
+          <div class="pad-actions"><button type="button" class="ghost" on:click={() => focusPlacementInConversation(draft)}>Mit dem Companion weiterdenken</button><button type="button" class="danger" on:click={() => removePlacement(draft)}>Platzierung entfernen</button><button type="submit">Änderung festhalten</button></div>
         </form>
       </dialog>
     </div>
@@ -2063,7 +2528,7 @@ async function sendMessage() {
           {#if windowConflicts(detail).length > 0}<ul class="window-conflicts">{#each windowConflicts(detail) as conflict}<li><TriangleAlert size={12} /> {conflict}</li>{/each}</ul>{/if}
           <section class="detail-block"><strong>Dramaturgie im Verlauf</strong>{#if placementsInWindow(detail.id).length === 0}<p class="muted">Noch keine Lernmomente in diesem Fenster.</p>{:else}<div class="dramaturgy-track">{#each placementsInWindow(detail.id) as placement}<div class="dramaturgy-slot mode-{placement.mode}" style={`flex: ${Math.max(1, placement.durationMinutes)}`}><span>{formatMinute(placement.startMinute)}</span><strong>{momentTitle(placement.momentId)}</strong><em>{dramaturgicalRoleLabels[placement.dramaturgicalRole]} · {placementModeLabels[placement.mode]}</em></div>{/each}</div>{/if}</section>
           {#if placementsInWindow(detail.id).length > 0}<section class="detail-block"><strong>Tabellarischer Verlaufsplan</strong><table class="lesson-table"><thead><tr><th>Zeit</th><th>Funktion</th><th>Lernaktivität</th><th>Modus</th></tr></thead><tbody>{#each placementsInWindow(detail.id) as placement}{@const moment = learningLandscape?.moments.find((entry) => entry.id === placement.momentId)}<tr on:click={() => openPlacementEditor(placement)}><td>{formatMinute(placement.startMinute)}–{formatMinute(placement.startMinute + placement.durationMinutes)}</td><td>{dramaturgicalRoleLabels[placement.dramaturgicalRole]}</td><td>{moment?.learningActivity || moment?.title || "—"}</td><td>{placementModeLabels[placement.mode]}</td></tr>{/each}</tbody></table></section>{/if}
-          <div class="detail-actions"><button on:click={() => { const target = detail; windowDetail = null; openWindowForm(target); }}>Fenster bearbeiten</button><button on:click={() => { windowDetail = null; focusConversation(`Zur Dramaturgie von „${detail.title}“ weiterdenken: `, { kind: "teaching_window", id: detail.id, label: detail.title }); }}><MessageSquareText size={15} /> Mit Critical Friend weiterdenken</button></div>
+            <div class="detail-actions"><button on:click={() => { const target = detail; windowDetail = null; openWindowForm(target); }}>Fenster bearbeiten</button><button on:click={() => { windowDetail = null; focusConversation(`Zur Dramaturgie von „${detail.title}“ weiterdenken: `, { kind: "teaching_window", id: detail.id, label: detail.title }); }}><MessageSquareText size={15} /> Mit dem Companion weiterdenken</button></div>
         </div>
       </dialog>
     </div>
@@ -2101,12 +2566,12 @@ async function sendMessage() {
   {#if planningModal && learningLandscape}
     <div class="planning-overlay" role="presentation" on:click={() => (planningModal = false)}>
       <dialog class="planning-modal" open aria-label="Unterrichtsplanung" on:click|stopPropagation>
-        <header class="planning-modal-header"><div><span>Unterrichtsplanung</span><h2>{learningLandscape.title}</h2></div><button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schließen"><X size={20} /></button></header>
+        <header class="planning-modal-header"><div class="planning-modal-context"><span>Unterrichtsplanung &middot; aus dem Denkraum</span><h2>{learningLandscape.title}</h2><p>Die Lernlandschaft bleibt mit dem Gespr&auml;ch und diesem Planungsraum verbunden.</p></div><div class="planning-modal-actions"><button class="planning-return" on:click={() => { planningModal = false; focusMode = "conversation"; }}>Zur&uuml;ck ins Gespr&auml;ch</button><button class="icon-button" on:click={() => (planningModal = false)} aria-label="Unterrichtsplanung schlie&szlig;en"><X size={20} /></button></div></header>
         <nav class="planning-tabs" aria-label="Planungsansichten"><button role="tab" aria-selected={planningTab === "landscape"} class:active={planningTab === "landscape"} on:click={() => (planningTab = "landscape")}>Lernlandschaft</button><button role="tab" aria-selected={planningTab === "board"} class:active={planningTab === "board"} on:click={() => (planningTab = "board")}>Planungsboard</button></nav>
         <section class="planning-modal-content">
           {#if planningTab === "landscape"}
             <div class="modal-landscape-toolbar"><div><strong>Lernlandschaft</strong><span>Canvas und lineare Lesansicht greifen auf dieselbe Landschaft zu.</span></div><div class="title-actions"><button class="add-moment-button" on:click={() => (landscapeMode = "canvas")}><MapIcon size={14} /> Raumansicht</button><button class="add-moment-button" on:click={() => (landscapeMode = "linear")}><List size={14} /> Linear lesen</button><button class="add-moment-button ghost-action" on:click={() => openGroupForm()}><Layers size={14} /> Fläche hinzufügen</button><button class="add-moment-button ghost-action" on:click={resetLandscapeLayout}><RotateCcw size={14} /> Layout zurücksetzen</button></div></div>
-            {#if landscapeMode === "canvas"}<div class="modal-flow-canvas flow-canvas" role="application" aria-label="Lernlandschaft im Canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div>{:else}<div class="modal-linear-note"><List size={24} /><h3>Lineare Lesansicht</h3><p>Die vollständige lineare Darstellung ist im Planungsraum verfügbar. Sie bleibt aus derselben Lernlandschaft abgeleitet und zeigt Wahl- und Parallelwege ausdrücklich.</p><button on:click={() => { planningModal = false; roomView = "landscape"; }}>Lineare Lesansicht öffnen</button></div>{/if}
+            {#if landscapeMode === "canvas"}<div class="modal-flow-canvas flow-canvas" role="application" aria-label="Lernlandschaft im Canvas"><SvelteFlow bind:nodes={canvasNodes} bind:edges={canvasEdges} nodeTypes={canvasNodeTypes} fitView={landscapeViewport === undefined} initialViewport={landscapeViewport} nodesDraggable={true} nodesConnectable={true} nodesFocusable={true} edgesFocusable={true} onnodedragstop={() => void saveLandscapeLayout()} onmoveend={saveLandscapeViewport} onconnect={handleCanvasConnect} onnodeclick={(event) => handleCanvasNodeClick(event.node)} onedgeclick={(event) => openTransitionDetail(event.edge.id)}><Background /><Controls /><MiniMap /></SvelteFlow></div>{:else}<div class="linear-landscape modal-linear-landscape" aria-label="Lineare Lesansicht der Lernlandschaft"><p class="linear-landscape-intro">Diese Lesansicht nutzt dieselben Lernmomente und &Uuml;berg&auml;nge wie die Raumansicht. Beide Darstellungen bleiben gleichwertig erreichbar.</p>{#each linearMoments() as moment, index}<article class="linear-moment"><div class="linear-moment-index" aria-hidden="true">{index + 1}</div><div class="linear-moment-content"><span class="learning-moment-kind">{momentKindLabels[moment.kind] ?? moment.kind}</span><h3>{moment.title}</h3><p>{moment.didacticPurpose || "Didaktische Funktion noch offen"}</p>{#if moment.learningActivity}<small><strong>Lernaktivit&auml;t:</strong> {moment.learningActivity}</small>{/if}{#if landscapeGroups.some((group) => group.memberIds.includes(moment.id))}<div class="linear-groups">{#each landscapeGroups.filter((group) => group.memberIds.includes(moment.id)) as group}<span>{landscapeGroupKindLabels[group.kind]}: {group.title}</span>{/each}</div>{/if}<div class="linear-moment-actions"><button on:click={() => openMomentDetail(moment.id)}>Lernmoment &ouml;ffnen</button>{#each transitionsFrom(moment.id) as transition}<span class="linear-transition"><strong>{transitionKindLabels[transition.kind]}</strong> &rarr; {momentTitle(transition.to)}</span>{/each}</div></div></article>{/each}</div>{/if}
           {:else}<div class="board-view inline">{#each boardColumns as column}<section class="board-column" role="list" aria-label={column.label}><header><strong>{column.label}</strong><span>{column.hint}</span></header><div class="board-cards">{#each planningBoard?.items.filter((item) => item.column === column.id) ?? [] as item}<button class="board-card" on:click={() => { planningModal = false; boardDetail = item; }}><span class="board-kind">{boardKindLabels[item.kind] ?? item.kind}</span><strong>{item.title}</strong><small>{boardStatusLabels[item.status] ?? item.status}</small></button>{/each}</div></section>{/each}</div>{/if}
         </section>
       </dialog>
@@ -2115,7 +2580,7 @@ async function sendMessage() {
   {#if proposal}
     {@const current = proposal}
     <div class="planning-overlay" role="presentation" on:click={() => (proposal = null)}>
-      <dialog class="start-modal detail-modal" open aria-label="Vorschlag des Critical Friend" on:click|stopPropagation>
+      <dialog class="start-modal detail-modal" open aria-label="Vorschlag des Pedagogical Companion" on:click|stopPropagation>
         <header><div><span>Vorschlag · noch nicht übernommen</span><h2>{proposalKindTitles[current.kind] ?? "Vorschlag"}</h2></div><button class="icon-button" on:click={() => (proposal = null)} aria-label="Schließen"><X size={20} /></button></header>
         <div class="detail-body">
           <dl>
@@ -2148,13 +2613,4 @@ async function sendMessage() {
     font-size: 0.85rem;
     line-height: 1.35;
   }
-  .conversation-status.simulated code {
-    background: rgba(0, 0, 0, 0.06);
-    padding: 0.05rem 0.3rem;
-    border-radius: 0.25rem;
-  }
 </style>
-
-
-
-
