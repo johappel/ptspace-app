@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createEmptyLearningDesign } from "@ptspace/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DirectLlmAdapter, type LlmChatMessage } from "../src/services/harness/DirectLlmAdapter.js";
+import { DirectLlmAdapter, parseThinkingStateUpdates, type LlmChatMessage } from "../src/services/harness/DirectLlmAdapter.js";
 import { PermissionPolicy } from "../src/services/policy/PermissionPolicy.js";
 
 let tempRoot: string;
@@ -105,10 +105,82 @@ describe("DirectLlmAdapter", () => {
   });
 
   it("hängt einen Hinweis an, wenn Persistenz behauptet, aber nichts geschrieben wurde", async () => {
-    const adapter = adapterWithClient(async () => "Deine Entscheidung wurde festgehalten.");
+    const adapter = adapterWithClient(async (messages) => {
+      // Zweiter Aufruf = Denkstand-Update: keine Updates nötig.
+      if (messages[0].content.includes("JSON")) return '{"updates": []}';
+      return "Deine Entscheidung wurde festgehalten.";
+    });
     const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
     const result = await adapter.sendMessage({ session, space: testSpace() as never, message: "Merke dir das." });
     expect(result.reply.text).toContain("noch nicht dauerhaft im Denkstand gespeichert");
+  });
+
+  it("schreibt Denkstand-Updates aus dem strukturierten zweiten Aufruf in den Workspace", async () => {
+    const adapter = adapterWithClient(async (messages) => {
+      if (messages[0].content.includes("JSON")) {
+        return JSON.stringify({
+          updates: [{ path: "learning-design.md", content: "# Denkstand\n\n## Lernanliegen\nWasserkreislauf\n" }]
+        });
+      }
+      return "Dein Lernanliegen wurde im Denkstand festgehalten.";
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    const result = await adapter.sendMessage({ session, space: testSpace() as never, message: "Halte das Lernanliegen fest." });
+    const written = await fs.readFile(path.join(projectDir, "learning-design.md"), "utf8");
+    expect(written).toContain("Wasserkreislauf");
+    expect(result.events.some((event) => event.type === "workspace_update" && event.relativePath === "learning-design.md")).toBe(true);
+    expect(result.reply.text).not.toContain("noch nicht dauerhaft im Denkstand gespeichert");
+  });
+
+  it("schreibt nur die vier kanonischen Denkstand-Dateien", async () => {
+    const adapter = adapterWithClient(async (messages) => {
+      if (messages[0].content.includes("JSON")) {
+        return JSON.stringify({
+          updates: [
+            { path: "decisions.md", content: "# Entscheidungen\n\n- Wasserkreislauf bestätigt\n" },
+            { path: "../../evil.md", content: "sollte nicht geschrieben werden" }
+          ]
+        });
+      }
+      return "Entscheidung festgehalten.";
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    await adapter.sendMessage({ session, space: testSpace() as never, message: "Halte die Entscheidung fest." });
+    const decisions = await fs.readFile(path.join(projectDir, "decisions.md"), "utf8");
+    expect(decisions).toContain("bestätigt");
+    await expect(fs.access(path.join(tempRoot, "evil.md"))).rejects.toThrow();
+  });
+
+  it("blockiert das Gespräch nicht, wenn der Update-Aufruf fehlschlägt", async () => {
+    let callCount = 0;
+    const adapter = adapterWithClient(async (messages) => {
+      callCount += 1;
+      if (messages[0].content.includes("JSON")) throw new Error("llm_http_500");
+      return "Ein ruhiger Einstieg bietet sich an.";
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    const result = await adapter.sendMessage({ session, space: testSpace() as never, message: "Wie starte ich?" });
+    expect(result.reply.text).toContain("ruhiger Einstieg");
+    expect(callCount).toBe(2);
+  });
+
+  it("repariert unescaped Newlines im JSON-Content des Update-Aufrufs", async () => {
+    const brokenJson = '{"updates": [{"path": "learning-design.md", "content": "# Denkstand\n\n## Lernanliegen\nWasserkreislauf"}]}';
+    const adapter = adapterWithClient(async (messages) => {
+      if (messages[0].content.includes("JSON")) return brokenJson;
+      return "Das Lernanliegen wurde festgehalten.";
+    });
+    const session = await adapter.createSession({ planningSpaceId: "space-1", workspaceRoot: projectDir });
+    await adapter.sendMessage({ session, space: testSpace() as never, message: "Halte das fest." });
+    const written = await fs.readFile(path.join(projectDir, "learning-design.md"), "utf8");
+    expect(written).toContain("Wasserkreislauf");
+  });
+
+  it("parseThinkingStateUpdates akzeptiert gültiges JSON und leere Updates", () => {
+    expect(parseThinkingStateUpdates('{"updates": []}')).toEqual([]);
+    expect(parseThinkingStateUpdates("kein json hier")).toEqual([]);
+    const parsed = parseThinkingStateUpdates('{"updates": [{"path": "decisions.md", "content": "# Entscheidungen"}]}');
+    expect(parsed).toEqual([{ relativePath: "decisions.md", content: "# Entscheidungen" }]);
   });
 
   it("liefert eine teacher-facing Fehlermeldung bei fehlender Modellverbindung", async () => {

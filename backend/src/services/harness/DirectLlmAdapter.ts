@@ -56,6 +56,86 @@ export type DirectLlmAdapterOptions = {
 
 type WorkspaceFileUpdate = { relativePath: string; content: string };
 
+/** Die einzigen Dateien, die der Denkstand-Update-Aufruf verändern darf. */
+const THINKING_STATE_FILES = ["learning-design.md", "decisions.md", "open-questions.md", "next-steps.md"];
+
+/** Liest das JSON-Update-Protokoll tolerant aus (inkl. umgebendem Text/Markdown-Fences). */
+export function parseThinkingStateUpdates(raw: string): WorkspaceFileUpdate[] {
+  const text = raw.trim();
+  if (!text) return [];
+  const jsonCandidates: string[] = [];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) jsonCandidates.push(fenced[1].trim());
+  const start = text.indexOf("{");
+  const lastStart = text.lastIndexOf("{");
+  for (const idx of [start, lastStart]) {
+    if (idx === -1) continue;
+    // Von jeder öffnenden Klammer bis zur passenden schließenden Klammer suchen.
+    let depth = 0;
+    for (let i = idx; i < text.length; i++) {
+      if (text[i] === "{") depth++;
+      else if (text[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          jsonCandidates.push(text.slice(idx, i + 1));
+          break;
+        }
+      }
+    }
+  }
+  for (const candidate of jsonCandidates) {
+    for (const attempt of [candidate, repairJsonNewlines(candidate)]) {
+      try {
+        const parsed = JSON.parse(attempt) as { updates?: Array<{ path?: string; content?: string }> };
+        if (!Array.isArray(parsed.updates)) continue;
+        return parsed.updates
+          .filter((u): u is { path: string; content: string } => typeof u.path === "string" && typeof u.content === "string" && u.content.trim().length > 0)
+          .map((u) => ({ relativePath: u.path.replace(/\\/g, "/"), content: u.content }));
+      } catch {
+        // Nächsten Reparatur-/Kandidaten-Versuch versuchen.
+      }
+    }
+  }
+  return [];
+}
+
+/**
+ * Repariert das häufigste Modellproblem: echte Zeilenumbrüche innerhalb von
+ * JSON-Strings (müssen als \n escaped sein). Ersetzt Newlines nur zwischen
+ * Anführungszeichen, nicht die Struktur-Umbrüche außerhalb.
+ */
+function repairJsonNewlines(candidate: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  for (const char of candidate) {
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      result += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+    if (inString && char === "\n") {
+      result += "\\n";
+      continue;
+    }
+    if (inString && char === "\r") {
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
 function defaultLlmClient(options: DirectLlmAdapterOptions): LlmClient {
   const doFetch = options.fetchImpl ?? fetch;
   return async (messages) => {
@@ -70,7 +150,13 @@ function defaultLlmClient(options: DirectLlmAdapterOptions): LlmClient {
           "content-type": "application/json",
           authorization: `Bearer ${apiKey}`
         },
-        body: JSON.stringify({ model: options.model, messages }),
+        body: JSON.stringify({
+          model: options.model,
+          messages,
+          // Reasoning-Modelle verbrauchen Tokens für Thinking, bevor der
+          // sichtbare Content entsteht; ohne Limit bleibt die Antwort leer.
+          max_tokens: 4000
+        }),
         signal: controller.signal
       });
       if (!response.ok) throw new Error(`llm_http_${response.status}`);
@@ -166,6 +252,12 @@ export class DirectLlmAdapter implements HarnessAdapter {
       return this.failedResult("Die geschützte Ausführung hat keine fachliche Antwort geliefert. Ich breche hier ab, statt einen Denkstand nur scheinbar zu aktualisieren.");
     }
 
+    // Strukturierter zweiter Aufruf: Das Modell entscheidet, welche kanonischen
+    // Denkstand-Dateien mit welchem vollständigen Inhalt aktualisiert werden.
+    // Das Backend schreibt selbst und ausschließlich diese Dateien – das Modell
+    // erhält keinen Schreibzugriff auf den Workspace.
+    const appliedUpdates = await this.applyThinkingStateUpdates(projectDir, workspaceContext, conversationContext, input.message, replyText);
+
     const after = await snapshotProject(projectDir);
     const changedFiles = diffSnapshots(before, after);
     replyText = guardUnsupportedClaims(replyText, changedFiles);
@@ -175,9 +267,67 @@ export class DirectLlmAdapter implements HarnessAdapter {
       workspaceUpdates: [],
       events: [
         { type: "status", status: "ready", message: replyText },
+        ...appliedUpdates.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath })),
         ...changedFiles.map((relativePath): HarnessEvent => ({ type: "workspace_update", relativePath }))
       ]
     };
+  }
+
+  /** Führt die vom Modell gewünschten Denkstand-Updates serverseitig aus. */
+  private async applyThinkingStateUpdates(
+    projectDir: string,
+    workspaceContext: string,
+    conversationContext: string,
+    teacherMessage: string,
+    replyText: string
+  ): Promise<string[]> {
+    const currentState = workspaceContext || "(Der Planungsraum enthält noch keine Denkstand-Dateien.)";
+    const instruction = [
+      "Du hast soeben als Critical Friend im Planungsraum geantwortet.",
+      `Nachricht der Lehrkraft: ${teacherMessage}`,
+      `Deine Antwort: ${replyText}`,
+      ...(conversationContext ? ["Bisheriger Gesprächskontext:", conversationContext] : []),
+      "",
+      "Entscheide jetzt, ob der pädagogische Denkstand aktualisiert werden muss.",
+      "Aktualisierbare Dateien sind ausschließlich:",
+      "- learning-design.md",
+      "- decisions.md",
+      "- open-questions.md",
+      "- next-steps.md",
+      "",
+      "Antworte AUSSCHLIESSLICH mit einem JSON-Objekt ohne Markdown-Formatierung:",
+      '{"updates": [{"path": "<dateiname>", "content": "<vollständiger neuer Dateiinhalt>"}]}',
+      "",
+      "Regeln:",
+      "- Gib für jede zu ändernde Datei den VOLLSTÄNDIGEN neuen Inhalt an, nicht nur Ausschnitte.",
+      "- Erhalte die bestehende Struktur der Datei und ergänze oder passe Abschnitte sinnvoll an.",
+      "- Wenn keine Aktualisierung nötig ist, antworte: {\"updates\": []}",
+      "- Keine weiteren Texte, keine Erklärungen, nur das JSON."
+    ].join("\n");
+
+    let raw: string;
+    try {
+      raw = await this.llm([
+        { role: "system", content: instruction },
+        { role: "user", content: `Aktueller Stand des Planungsraums:\n\n${currentState}` }
+      ]);
+    } catch (error) {
+      // Ein fehlgeschlagener Update-Aufruf darf das Gespräch nicht blockieren;
+      // guardUnsupportedClaims kennzeichnet nicht persistierte Behauptungen.
+      console.error(`thinking_state_update_failed: ${error instanceof Error ? error.message : error}`);
+      return [];
+    }
+    if (!parseThinkingStateUpdates(raw).length) {
+      console.error(`thinking_state_update_unparsable: ${raw.slice(0, 300)}`);
+    }
+
+    const updates = parseThinkingStateUpdates(raw).filter((update) => THINKING_STATE_FILES.includes(update.relativePath));
+    for (const update of updates) {
+      const target = safeRelativeOutputPath(projectDir, update.relativePath);
+      await fs.mkdir(path.dirname(path.join(projectDir, target)), { recursive: true });
+      await fs.writeFile(path.join(projectDir, target), update.content, "utf8");
+    }
+    return updates.map((update) => update.relativePath);
   }
 
   async requestTask(input: HarnessTaskRequest): Promise<HarnessTaskResult> {

@@ -18,9 +18,11 @@ Browser → ptspace-backend → HarnessAdapter → OpenCodeDockerAdapter
 
 `F:\code\pedagogical-thinking-space` ist nicht nur eine Sammlung von Anweisungen. Das Repository ist die pädagogische Engine des Systems: Critical Friend, Learning Design, Orchestration, Knowledge, Capabilities, Services, Worker und Queue.
 
+> **Trennung Code/Daten (2026-08-22):** Die inhaltlichen Planungsräume liegen **nicht mehr** im Kernel-Repository, sondern unter `PTSPACE_PLANNING_WORKSPACES_DIR` (z. B. `F:/ptspace-data/planning-workspaces`). Der Kernel dient ausschließlich als lesender Engine-Kontext. Frühere Versionen legten die Workspaces unter `pedagogical-thinking-space/workspace` ab; bestehende Räume wurden in die Datenwurzel migriert.
+
 Der Harness bekommt deshalb zwei getrennte Kontexte:
 
-- `/workspace`: der konkrete Planungsraum der Lehrkraft aus `pedagogical-thinking-space/workspace/<slug>`; hier wird normale Unterrichtsplanung gespeichert und von der App wieder gelesen.
+- `/workspace`: der konkrete Planungsraum der Lehrkraft aus `PTSPACE_PLANNING_WORKSPACES_DIR/<slug>`; hier wird normale Unterrichtsplanung gespeichert und von der App wieder gelesen.
 - `/ptspace-kernel`: der PTSPACE-Kernel; hier liest der Harness zuerst `AGENTS.md`, `CRITICAL_FRIEND.de.md`, `LEARNING_DESIGN.de.md` und `ORCHESTRATION.md`.
 
 Kernel-Evolution ist möglich, aber nicht als beliebiges Mitschreiben während jedes Chats. Wenn eine Aufgabe ausdrücklich Wissen, Fähigkeiten, Services oder Worker weiterentwickeln soll, können definierte Kernel-Arbeitsbereiche als beschreibbare Overlays freigegeben werden.
@@ -44,7 +46,7 @@ Standardmäßig bleibt Kernel-Schreiben aus. Außerdem wird voller Kernelkontext
 - OpenRouter-Auth wird als temporär erzeugtes `auth.json` außerhalb des Repos gemountet und danach gelöscht.
 - Der Kernel wird als `/ptspace-kernel` eingebunden; beschreibbare Kernel-Zonen sind gesondert konfigurierbar.
 - Die App-Schicht reicht Provider-, Modell-, Secret- und Kernel-Status nur an den Backend-Adapter weiter, nicht an die Lehrkräfte-UI.
-- Kernel und App verwenden für Unterrichtsplanung denselben Planungsraum. Es gibt keine zweite inhaltliche Kopie unter `ptspace-app/workspaces`.
+- Kernel und App verwenden für Unterrichtsplanung denselben Planungsraum unter `PTSPACE_PLANNING_WORKSPACES_DIR`. Es gibt keine zweite inhaltliche Kopie, und der Workspace liegt getrennt von Code-Repositories.
 
 ## Aktivierung für einen produktionsnahen Docker-Test
 

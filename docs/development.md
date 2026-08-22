@@ -45,15 +45,16 @@ pnpm --filter @ptspace/backend dev
 
 Der erste produktionsnahe Test wird nicht über den normalen Compose-Stack gestartet, weil der Backend-Container dafür keinen Docker-Socket erhalten soll. Für den Test läuft das Backend lokal auf dem Host und startet einen separaten opencode-Container mit genau einem Planungsraum-Mount.
 
-Die inhaltlichen Planungsräume liegen direkt im Kernel-Repository:
+Die inhaltlichen Planungsräume liegen unter der konfigurierten Datenwurzel, standardmäßig getrennt vom Code:
 
 ```text
-../pedagogical-thinking-space/workspace/<planungsraum-slug>/
+<PTSPACE_PLANNING_WORKSPACES_DIR>/<planungsraum-slug>/
 ```
 
-Die App liest Denkstand, Entscheidungen, offene Fragen, nächste Schritte, Knowledge Proposals und Materialien aus genau diesem Verzeichnis. `PTSPACE_WORKSPACES_DIR` enthält nur technische Laufzeitdaten wie den Chatverlauf. Über `PTSPACE_PLANNING_WORKSPACES_DIR` kann der gemeinsame inhaltliche Workspace abweichend konfiguriert werden.
+Wichtig: Der Workspace gehört **nicht** in ein Code-Repository. Kernel- und App-Repository bleiben frei von Nutzerdaten; `PTSPACE_KERNEL_DIR` dient nur als lesender Engine-Kontext. Die App liest Denkstand, Entscheidungen, offene Fragen, nächste Schritte, Knowledge Proposals und Materialien aus genau diesem Verzeichnis. `PTSPACE_WORKSPACES_DIR` enthält nur technische Laufzeitdaten wie den Chatverlauf.
 
 ```powershell
+$env:PTSPACE_HARNESS="opencode-docker"
 $env:PTSPACE_HARNESS="opencode-docker"
 $env:PTSPACE_REAL_HARNESS_ENABLED="true"
 $env:PTSPACE_OPENCODE_RUNNER="docker"

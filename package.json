@@ -10,7 +10,7 @@
     "check": "pnpm -r check",
     "visual:design": "node tests/visual/denkraum-design.mjs"
   },
-  "packageManager": "pnpm@11.15.1",
+  "packageManager": "pnpm@11.22.0",
   "devDependencies": {
     "playwright": "^1.61.1",
     "typescript": "^5.5.4"

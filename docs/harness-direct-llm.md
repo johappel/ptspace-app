@@ -60,6 +60,7 @@ PTSPACE_LLM_API_KEY=...        # oder weiterhin OPENROUTER_API_KEY
 | Ablauf | Umsetzung |
 | --- | --- |
 | `sendMessage` | Critical-Friend-Prompt + Workspace-Kontext → Completion → `toTeacherFacingReply` + `guardUnsupportedClaims` |
+| `sendMessage` (Denkstand) | strukturierter zweiter Aufruf: Modell liefert JSON `{"updates": [{path, content}]}`; Backend schreibt ausschließlich die vier kanonischen Dateien (`learning-design.md`, `decisions.md`, `open-questions.md`, `next-steps.md`) selbst. Der Parser repariert unescaped Newlines im JSON-Content (häufiger Reasoning-Modell-Fehler). Ein fehlgeschlagener Update-Aufruf blockiert das Gespräch nicht; `guardUnsupportedClaims` kennzeichnet dann nicht persistierte Behauptungen. |
 | `requestTask` | Worker-Prompt + Workspace-Kontext → Completion → Backend schreibt Datei; `BLOCKED` wird respektiert |
 | `reviewTask` | Review-Prompt auf temporärer Workspace-Kopie → `STATUS/NOTE`-Parsing |
 
@@ -78,3 +79,11 @@ Das Backend liest die Konfiguration beim Start; nach `.env`-Änderungen neu star
 ## Verhältnis zu opencode
 
 opencode bleibt als optionale Stufe für echte Agentenläufe erhalten (Kernel-Evolution, freie Workspace-Arbeit). Für den Real-Runtime-MVP und den geführten Zwei-Häkchen-Workflow ist `direct-llm` der Standardpfad.
+
+## Hinweise zu Reasoning-Modellen (Stand 2026-08-22)
+
+Verifiziert mit `stealth/ox-alpha` über OpenRouter:
+
+- Reasoning-Modelle verbrauchen Output-Tokens für Thinking; ohne `max_tokens`-Limit bleibt der sichtbare Content leer. Der Adapter sendet daher `max_tokens: 4000`.
+- Ein voller Gesprächs-Turn inkl. Denkstand-Update dauert je nach Modelllast 30–120 s.
+- Freimodell-Verfügbarkeit ändert sich häufig (`tencent/hy3:free` ist inzwischen kostenpflichtig); das Modell wird über `PTSPACE_DIRECT_LLM_MODEL` konfiguriert.
