@@ -50,16 +50,50 @@ testbar (`backend/test/DeepSeekHarnessAdapter.test.ts`).
 
 ## 3. Installation / Konfiguration
 
+Lokale `dsh web`-Instanz starten (DeepSeek Harness):
+
+```bash
+npx @deepseek-ai/dsh web    # Web UI + Server auf http://127.0.0.1:3080
+```
+
+In der laufenden dsh-Instanz unter *Settings → Models* eine DeepSeek-kompatible
+Credential hinterlegen. Danach ptspace-app konfigurieren:
+
 ```text
 PTSPACE_HARNESS=deepseek
 PTSPACE_REAL_HARNESS_ENABLED=true
-PTSPACE_LLM_API_KEY=...            # (alternativ OPENROUTER_API_KEY)
+PTSPACE_DEEPSEEK_WEB_URL=http://localhost:3080
+PTSPACE_DEEPSEEK_RPC_PATH=/rpc            # Default; bei abweichender dsh-Version anpassen
+PTSPACE_DEEPSEEK_TIMEOUT_MS=120000
 PTSPACE_DEEPSEEK_VERSION=<gepinnte Version/Commit>
 ```
 
-Der reale DeepSeek-Transport ist im aktuellen Spike **noch nicht angebunden**;
-`createHarness()` in `app.ts` erzeugt den Adapter ohne `runtime`, sodass er
-`requires_setup` meldet, bis die Integration nach der Evaluation aktiviert wird.
+Die Modell-Credential liegt in dsh selbst, nicht auf PTS-Seite. Eine
+konfigurierte `PTSPACE_DEEPSEEK_WEB_URL` erfüllt daher die
+Admin-Credential-Voraussetzung dieser Stufe (`apiKeyAvailable`).
+
+Ohne `PTSPACE_DEEPSEEK_WEB_URL` erzeugt `createHarness()` in `app.ts` den Adapter
+weiterhin ohne `runtime`, sodass er `requires_setup` meldet.
+
+### Realer Transport: `DshWebRuntimeTransport`
+
+`backend/src/services/harness/DshWebRuntimeTransport.ts` spricht **JSON-RPC 2.0**
+gegen die laufende dsh-web-Instanz. Er ist die einzige Stelle mit
+DSH-spezifischem Transportwissen und bleibt hinter der
+`DeepSeekRuntimeTransport`-Grenze.
+
+- `isAvailable()` prüft per HTTP-GET auf die Basis-URL, ob dsh-web läuft.
+- `createSession()` leitet eine stabile Session-ID (`pts-<planningSpaceId>`) ab –
+  DSH-Session-IDs sind aufruferseitig gewählt, wodurch ein Resume dieselbe
+  Session anspricht.
+- `sendTurn()` ruft `session.run` (konfigurierbar) auf und übersetzt
+  `final_response`/`finish_reason`/`usage` in die PTS-neutrale Antwort.
+- Antwort- und Usage-Auswertung ist tolerant (mehrere plausible Feldnamen).
+
+**Developer-Preview-Risiko:** DSH kündigt kompatibilitätsbrechende Änderungen an.
+RPC-Pfad und Methodennamen sind deshalb konfigurierbar (Defaults `/rpc`,
+`session.run`/`session.resume`/`session.stop`), damit der Betrieb sie ohne
+Codeänderung an die laufende Version angleichen kann.
 
 ## 4. Session Mapping
 
@@ -106,16 +140,25 @@ keine Gesprächsinhalte, Secrets oder personenbezogenen Daten.
 
 - DeepSeek Harness befindet sich in aktiver Entwicklung; die verwendete Version
   ist über `PTSPACE_DEEPSEEK_VERSION` zu pinnen.
-- Der reale Transport ist noch nicht angebunden (`BLOCKED` bis Upstream-Stabilität
-  bewertet ist).
+- Der reale Transport (`DshWebRuntimeTransport`) ist gegen eine lokale
+  `dsh web`-Instanz angebunden. RPC-Pfad und Methodennamen sind developer-preview-
+  bedingt konfigurierbar; weichen sie in der laufenden dsh-Version ab, sind sie
+  über `PTSPACE_DEEPSEEK_RPC_PATH` bzw. die `methods`-Optionen anzugleichen.
 - Skills, Workflow Memory und Runtime-Lernen sind als PTS-owned Verträge
   vorbereitet, aber noch nicht über DeepSeek ausgeführt.
 
 ## 10. Smoke-Test
 
 ```bash
+# Adaptergrenze und realer Transport (Fake/Stub, ohne laufende dsh-Instanz):
 pnpm --filter @ptspace/backend test -- DeepSeekHarnessAdapter
+pnpm --filter @ptspace/backend test -- DshWebRuntimeTransport
 ```
+
+Live gegen eine laufende Instanz: `npx @deepseek-ai/dsh web` starten, in dsh eine
+Modell-Credential hinterlegen, `PTSPACE_HARNESS=deepseek`,
+`PTSPACE_REAL_HARNESS_ENABLED=true` und `PTSPACE_DEEPSEEK_WEB_URL=http://localhost:3080`
+setzen und einen Companion-Turn in einem nicht-sensiblen Test-Planungsraum senden.
 
 ## 11. Vergleich mit Direct LLM
 

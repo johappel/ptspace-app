@@ -250,10 +250,14 @@ Runtime-Funktionen.
 * [x] OpenCode weiterhin als optionale Coding-/Kernel-Evolution-Stufe erhalten.
 * [x] Verwendete DeepSeek-Harness-Version explizit dokumentieren und pinnen (`PTSPACE_DEEPSEEK_VERSION`, `pinnedVersion()`, docs/harness-deepseek.md).
 
-  BLOCKED (Teilaspekt): Der reale DeepSeek-Transport ist noch nicht angebunden.
-  Der Adapter meldet ohne Transport bewusst `requires_setup`, statt instabile
-  Upstream-Details zu erraten. Adaptergrenze und Vertrag sind über Fake/Stub-Tests
-  vollständig abgesichert (`test/DeepSeekHarnessAdapter.test.ts`).
+  Realer Transport angebunden: `DshWebRuntimeTransport` spricht JSON-RPC 2.0
+  gegen eine laufende `dsh web`-Instanz (`PTSPACE_DEEPSEEK_WEB_URL`, Default-Port
+  3080). RPC-Pfad und Methodennamen sind developer-preview-bedingt konfigurierbar.
+  Adaptergrenze, Transport, Antwort-/Usage-Mapping, Fehler-, Timeout- und
+  stop-Toleranz sind über Fake-`fetch`-Tests abgesichert
+  (`test/DeepSeekHarnessAdapter.test.ts`, `test/DshWebRuntimeTransport.test.ts`).
+  Offen bleibt nur der Live-Lauf gegen eine echte laufende dsh-Instanz (umgebungs-
+  und credential-abhängig).
 
 Keine DeepSeek-Typen dürfen Bestandteil der öffentlichen PTS-Domain werden.
 

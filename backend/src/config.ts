@@ -31,6 +31,9 @@ export type AppConfig = {
   deepSeek: {
     apiKeyAvailable: boolean;
     pinnedVersion: string;
+    webUrl?: string;
+    rpcPath: string;
+    timeoutMs: number;
   };
   openCode: {
     runner: OpenCodeRunnerKind;
@@ -125,8 +128,14 @@ export function loadConfig(): AppConfig {
       timeoutMs: Number(process.env.PTSPACE_DIRECT_LLM_TIMEOUT_MS ?? 120000)
     },
     deepSeek: {
-      apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY),
-      pinnedVersion: process.env.PTSPACE_DEEPSEEK_VERSION ?? "unpinned-evaluation"
+      // Bei angebundener dsh-web-Instanz liegt die Modell-Credential in dsh
+      // selbst (Settings → Models), nicht auf PTS-Seite. Eine konfigurierte
+      // Web-URL erfüllt daher die Admin-Credential-Voraussetzung dieser Stufe.
+      apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY) || Boolean(process.env.PTSPACE_DEEPSEEK_WEB_URL),
+      pinnedVersion: process.env.PTSPACE_DEEPSEEK_VERSION ?? "unpinned-evaluation",
+      webUrl: process.env.PTSPACE_DEEPSEEK_WEB_URL,
+      rpcPath: process.env.PTSPACE_DEEPSEEK_RPC_PATH ?? "/rpc",
+      timeoutMs: Number(process.env.PTSPACE_DEEPSEEK_TIMEOUT_MS ?? 120000)
     },
     openCode: {
       runner: (process.env.PTSPACE_OPENCODE_RUNNER as OpenCodeRunnerKind | undefined) ?? "docker",

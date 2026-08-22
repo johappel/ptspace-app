@@ -587,7 +587,7 @@ It is not required for the Real Runtime MVP.
 
 Status:
 
-**implemented (spike / evaluation); real transport not yet connected**
+**implemented (spike / evaluation); real transport connected to local `dsh web`**
 
 Its purpose is to evaluate whether DeepSeek Harness can provide the adaptive runtime required for:
 
@@ -605,10 +605,17 @@ Its purpose is to evaluate whether DeepSeek Harness can provide the adaptive run
 The adapter implements `checkAvailability`, `createSession` (with resume),
 `sendMessage` (with provider-neutral `RuntimeUsage`), `getEvents`, `stopSession`
 and `simulatePolicy`. All DeepSeek-specific concepts stay behind the injectable
-`DeepSeekRuntimeTransport` boundary. Without a connected transport the adapter
-reports `requires_setup` rather than guessing unstable upstream API details.
+`DeepSeekRuntimeTransport` boundary.
 
-Configuration: `PTSPACE_HARNESS=deepseek`, `PTSPACE_DEEPSEEK_VERSION=<pin>`.
+`DshWebRuntimeTransport` is the real transport: it speaks JSON-RPC 2.0 against a
+running `dsh web` instance (`npx @deepseek-ai/dsh web`, default port 3080). RPC
+path and method names are configurable because DSH is a developer preview that
+announces compatibility-breaking changes. Without a configured
+`PTSPACE_DEEPSEEK_WEB_URL` the adapter is constructed without a transport and
+reports `requires_setup`.
+
+Configuration: `PTSPACE_HARNESS=deepseek`, `PTSPACE_DEEPSEEK_WEB_URL`,
+`PTSPACE_DEEPSEEK_RPC_PATH`, `PTSPACE_DEEPSEEK_VERSION=<pin>`.
 See `docs/harness-deepseek.md`.
 
 The DeepSeek integration must remain behind PTS-owned contracts.

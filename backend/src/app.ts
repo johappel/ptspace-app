@@ -15,6 +15,7 @@ import { MockHarnessAdapter } from "./services/harness/MockHarnessAdapter.js";
 import { OpenCodeDockerAdapter } from "./services/harness/OpenCodeDockerAdapter.js";
 import { DirectLlmAdapter } from "./services/harness/DirectLlmAdapter.js";
 import { DeepSeekHarnessAdapter } from "./services/harness/DeepSeekHarnessAdapter.js";
+import { DshWebRuntimeTransport } from "./services/harness/DshWebRuntimeTransport.js";
 import { GitManager } from "./services/git/GitManager.js";
 import { ExportFilter } from "./services/export/ExportFilter.js";
 import { OkfExporter } from "./services/okf/OkfExporter.js";
@@ -53,15 +54,25 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
     });
   }
   if (config.harness === "deepseek") {
+    // Realer Transport nur, wenn eine dsh-web-Instanz konfiguriert ist. Ohne URL
+    // bleibt `runtime` undefiniert und der Adapter meldet bewusst `requires_setup`,
+    // statt einen instabilen Upstream zu erraten.
+    const runtime = config.deepSeek.webUrl
+      ? new DshWebRuntimeTransport({
+          baseUrl: config.deepSeek.webUrl,
+          rpcPath: config.deepSeek.rpcPath,
+          timeoutMs: config.deepSeek.timeoutMs,
+          model: config.directLlm.model,
+          apiKey: process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY
+        })
+      : undefined;
     return new DeepSeekHarnessAdapter({
       enabled: config.realHarnessEnabled,
       policy,
       apiKeyAvailable: config.deepSeek.apiKeyAvailable,
       pinnedVersion: config.deepSeek.pinnedVersion,
-      kernelDir: config.kernelDir
-      // runtime bleibt bewusst unkonfiguriert: der reale DeepSeek-Transport wird
-      // erst nach der Spike-Evaluation angebunden. Ohne Transport meldet der
-      // Adapter „requires_setup“, statt einen instabilen Upstream zu erraten.
+      kernelDir: config.kernelDir,
+      runtime
     });
   }
   if (config.harness === "opencode-docker") {
