@@ -46,6 +46,7 @@
   let renderedMessages: UiMessage[] = [];
   let draftMessage = "";
   let activeFocus: PedagogicalFocus | null = null;
+  let lastFailedMessage: { text: string; focus: PedagogicalFocus | null } | null = null;
   let focusMode: FocusMode = "conversation";
   let focusedObject: FocusedObject = null;
   let previousFocusMode: FocusMode = "conversation";
@@ -959,6 +960,7 @@ async function sendMessage() {
           },
           onComplete: (reply, teacherMessageId) => {
             if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
+            lastFailedMessage = null;
             messages = [
               ...messages.map((message) => message.id === optimisticTeacherMessageId
                 ? { ...message, id: teacherMessageId ?? optimisticTeacherMessageId, createdAt: message.createdAt ?? new Date().toISOString() }
@@ -986,10 +988,42 @@ async function sendMessage() {
       if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Antwort konnte noch nicht vorbereitet werden.";
+      // Die Nachricht wurde möglicherweise bereits serverseitig persistiert
+      // (Persistierung erfolgt vor dem Harness-Aufruf). Für den Retry wird die
+      // optimistische Nachricht entfernt und der Text gemerkt; der erneute
+      // Versand erzeugt dann eine saubere, einzelne Nachricht im Verlauf.
+      lastFailedMessage = { text, focus: focus ? { ...focus } : null };
+      messages = messages.filter((message) => message.id !== optimisticTeacherMessageId);
+      await syncConversationAfterFailure(spaceId, loadVersion);
     } finally {
       sending = false;
       thinkingStatus = "";
     }
+  }
+
+  /** Lädt den Verlauf nach einem fehlgeschlagenen Turn neu, damit bereits
+   *  persistierte Nachrichten (z. B. die Lehrkraftnachricht) sichtbar bleiben. */
+  async function syncConversationAfterFailure(spaceId: string, loadVersion: number) {
+    try {
+      const persisted = await api.getMessages(spaceId);
+      if (!isCurrentSpaceLoad(spaceId, loadVersion)) return;
+      messages = mergePersistedMessages(persisted.messages);
+      await scrollConversationToEnd();
+    } catch {
+      // Verlauf konnte nicht aktualisiert werden; die Fehlermeldung bleibt sichtbar.
+    }
+  }
+
+  /** Sendet die zuletzt fehlgeschlagene Nachricht erneut. */
+  async function retryLastMessage() {
+    if (!activeSpace || !lastFailedMessage || sending) return;
+    const text = lastFailedMessage.text;
+    const focus = lastFailedMessage.focus;
+    lastFailedMessage = null;
+    error = "";
+    draftMessage = text;
+    activeFocus = focus;
+    await sendMessage();
   }
 
   function thinkingStatusLabel(status: string): string {
@@ -2061,7 +2095,11 @@ async function sendMessage() {
         {#if activeSpace && simulatedMode}<button class="runtime-status-access" on:click={openSettings} aria-haspopup="dialog">Vorbereitete Antworten <span>Details</span></button>{/if}
       </div>
     </header>
-    {#if error}<div class="notice error"><AlertCircle size={18} /> {error}</div>{/if}
+    {#if error}
+      <div class="notice error" role="status"><AlertCircle size={18} /> {error}
+        {#if lastFailedMessage}<button class="retry-button" on:click={retryLastMessage} disabled={sending}><RotateCcw size={14} /> Erneut senden</button>{/if}
+      </div>
+    {/if}
 
     {#if activeSpace}
       {#if statusDetailsOpen && roomOverview}
