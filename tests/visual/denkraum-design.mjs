@@ -339,8 +339,27 @@ async function run() {
     });
     const desktopPage = await desktop.newPage();
     await waitForApp(desktopPage);
+    await desktopPage.locator(".rail-toggle").click();
+    if ((await desktopPage.locator(".room-search").count()) !== 1 || (await desktopPage.locator(".rail-link").count()) !== 1) {
+      throw new Error("Die geöffnete Navigation muss Suche und Knowledgebase-Zugang zeigen.");
+    }
 
     await openSpace(desktopPage, spaces.dr02);
+    await desktopPage.locator(".rail-toggle").click();
+    await desktopPage.locator(".room-search input").fill("Gemeinsame Verantwortung");
+    await waitFor("Planungsraumsuche", async () => (await desktopPage.locator(".room-entry").count()) === 1);
+    await desktopPage.locator(".room-search input").fill("");
+    await desktopPage.getByRole("button", { name: "Neue Kategorie", exact: true }).click();
+    await desktopPage.locator("dialog[open] input").fill("Unterricht");
+    await desktopPage.getByRole("button", { name: "Kategorie anlegen", exact: true }).click();
+    const firstRoom = desktopPage.locator(".room-entry").first();
+    await firstRoom.locator(".room-entry-menu").click();
+    await firstRoom.getByRole("menuitem", { name: "Unterricht", exact: true }).click();
+    const categoryFolder = desktopPage.locator(".room-category-folder").filter({ has: desktopPage.getByRole("button", { name: /Unterricht/ }) });
+    await waitFor("Kategorieordner", async () => (await categoryFolder.locator(".room-entry").count()) === 1);
+    const categoryRoom = categoryFolder.locator(".room-entry").first();
+    await categoryRoom.dragTo(desktopPage.locator(".uncategorized-folder"));
+    await waitFor("Drag-and-drop in Unkategorisiert", async () => (await categoryFolder.locator(".room-entry").count()) === 0);
     await assertText(desktopPage, ".conversation-panel", "Pedagogical Companion");
     if ((await desktopPage.locator(".conversation-focus-layer").count()) !== 0) {
       throw new Error("DR-02 darf im ruhigen Gesprächszustand keine Fokuslage zeigen.");

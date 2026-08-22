@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, Settings, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
+  import { AlertCircle, ArrowRight, ArrowUp, BookOpen, Check, CheckCircle2, ChevronDown, FileText, Folder, GripVertical, Layers, Lightbulb, List, ListChecks, Map as MapIcon, MessageSquareText, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, Scale, Search, Settings, ShieldCheck, TriangleAlert, X } from "lucide-svelte";
   import { api, type ConversationMarker, type ConversationMessage, type ExportApproval, type FocusedObject, type FocusMode, type LearningLandscape, type LearningLandscapeLayout, type LearningLandscapeLayoutGroup, type LearningLandscapeViewport, type LearningMoment, type MaterialMetadata, type PedagogicalFocus, type PlanningBoard, type PlanningBoardItem, type PlanningSpace, type SensitiveFinding, type ServiceRequest, type TeachingWindow, type TemporalPlan, type ThinkingCard, type TimePlacement, type WorkerMaterial } from "$lib/api";
   import { Background, Controls, MiniMap, SvelteFlow, type Connection, type Edge, type Node, type NodeTypes } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
@@ -100,6 +100,15 @@
   let materialMessage = "";
   let expandedMaterialId = "";
   let roomAccessOpen = false;
+  let roomSearch = "";
+  let roomCategories: Record<string, string> = {};
+  let roomCategoryNames: string[] = [];
+  let openRoomCategories: Record<string, boolean> = {};
+  let roomMenuOpenId = "";
+  let draggedSpaceId = "";
+  let newCategoryModal = false;
+  let newCategoryName = "";
+  let roomCategoryError = "";
   let pinnwandOpen = false;
   let recentMarkerId = "";
   let recentMarkerTimer: number | null = null;
@@ -126,6 +135,8 @@
   let spaceLoadVersion = 0;
   let workflowRefreshInFlight = false;
   const lastOpenedSpaceKey = "ptspace.last-opened-planning-space";
+  const roomCategoriesStorageKey = "ptspace.room-categories";
+  const roomCategoryNamesStorageKey = "ptspace.room-category-names";
   const boardColumns: Array<{ id: PlanningBoardItem["column"]; label: string; hint: string }> = [
     { id: "clarify", label: "Noch klären", hint: "Entscheidungen und Recherche" },
     { id: "prepare", label: "Vorbereiten", hint: "Dramaturgie und Materialien" },
@@ -138,6 +149,16 @@
   onMount(() => {
     soundsEnabled = localStorage.getItem("ptspace.sounds-enabled") === "true";
     reducedMotion = localStorage.getItem("ptspace.reduced-motion") === "true";
+    try {
+      const storedCategories = JSON.parse(localStorage.getItem(roomCategoriesStorageKey) ?? "{}");
+      if (storedCategories && typeof storedCategories === "object" && !Array.isArray(storedCategories)) roomCategories = storedCategories as Record<string, string>;
+      const storedNames = JSON.parse(localStorage.getItem(roomCategoryNamesStorageKey) ?? "[]");
+      const savedNames = Array.isArray(storedNames) ? storedNames.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
+      roomCategoryNames = [...new Set([...savedNames, ...Object.values(roomCategories).filter(Boolean)])];
+    } catch {
+      roomCategories = {};
+      roomCategoryNames = [];
+    }
     void (async () => {
       try {
         await refreshSpaces();
@@ -172,6 +193,83 @@
     } catch (err) {
       error = err instanceof Error ? err.message : "Die Planungsräume konnten noch nicht geladen werden.";
     }
+  }
+
+  function roomCategoryFor(space: PlanningSpace) {
+    return roomCategories[space.id] ?? "";
+  }
+
+  function persistRoomCategories() {
+    localStorage.setItem(roomCategoriesStorageKey, JSON.stringify(roomCategories));
+  }
+
+  function persistRoomCategoryNames() {
+    localStorage.setItem(roomCategoryNamesStorageKey, JSON.stringify(roomCategoryNames));
+  }
+
+  function assignRoomCategory(spaceId: string, category: string) {
+    roomCategories = { ...roomCategories, [spaceId]: category };
+    if (category && !roomCategoryNames.includes(category)) {
+      roomCategoryNames = [...roomCategoryNames, category];
+      persistRoomCategoryNames();
+    }
+    persistRoomCategories();
+    roomMenuOpenId = "";
+  }
+
+  function toggleRoomCategory(category: string) {
+    openRoomCategories = { ...openRoomCategories, [category]: !(openRoomCategories[category] ?? true) };
+  }
+
+  function createRoomCategory() {
+    const category = newCategoryName.trim();
+    roomCategoryError = "";
+    if (!category) {
+      roomCategoryError = "Bitte gib der Kategorie einen Namen.";
+      return;
+    }
+    if (category.toLocaleLowerCase("de-DE") === "unkategorisiert" || roomCategoryNames.some((name) => name.toLocaleLowerCase("de-DE") === category.toLocaleLowerCase("de-DE"))) {
+      roomCategoryError = "Diese Kategorie gibt es bereits.";
+      return;
+    }
+    roomCategoryNames = [...roomCategoryNames, category];
+    openRoomCategories = { ...openRoomCategories, [category]: true };
+    persistRoomCategoryNames();
+    newCategoryName = "";
+    newCategoryModal = false;
+  }
+
+  function startRoomDrag(spaceId: string, event: DragEvent) {
+    draggedSpaceId = spaceId;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", spaceId);
+    }
+  }
+
+  function allowRoomDrop(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function dropSpaceInCategory(category: string, event: DragEvent) {
+    event.preventDefault();
+    const spaceId = event.dataTransfer?.getData("text/plain") || draggedSpaceId;
+    if (spaceId) assignRoomCategory(spaceId, category);
+    draggedSpaceId = "";
+  }
+
+  function dropSpaceUncategorized(event: DragEvent) {
+    dropSpaceInCategory("", event);
+  }
+
+  function openKnowledgebase() {
+    roomAccessOpen = false;
+    if (activeSpace) {
+      void chooseRoomView("knowledge");
+      return;
+    }
+    createRoomModal = true;
   }
 
   async function createSpace() {
@@ -1860,6 +1958,13 @@ async function sendMessage() {
     { id: "open", title: "Was ist noch offen?", hint: "Fragen und Spannungen", items: pinnwandOpenQuestions },
     { id: "decisions", title: "Was wurde entschieden?", hint: "Begründet festgehalten", items: pinnwandDecisions }
   ].filter((section) => section.items.length > 0);
+  $: filteredSpaces = spaces.filter((space) => {
+    const query = roomSearch.trim().toLocaleLowerCase("de-DE");
+    const matchesQuery = !query || [space.title, space.subject, space.targetGroup].filter(Boolean).some((value) => value?.toLocaleLowerCase("de-DE").includes(query));
+    return matchesQuery;
+  });
+  $: roomCategoryFolders = roomCategoryNames.map((category) => ({ category, spaces: filteredSpaces.filter((space) => roomCategories[space.id] === category) }));
+  $: uncategorizedSpaces = filteredSpaces.filter((space) => !roomCategories[space.id]);
 </script>
 
 <svelte:head><title>{activeSpace?.title ?? "Pädagogischer Denkraum"} · ptspace</title></svelte:head>
@@ -1871,19 +1976,41 @@ async function sendMessage() {
       <div><strong>Planungsräume</strong><span>ptspace</span></div>
     </div>
 
-    <button class="new-room-button" on:click={() => (createRoomModal = true)}><Plus size={16} /> Neuen Planungsraum beginnen</button>
+    <nav class="rail-primary" aria-label="Planungsraum-Navigation">
+      <button class="new-room-button" on:click={() => (createRoomModal = true)}><Plus size={16} /><span>Neuen Planungsraum</span></button>
+      <button class="rail-link" on:click={openKnowledgebase}><BookOpen size={16} /><span>Knowledgebase</span></button>
+    </nav>
 
-    <div class="room-list">
+    <section class="room-browser" aria-labelledby="room-browser-title">
+      <div class="rail-section-heading"><strong id="room-browser-title">Planungsräume</strong><small>{filteredSpaces.length}</small></div>
+      <label class="room-search"><Search size={15} aria-hidden="true" /><span class="sr-only">Planungsräume durchsuchen</span><input bind:value={roomSearch} placeholder="Planungsräume durchsuchen" /></label>
+      <div class="room-list">
       {#if loading}<p>Planungsräume werden geladen.</p>
-      {:else if spaces.length === 0}<p>Noch kein Planungsraum. Lege links einen ersten Raum an.</p>
       {:else}
-        {#each spaces as space}
-          <button class:active={activeSpace?.id === space.id} on:click={() => openSpace(space)}>
-            <span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small>
-          </button>
+        {#if spaces.length === 0}<p>Noch kein Planungsraum. Lege links einen ersten Raum an.</p>
+        {:else if filteredSpaces.length === 0}<p>Kein Planungsraum passt zu deiner Suche.</p>{/if}
+        <section class:drop-target={!!draggedSpaceId} class="room-category-folder uncategorized-folder" on:dragover={allowRoomDrop} on:drop={dropSpaceUncategorized} aria-labelledby="uncategorized-folder-title">
+          <button class="folder-heading" on:click={() => toggleRoomCategory("")}><ChevronDown class={openRoomCategories[""] === false ? "folder-closed" : ""} size={14} aria-hidden="true" /><Folder size={15} aria-hidden="true" /><strong id="uncategorized-folder-title">Unkategorisiert</strong><small>{uncategorizedSpaces.length}</small></button>
+          {#if openRoomCategories[""] !== false}<div class="room-folder-items">{#each uncategorizedSpaces as space}<article class:active={activeSpace?.id === space.id} class="room-entry" draggable="true" on:dragstart={(event) => startRoomDrag(space.id, event)}>
+            <button class="room-entry-open" on:click={() => openSpace(space)}><span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small></button>
+            <button class="room-entry-menu" on:click={() => (roomMenuOpenId = roomMenuOpenId === space.id ? "" : space.id)} aria-label={`Kategorie für ${space.title} ändern`} aria-expanded={roomMenuOpenId === space.id}><MoreHorizontal size={15} /></button>
+            {#if roomMenuOpenId === space.id}<div class="room-entry-menu-popover" role="menu"><span>Zu Kategorie verschieben</span>{#each roomCategoryNames as category}<button role="menuitem" on:click={() => assignRoomCategory(space.id, category)}>{category}</button>{/each}<button role="menuitem" on:click={() => assignRoomCategory(space.id, "")}>Unkategorisiert</button></div>{/if}
+          </article>{/each}{#if uncategorizedSpaces.length === 0}<p class="folder-empty">Keine passenden Räume</p>{/if}</div>{/if}
+        </section>
+        {#each roomCategoryFolders as folder}
+          <section class:drop-target={!!draggedSpaceId} class="room-category-folder" on:dragover={allowRoomDrop} on:drop={(event) => dropSpaceInCategory(folder.category, event)} aria-labelledby={`folder-${folder.category}`}>
+            <button class="folder-heading" on:click={() => toggleRoomCategory(folder.category)}><ChevronDown class={openRoomCategories[folder.category] === false ? "folder-closed" : ""} size={14} aria-hidden="true" /><Folder size={15} aria-hidden="true" /><strong id={`folder-${folder.category}`}>{folder.category}</strong><small>{folder.spaces.length}</small></button>
+            {#if openRoomCategories[folder.category] !== false}<div class="room-folder-items">{#each folder.spaces as space}<article class:active={activeSpace?.id === space.id} class="room-entry" draggable="true" on:dragstart={(event) => startRoomDrag(space.id, event)}>
+              <button class="room-entry-open" on:click={() => openSpace(space)}><span>{space.title}</span><small>{space.subject || "Fach offen"} · {space.targetGroup || "Zielgruppe offen"}</small></button>
+              <button class="room-entry-menu" on:click={() => (roomMenuOpenId = roomMenuOpenId === space.id ? "" : space.id)} aria-label={`Kategorie für ${space.title} ändern`} aria-expanded={roomMenuOpenId === space.id}><MoreHorizontal size={15} /></button>
+              {#if roomMenuOpenId === space.id}<div class="room-entry-menu-popover" role="menu"><span>Zu Kategorie verschieben</span>{#each roomCategoryNames as category}<button role="menuitem" on:click={() => assignRoomCategory(space.id, category)}>{category}</button>{/each}<button role="menuitem" on:click={() => assignRoomCategory(space.id, "")}>Unkategorisiert</button></div>{/if}
+            </article>{/each}{#if folder.spaces.length === 0}<p class="folder-empty">Ordner ist leer</p>{/if}</div>{/if}
+          </section>
         {/each}
       {/if}
-    </div>
+      </div>
+      <button class="new-category-button" on:click={() => { roomCategoryError = ""; newCategoryName = ""; newCategoryModal = true; }}><Plus size={14} /> Neue Kategorie</button>
+    </section>
   </aside>
 
   {#if createRoomModal}
@@ -1896,6 +2023,18 @@ async function sendMessage() {
           <label>Zielgruppe <small>optional</small><input bind:value={newRoom.targetGroup} placeholder="z. B. Klasse 9, Konfirmand:innen" /></label>
           <label>Erster Gedanke <small>optional</small><textarea bind:value={newRoom.initialIdea} rows="4" placeholder="Was ist gerade wichtig?"></textarea></label>
           <button type="submit"><Plus size={16} /> Denkraum eröffnen</button>
+        </form>
+      </dialog>
+    </div>
+  {/if}
+  {#if newCategoryModal}
+    <div class="planning-overlay" role="presentation" on:click={() => (newCategoryModal = false)}>
+      <dialog class="start-modal category-modal" open aria-label="Neue Kategorie anlegen" on:click|stopPropagation>
+        <header><div><span>Planungsräume sortieren</span><h2>Neue Kategorie</h2></div><button class="icon-button" on:click={() => (newCategoryModal = false)} aria-label="Schließen"><X size={20} /></button></header>
+        <form class="start-form" on:submit|preventDefault={createRoomCategory}>
+          <label>Kategoriename<input bind:value={newCategoryName} placeholder="z. B. Unterrichtsentwürfe" /></label>
+          {#if roomCategoryError}<p class="category-error" role="alert">{roomCategoryError}</p>{/if}
+          <button type="submit"><Plus size={16} /> Kategorie anlegen</button>
         </form>
       </dialog>
     </div>
