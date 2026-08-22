@@ -22,10 +22,79 @@ Die Anwendung soll Lehrkräfte nicht in eine technische Agenten-, Git- oder Codi
 
 Die zentrale Produktidee lautet:
 
-> Lehrkräfte arbeiten in einem gemeinsamen pädagogischen Denkraum mit einem Critical Friend.  
+> Lehrkräfte arbeiten in einem gemeinsamen pädagogischen Denkraum mit einem Pedagogical Companion.  
 > Technische Dienste, Agenten, Harnesses, Git, Worker und Renderer bleiben im Hintergrund.
 
 Die App ist deshalb keine Oberfläche für `opencode`, kein Chatbot-Spielzeug und kein Materialgenerator. Sie ist eine strukturierte Umgebung für professionelles pädagogisches Denken, gemeinsame Planung und verantwortete Materialerstellung.
+
+### Ausführungsarchitektur
+
+`ptspace-app` ist **domain-first und capability-driven**, nicht Harness-first.
+
+Die Anwendung besitzt die pädagogische Domain, den kanonischen Planungsraum,
+Orchestrierung, Policy, Freigaben und die lehrkraftseitige Interaktionslogik.
+
+Technische Ausführung erfolgt je nach Aufgabe über die kleinstmögliche
+ausreichende Ausführungsstufe:
+
+```text
+deterministisch lösbar
+→ Backend
+
+klar begrenzte semantische Aufgabe
+→ Direct LLM
+
+offene Recherche, Skills, Tools oder selbstorganisierter Workflow
+→ Adaptive Runtime
+
+Code-, Repository- oder Kernel-Evolution
+→ Coding Harness
+
+Aktuell bedeutet dies insbesondere:
+
+- DirectLlmAdapter ist der Standardpfad für einfache reale Modellausführung.
+- DeepSeek Harness wird als adaptive Runtime für Skills, offene Recherche,
+- Workflow Memory, Hintergrundarbeit und Runtime-Lernen evaluiert.
+- OpenCodeDockerAdapter bleibt eine optionale Stufe für Coding- und
+Kernel-Aufgaben.
+- Kein Runtime-System besitzt den kanonischen pädagogischen Zustand.
+- Runtime-spezifische Typen und APIs dürfen nicht in die PTS-Domain leaken.
+
+Verbindliche Architektur:
+EXECUTION_ARCHITECTURE.md
+
+Technische Adapterdetails:
+HARNESS_ADAPTERS.md
+
+
+Das ist die zentrale neue Regel.
+
+### 2. Entscheidung 18 vollständig ersetzen
+
+Die jetzige Entscheidung 18 ist nicht mehr reparierbar; ich würde sie austauschen gegen:
+
+```markdown
+### Entscheidung 18: Ausführung ist capability-driven, nicht Harness-first
+
+`ptspace-app` setzt keinen allgemeinen Harness für jede reale Modelloperation voraus.
+
+Die Ausführungsstufe richtet sich nach der tatsächlichen Aufgabe:
+
+- deterministischer Backend-Code, wenn kein Modell erforderlich ist;
+- `DirectLlmAdapter` für klar begrenzte semantische Aufgaben und normale
+  Companion-Turns;
+- eine adaptive Agent-Runtime für offene Recherche, Skill-Nutzung,
+  selbstorganisierte Workflows, Hintergrundarbeit und Runtime-Lernen;
+- ein Coding Harness wie OpenCode für Code-, Repository- und Kernel-Evolution.
+
+Die einfachste ausreichend leistungsfähige Ausführungsstufe ist zu bevorzugen.
+
+Coding-Agenten dürfen keine Funktion künstlich an einen Harness koppeln, wenn
+sie über eine einfachere Ausführungsstufe zuverlässig erbracht werden kann.
+Umgekehrt sollen offene adaptive Fähigkeiten nicht als immer größere Menge
+hart codierter Sonderfälle im Backend nachgebaut werden.
+
+Die verbindliche Architektur steht in `EXECUTION_ARCHITECTURE.md`.
 
 ---
 
@@ -35,7 +104,7 @@ Das bestehende Repository `pedagogical-thinking-space` ist der pädagogische Ker
 
 Es beschreibt:
 
-- Critical Friend
+- Pedagogical Companion
 - Learning Design
 - Orchestration
 - Memory
@@ -88,11 +157,13 @@ Für den Unterricht bereit
 Zum Teilen vorgeschlagen
 ```
 
-### Entscheidung 2: Der Critical Friend bleibt die primäre Interaktionsform
+### Entscheidung 2: Der Pedagogical Companion bleibt die primäre Interaktionsform
 
-Die Lehrkraft interagiert vorrangig mit dem Critical Friend.
+Die Lehrkraft interagiert vorrangig mit dem Pedagogical Companion.
 
 Die begleitende Oberfläche dokumentiert, ordnet und macht Entwicklungen sichtbar. Sie führt aber nicht den Denkprozess.
+
+Critical Friend = eine mögliche Haltung/Fähigkeit des Companion.
 
 ### Entscheidung 2a: Der Planungsraum wird als Denkraum, nicht als Dashboard gestaltet
 
@@ -174,11 +245,11 @@ Alle Zugriffe laufen über das Backend. Das Backend prüft Rechte, begrenzt erla
 
 Kollaboration wird nicht primär als gemeinsames Bearbeiten eines Git-Repos verstanden.
 
-Mehrere Lehrkräfte arbeiten in einem gemeinsamen Planungsraum mit dem Critical Friend.
+Mehrere Lehrkräfte arbeiten in einem gemeinsamen Planungsraum mit dem Pedagogical Companion.
 
-### Entscheidung 11: Der Critical Friend moderiert gemeinsame Denkprozesse
+### Entscheidung 11: Der Pedagogical Companion moderiert gemeinsame Denkprozesse
 
-In kollaborativen Planungsräumen fasst der Critical Friend zusammen, markiert Dissens, hält offene Entscheidungen sichtbar und schützt vor vorschneller Produktion.
+In kollaborativen Planungsräumen fasst der Pedagogical Companion zusammen, markiert Dissens, hält offene Entscheidungen sichtbar und schützt vor vorschneller Produktion.
 
 ### Entscheidung 12: OKF ist Austausch- und Kurationsformat, nicht Rohformat des Chats
 
@@ -228,29 +299,32 @@ Nextcloud
 
 Die App darf trotzdem nicht zu einer opencode-Oberfläche werden. Die Harness-Schicht muss austauschbar bleiben und hinter einem Backend-Adapter liegen.
 
-### Entscheidung 19: Harness-Permissions werden nicht an Lehrkräfte durchgereicht
+### Entscheidung 19: Runtime-Permissions werden nicht an Lehrkräfte durchgereicht
 
-Technische `ask`-Prompts aus opencode oder einem anderen Harness dürfen nicht direkt in den Lehrkräfte-Dialog gelangen.
+Technische Permission- oder Approval-Anfragen aus Direct-LLM-Providern,
+adaptiven Agent-Runtimes, Coding Harnesses oder anderen Ausführungssystemen
+dürfen nicht direkt in den Lehrkräfte-Dialog gelangen.
 
-Die Lehrkraft soll keine Shell-, Datei-, Netzwerk- oder Provider-Risiken beurteilen müssen.
+Die Lehrkraft soll keine Shell-, Datei-, Netzwerk-, Tool-, Provider- oder
+Runtime-Risiken beurteilen müssen.
 
-### Entscheidung 20: Das Backend übersetzt technische Permissions in Policies
+### Entscheidung 20: Das Backend übersetzt technische Fähigkeiten in Policies
 
-Das Backend entscheidet technische Erlaubnisse nach Policy:
+Das Backend bleibt die verbindliche Schutzschicht für alle Ausführungsstufen.
 
-```text
-allow
-  ungefährlich, im Workspace, durch Service Request gedeckt
+Es entscheidet insbesondere über:
 
-deny
-  außerhalb des Workspaces, riskant, nicht gedeckt, sensibel
+- Workspace-Zugriffe,
+- Dateioperationen,
+- Netzwerkzugriffe,
+- Secrets,
+- Tool-Nutzung,
+- Hintergrundarbeit,
+- Runtime-Änderungen,
+- Kernel-/Repository-Zugriffe.
 
-requires_admin_approval
-  Installation, Provider-Freigabe, Runtime-Änderung, Secrets, Systemzugriffe
-
-ask_critical_friend
-  fachliche Klärung im bestehenden Gespräch, keine technische Permission
-```
+Eine technisch mögliche Runtime-Aktion ist nicht automatisch eine erlaubte
+PTS-Aktion.
 
 ### Entscheidung 21: Raumereignisse bleiben nachvollziehbar
 
@@ -262,6 +336,22 @@ Die Verknüpfung ist eine App-Projektion. Sie ersetzt weder das kanonische Artef
 
 Animation und optionaler Ton dürfen einen tatsächlichen Zustandsübergang verdeutlichen. Sie dürfen keine Belohnungslogik erzeugen, die Aufmerksamkeit dauerhaft binden oder Fokus und Scrollposition verändern.
 
+### Entscheidung 23: Runtime-Lernen ist kontrollierte Evolution
+
+Der PTS darf aus erfolgreichen und problematischen Ausführungen Skills,
+Workflow-Muster und Optimierungsvorschläge ableiten.
+
+Produktive Skills oder pädagogische Policies dürfen sich jedoch nicht
+unkontrolliert selbst verändern.
+
+Der verbindliche Lernzyklus lautet:
+
+```text
+ausführen
+→ beobachten
+→ Verbesserung vorschlagen
+→ gegen Referenzfälle prüfen
+→ promoten oder verwerfen
 ---
 
 ## 4. Arbeitsregeln für Coding-Agenten
@@ -276,6 +366,23 @@ Animation und optionaler Ton dürfen einen tatsächlichen Zustandsübergang verd
 8. Nach jedem Task die angegebenen Tests ausführen.
 9. Handoffs enthalten geänderte Dateien, Tests, bekannte Einschränkungen und den nächsten freigegebenen Task.
 10. Nur der koordinierende Agent ändert zentrale Task-Checkboxen.
+11. Vor Änderungen an Modell-, Runtime-, Worker-, Knowledge-, Memory- oder
+    Harness-Code `EXECUTION_ARCHITECTURE.md` und `HARNESS_ADAPTERS.md` lesen.
+
+12. Keine DeepSeek-, OpenCode- oder Provider-Typen in die pädagogische
+    Domain oder öffentliche Frontend-Verträge einführen.
+
+13. Deterministische Logik bevorzugen, wenn sie die Aufgabe vollständig lösen
+    kann; keine unnötigen LLM-, Agent- oder Tool-Aufrufe einführen.
+
+14. Bei Runtime-Änderungen Tokenverbrauch, Modellaufrufe und qualitative
+    Auswirkungen berücksichtigen. Eine billigere Ausführung darf nicht
+    stillschweigend schlechtere pädagogische Ergebnisse erzeugen.
+
+15. Neue adaptive Fähigkeiten bevorzugt als begrenzte, testbare Skills oder
+    Capability-Verträge modellieren statt als unverbundene Sonderfälle im
+    ConversationOrchestrator.
+
 
 ## 5. UX-Prüffragen für jeden Frontend-Task
 

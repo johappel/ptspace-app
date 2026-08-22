@@ -1026,6 +1026,30 @@ async function sendMessage() {
     await sendMessage();
   }
 
+  /** Findet die Lehrkraft-Nachricht, auf die eine Companion-Antwort Bezug nimmt. */
+  function findPrecedingTeacherMessage(messageId: string) {
+    const index = messages.findIndex((message) => message.id === messageId);
+    if (index < 0) return null;
+    for (let i = index - 1; i >= 0; i--) {
+      const candidate = messages[i];
+      if (candidate.author === "teacher" && !isContextMessage(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  /** Fordert eine Antwort erneut an, indem die zugehörige Lehrkraftnachricht
+   *  noch einmal gesendet wird. Der Verlauf bleibt unangetastet. */
+  async function requestAnswerAgain(messageId: string) {
+    if (!activeSpace || sending) return;
+    const teacherMessage = findPrecedingTeacherMessage(messageId);
+    if (!teacherMessage) return;
+    error = "";
+    lastFailedMessage = null;
+    activeFocus = null;
+    draftMessage = teacherMessage.text;
+    await sendMessage();
+  }
+
   function thinkingStatusLabel(status: string): string {
     if (status === "preparing_context") return "Ich bereite den Kontext vor …";
     if (status === "thinking") return "Ich denke kurz mit …";
@@ -2174,7 +2198,12 @@ async function sendMessage() {
                   <div class="message-meta"><strong>{message.author === "teacher" ? "Lehrkraft" : "Pedagogical Companion"}</strong>{#if formatMessageTime(message)}<time>{formatMessageTime(message)}</time>{/if}</div>
                   <div class="message-body markdown-preview">{@html markdownToHtml(message.text)}</div>
                   {#if messageMarkers.length > 0}<div class="message-markers" aria-label="Gesprächsbezüge">{#each messageMarkers as marker}<button class="message-marker" on:click={() => openMarkerTarget(marker)} title="{markerKindLabel(marker.kind)} öffnen"><span aria-hidden="true">{markerGlyph(marker.kind)}</span> {markerKindLabel(marker.kind)} · {marker.label}</button>{/each}</div>{/if}
-                  <div class="message-actions"><button class="message-action" disabled={message.id === "welcome"} on:click={() => openMarkerComposer(message)}>Gedanken festhalten</button></div>
+                  <div class="message-actions">
+                    <button class="message-action" disabled={message.id === "welcome"} on:click={() => openMarkerComposer(message)}>Gedanken festhalten</button>
+                    {#if message.author === "critical_friend" && findPrecedingTeacherMessage(message.id)}
+                      <button class="message-action" disabled={sending} on:click={() => requestAnswerAgain(message.id)} title="Die zugehörige Frage wird erneut gesendet und eine neue Antwort angefordert."><RotateCcw size={13} /> Diese Antwort erneut anfordern</button>
+                    {/if}
+                  </div>
                 </div>
               </article>
             {/each}
