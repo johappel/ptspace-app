@@ -21,6 +21,10 @@ services:
       PTSPACE_OPENCODE_PROVIDER: openrouter
       PTSPACE_OPENCODE_ALLOW_NETWORK: ${PTSPACE_OPENCODE_ALLOW_NETWORK}
       PTSPACE_OPENCODE_TIMEOUT_MS: ${PTSPACE_OPENCODE_TIMEOUT_MS}
+      PTSPACE_DEEPSEEK_OPENAI_URL: ${PTSPACE_DEEPSEEK_OPENAI_URL}
+      PTSPACE_DEEPSEEK_ADAPTER_API_KEY: ${PTSPACE_DEEPSEEK_ADAPTER_API_KEY}
+      PTSPACE_DEEPSEEK_MODEL: ${PTSPACE_DEEPSEEK_MODEL}
+      PTSPACE_DEEPSEEK_TIMEOUT_MS: ${PTSPACE_DEEPSEEK_TIMEOUT_MS}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       DEBUG: "opencode*"
     ports:
@@ -29,6 +33,22 @@ services:
       - ${PTSPACE_DATA_DIR}:/app/ptspace-data
       - ${PTSPACE_KERNEL_DIR}:/app/pedagogical-thinking-space
       - /var/run/docker.sock:/var/run/docker.sock
+
+  # OpenAI-kompatibler Headless-Adapter für den DeepSeek Harness (adaptive
+  # Runtime). Spawnt pro Request einen frischen `dsh --profile headless`-Turn.
+  # Zustandslos; die Modell-Credential liegt im installierten @deepseek-ai/dsh.
+  dsh-adapter:
+    build:
+      context: ./services/dsh-openai-adapter
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3110"
+      ADAPTER_HOST: "0.0.0.0"
+      # Nicht-Loopback erfordert zwingend einen API-Key (wird vom Adapter
+      # aktiv erzwungen). Key nur im Compose-internen Netz relevant.
+      ADAPTER_API_KEY: ${PTSPACE_DEEPSEEK_ADAPTER_API_KEY:-dsh-internal}
+    ports:
+      - "127.0.0.1:3110:3110"
 
   frontend:
     build:

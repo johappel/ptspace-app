@@ -1,0 +1,14 @@
+{
+  "name": "dsh-openai-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenAI-kompatibler HTTP-Adapter für `dsh --profile headless` (zero-dependency, Node >= 18)",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node adapter.mjs",
+    "test": "node test/smoke.mjs"
+  }
+}

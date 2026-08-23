@@ -50,6 +50,50 @@ testbar (`backend/test/DeepSeekHarnessAdapter.test.ts`).
 
 ## 3. Installation / Konfiguration
 
+### Bevorzugter Transport: `DshOpenAiRuntimeTransport` (Headless-Adapter)
+
+**Empfohlener Pfad (seit 2026-08-23).** Der frühere `dsh web`-Polling-Transport
+erwies sich in der Praxis als unzuverlässig (hängende Turns, mehrminütige
+Timeouts ohne Antwort). Der OpenAI-kompatible Headless-Adapter ist dagegen
+zustandslos pro Request: Ein Aufruf blockiert, bis der fertige Headless-Turn
+vorliegt – kein History-Polling, keine Session-Korrelation.
+
+Der Adapter liegt im Repo unter `services/dsh-openai-adapter/`
+(zero-dependency, Node >= 18):
+
+```bash
+cd services/dsh-openai-adapter
+npm start                # → http://127.0.0.1:3110/v1
+npm test                 # Mock-Smoke-Test ohne Tokenverbrauch
+```
+
+Im Docker-Stack startet der Service `dsh-adapter` aus `docker-compose.yml`.
+
+Konfiguration ptspace-app:
+
+```text
+PTSPACE_HARNESS=deepseek
+PTSPACE_REAL_HARNESS_ENABLED=true
+PTSPACE_DEEPSEEK_OPENAI_URL=http://127.0.0.1:3110
+PTSPACE_DEEPSEEK_MODEL=dsh-headless          # Default
+PTSPACE_DEEPSEEK_ADAPTER_API_KEY=<key>       # nur falls der Adapter einen erzwingt
+PTSPACE_DEEPSEEK_TIMEOUT_MS=600000           # Default; Headless-Turns mit Tools können dauern
+```
+
+Die Modell-Credential liegt im installierten `@deepseek-ai/dsh` (Settings →
+Models), nicht auf PTS-Seite. Eine konfigurierte `PTSPACE_DEEPSEEK_OPENAI_URL`
+erfüllt daher die Admin-Credential-Voraussetzung dieser Stufe.
+
+Session-Semantik: Der Headless-Adapter kennt keine Server-Sessions.
+`createSession()` minted eine rein PTS-lokale ID; der Konversationskontext wird
+als Präfix in den User-Prompt eingebettet. Der Harness-Gedächtnis-Loop
+*innerhalb* eines Turns (Tools, Skills, Workspace) bleibt voll erhalten.
+
+Verifiziert (2026-08-23): Echter Companion-Turn über das PTS-Backend lieferte
+eine Antwort in ~12,6 s inkl. korrekt gemappter Usage.
+
+### Legacy-Transport: `DshWebRuntimeTransport` (dsh web, Polling)
+
 Lokale `dsh web`-Instanz starten (DeepSeek Harness):
 
 ```bash
@@ -103,6 +147,9 @@ Antwort:             { type:"server-response", rpcId, result:{ ok, value } | { o
 API-Pfadpräfix und Methodennamen sind deshalb konfigurierbar (Defaults `/api`,
 `session.create`/`session.prompt`/`session.history`/`session.cancel`), damit der
 Betrieb sie ohne Codeänderung an die laufende Version angleichen kann.
+
+**Status:** Legacy. Nur verwenden, wenn `PTSPACE_DEEPSEEK_OPENAI_URL` nicht
+gesetzt ist; `openAiUrl` hat in `createHarness()` Vorrang vor `webUrl`.
 
 ## 4. Session Mapping
 

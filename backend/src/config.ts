@@ -31,7 +31,16 @@ export type AppConfig = {
   deepSeek: {
     apiKeyAvailable: boolean;
     pinnedVersion: string;
+    /** URL einer dsh-web-Instanz (RPC-Protokoll, Legacy-Pfad). */
     webUrl?: string;
+    /**
+     * URL des OpenAI-kompatiblen Headless-Adapters (`dsh-openai-adapter`,
+     * Default `http://127.0.0.1:3110`). Bevorzugter Transport: zustandslos pro
+     * Request, kein History-Polling.
+     */
+    openAiUrl?: string;
+    apiKey?: string;
+    model?: string;
     apiPrefix: string;
     timeoutMs: number;
   };
@@ -131,11 +140,14 @@ export function loadConfig(): AppConfig {
       // Bei angebundener dsh-web-Instanz liegt die Modell-Credential in dsh
       // selbst (Settings → Models), nicht auf PTS-Seite. Eine konfigurierte
       // Web-URL erfüllt daher die Admin-Credential-Voraussetzung dieser Stufe.
-      apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY) || Boolean(process.env.PTSPACE_DEEPSEEK_WEB_URL),
+      apiKeyAvailable: Boolean(process.env.PTSPACE_LLM_API_KEY ?? process.env.OPENROUTER_API_KEY) || Boolean(process.env.PTSPACE_DEEPSEEK_WEB_URL) || Boolean(process.env.PTSPACE_DEEPSEEK_OPENAI_URL),
       pinnedVersion: process.env.PTSPACE_DEEPSEEK_VERSION ?? "unpinned-evaluation",
       webUrl: process.env.PTSPACE_DEEPSEEK_WEB_URL,
+      openAiUrl: process.env.PTSPACE_DEEPSEEK_OPENAI_URL,
+      apiKey: process.env.PTSPACE_DEEPSEEK_ADAPTER_API_KEY,
+      model: process.env.PTSPACE_DEEPSEEK_MODEL,
       apiPrefix: process.env.PTSPACE_DEEPSEEK_API_PREFIX ?? "/api",
-      timeoutMs: Number(process.env.PTSPACE_DEEPSEEK_TIMEOUT_MS ?? 120000)
+      timeoutMs: Number(process.env.PTSPACE_DEEPSEEK_TIMEOUT_MS ?? 600000)
     },
     openCode: {
       runner: (process.env.PTSPACE_OPENCODE_RUNNER as OpenCodeRunnerKind | undefined) ?? "docker",

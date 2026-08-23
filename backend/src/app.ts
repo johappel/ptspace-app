@@ -16,6 +16,7 @@ import { OpenCodeDockerAdapter } from "./services/harness/OpenCodeDockerAdapter.
 import { DirectLlmAdapter } from "./services/harness/DirectLlmAdapter.js";
 import { DeepSeekHarnessAdapter } from "./services/harness/DeepSeekHarnessAdapter.js";
 import { DshWebRuntimeTransport } from "./services/harness/DshWebRuntimeTransport.js";
+import { DshOpenAiRuntimeTransport } from "./services/harness/DshOpenAiRuntimeTransport.js";
 import { GitManager } from "./services/git/GitManager.js";
 import { ExportFilter } from "./services/export/ExportFilter.js";
 import { OkfExporter } from "./services/okf/OkfExporter.js";
@@ -54,10 +55,17 @@ function createHarness(config: ReturnType<typeof loadConfig>, policy: Permission
     });
   }
   if (config.harness === "deepseek") {
-    // Realer Transport nur, wenn eine dsh-web-Instanz konfiguriert ist. Ohne URL
-    // bleibt `runtime` undefiniert und der Adapter meldet bewusst `requires_setup`,
-    // statt einen instabilen Upstream zu erraten.
-    const runtime = config.deepSeek.webUrl
+    // Bevorzugter Transport: der OpenAI-kompatible Headless-Adapter
+    // (`dsh-openai-adapter`). Zustandslos pro Request, blockierender Aufruf,
+    // kein History-Polling – das war die Ursache für hängende Turns.
+    const runtime = config.deepSeek.openAiUrl
+      ? new DshOpenAiRuntimeTransport({
+          baseUrl: config.deepSeek.openAiUrl,
+          model: config.deepSeek.model,
+          apiKey: config.deepSeek.apiKey,
+          timeoutMs: config.deepSeek.timeoutMs
+        })
+      : config.deepSeek.webUrl
       ? new DshWebRuntimeTransport({
           baseUrl: config.deepSeek.webUrl,
           apiPrefix: config.deepSeek.apiPrefix,
