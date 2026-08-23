@@ -7,6 +7,8 @@ export type PromptContext = {
   kernelReferencePath: string;
   /** Beschreibung der beschreibbaren Kernel-Arbeitsbereiche (teacher-facing). */
   kernelWritableDescription: string;
+  /** Eingebetteter Kernel-Inhalt für Stufen ohne Dateisystemzugriff (DirectLlm, DSH). */
+  kernelContext?: string;
 };
 
 export const CRITICAL_FRIEND_INSTRUCTIONS = `
@@ -54,12 +56,19 @@ Du bist der Critical Friend in einem pädagogischen Denkraum.
 `;
 
 export function buildCriticalFriendPrompt(message: string, context: PromptContext, conversationContext?: string): string {
+  // Wenn der Kernel-Inhalt eingebettet ist (keine Dateisystemstufe), gilt er als
+  // Engine-Kontext direkt im Prompt; sonst wird auf den lesbaren Kernel-Pfad verwiesen.
+  const kernelLines = context.kernelContext
+    ? ["", context.kernelContext, ""]
+    : [
+        `Nutze den pädagogischen Kernel als Engine-Kontext: ${context.kernelReferencePath}.`,
+        `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`
+      ];
   return [
     CRITICAL_FRIEND_INSTRUCTIONS,
     "",
     "Arbeite ausschließlich im aktuellen Planungsraum.",
-    `Nutze den pädagogischen Kernel als Engine-Kontext: ${context.kernelReferencePath}.`,
-    `Lies dort zuerst AGENTS.md, CRITICAL_FRIEND.de.md, LEARNING_DESIGN.de.md und ORCHESTRATION.md.`,
+    ...kernelLines,
     `Beschreibbare Kernel-Arbeitsbereiche: ${context.kernelWritableDescription}. Änderungen dort benötigen weiterhin den vorgesehenen Freigabe-Workflow.`,
     "Speichere keine personenbezogenen Daten, Secrets, Tokens oder technischen Logs.",
     "Wenn sich der pädagogische Denkstand verändert, aktualisiere vor deiner Antwort die passenden Dateien im aktuellen Planungsraum: learning-design.md, decisions.md, open-questions.md und next-steps.md.",

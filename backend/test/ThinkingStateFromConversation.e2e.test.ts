@@ -9,14 +9,11 @@ import { buildApp } from "../src/app.js";
 // vollständigen Turn über die HTTP-Routen mit dem deterministischen Mock-Harness
 // und prüft anschließend die Denkstand-Projektion.
 //
-// Ergebnis dieser Suite trennt klar:
-// - GRUNDFUNKTION (grün): Der Turn läuft, eine Companion-Antwort kommt, und die
-//   Karte "Offene Entscheidungen" füllt sich aus dem Gespräch.
-// - ZIEL (aktuell rot): "Denkstand" und "Nächste Schritte" bleiben leer, obwohl
-//   ein Turn stattfand. Ursachen sind belegte Lücken:
-//     * Denkstand-Karte liest learning-design.md – der Mock schreibt sie nie.
-//     * "Nächste Schritte" liest planning-board.yml – der Mock schreibt aber
-//       next-steps.md (Dateiname-Mismatch Route <-> Harness).
+// Ergebnis dieser Suite:
+// - GRUNDFUNKTION: Der Turn läuft, eine Companion-Antwort kommt, und die Karte
+//   "Offene Entscheidungen" füllt sich aus dem Gespräch.
+// - ZIEL: "Denkstand" wächst aus dem Gespräch (Harness schreibt learning-design.md)
+//   und "Nächste Schritte" speisen sich aus next-steps.md.
 
 let tempRoot: string;
 const oldEnv: Record<string, string | undefined> = {};
@@ -94,7 +91,7 @@ describe("Gespräch → Denkstand (E2E über die API)", () => {
     }
   });
 
-  it("ZIEL (aktuell rot): Das Gespräch reichert den 'Denkstand' an", async () => {
+  it("ZIEL: Das Gespräch reichert den 'Denkstand' an", async () => {
     const app = await buildApp();
     try {
       const id = await createSpace(app);
@@ -103,22 +100,20 @@ describe("Gespräch → Denkstand (E2E über die API)", () => {
       const before = card(await thinkingState(app, id), "denkstand").previewItems;
       await sendMessage(app, id, "Passt das eigentlich zum Lehrplan? Mir geht es um Urteilsbildung statt Wissensvermittlung.");
       const after = card(await thinkingState(app, id), "denkstand").previewItems;
-      // Belegt die Lücke: der Harness aktualisiert learning-design.md im Turn nicht,
-      // deshalb bleibt der evolvierende Denkstand für die Lehrkraft unsichtbar.
+      // Der Harness schreibt learning-design.md im Turn fort -> der Denkstand wächst.
       expect(after.length).toBeGreaterThan(before.length);
     } finally {
       await app.close();
     }
   });
 
-  it("ZIEL (aktuell rot): 'Nächste Schritte' füllen sich aus dem Gespräch", async () => {
+  it("ZIEL: 'Nächste Schritte' füllen sich aus dem Gespräch", async () => {
     const app = await buildApp();
     try {
       const id = await createSpace(app);
       await sendMessage(app, id, "Passt das eigentlich zum Lehrplan?");
       const cards = await thinkingState(app, id);
-      // Belegt den Dateiname-Mismatch: Route liest planning-board.yml, der Harness
-      // schreibt next-steps.md -> der nächste Schritt erscheint nie im Denkstand.
+      // Route liest next-steps.md (vom Harness geschrieben) plus Board-Karten.
       expect(card(cards, "nächste-schritte").previewItems.length).toBeGreaterThan(0);
     } finally {
       await app.close();

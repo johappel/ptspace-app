@@ -20,6 +20,7 @@ import {
   buildReviewPrompt,
   buildWorkerPrompt
 } from "./prompts.js";
+import { loadKernelContext } from "./kernelContext.js";
 import {
   assertProjectDirectory,
   copyProjectForReview,
@@ -266,9 +267,10 @@ export class DirectLlmAdapter implements HarnessAdapter {
     }
 
     const workspaceContext = await this.readWorkspaceContext(projectDir);
+    const kernelContext = await loadKernelContext(this.options.kernelDir);
     const prompt = buildCriticalFriendPrompt(
       input.message,
-      { kernelReferencePath: this.kernelReferencePath(), kernelWritableDescription: "keine im aktuellen Lauf" },
+      { kernelReferencePath: this.kernelReferencePath(), kernelWritableDescription: "keine im aktuellen Lauf", kernelContext },
       conversationContext
     );
 

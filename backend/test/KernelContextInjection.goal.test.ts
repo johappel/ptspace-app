@@ -14,25 +14,20 @@ import { createContextBudget } from "../src/services/conversation/ContextBudget.
 import { emptySummary } from "../src/services/conversation/ConversationSummaryService.js";
 import { PermissionPolicy } from "../src/services/policy/PermissionPolicy.js";
 
-// ZIEL-SPEZIFIKATION (aktuell bewusst ROT).
+// ZIEL-SPEZIFIKATION: verbindlicher Vertrag.
 //
-// Diese Tests prüfen das verbindliche Produktziel aus AGENTS.md/EXECUTION_ARCHITECTURE.md:
+// Diese Tests sichern das Produktziel aus AGENTS.md/EXECUTION_ARCHITECTURE.md ab:
 // Der Pedagogical Companion muss den pädagogischen Kernel (pedagogical-thinking-space)
 // TATSÄCHLICH kennen. Für die Ausführungsstufen ohne Dateisystemzugriff
 // (DirectLlm, DeepSeek/DSH) bedeutet das: der Kernel-INHALT muss im Modellkontext
 // ankommen – nicht nur ein Pfad-String, den ein reines Chat-Modell nie lesen kann.
 //
-// Aktueller Ist-Zustand (Grund für das "schwadroniert wie ein Chatbot"):
-// - prompts.ts injiziert nur `kernelReferencePath` (einen Pfad) und weist das
-//   Modell an, dort Dateien zu "lesen" – ohne Dateisystem unmöglich.
-// - DeepSeekHarnessAdapter reicht ausschließlich message + conversationContext
-//   an die Runtime; weder Kernel-Inhalt noch Critical-Friend-Haltung erreichen
-//   das Modell.
-// - ContextBuilder reserviert `kernelTokens` (20 % Budget), bettet aber keinen
-//   Kernel-Inhalt in `conversationContext` ein.
+// Abgesichertes Verhalten (seit der Kernel-Injektion):
+// - prompts.ts bettet den Kernel-Inhalt direkt in den Prompt ein.
+// - DeepSeekHarnessAdapter ergänzt Critical-Friend-Haltung + Kernel im Turn-Kontext.
+// - ContextBuilder reicht gelieferten Kernel-Inhalt in `conversationContext` durch.
 //
-// Schlägt ein Test hier fehl, ist das der belegte Nachweis der Lücke. Grün wird
-// er erst, wenn der Kernel-Inhalt real in den Modellkontext gelangt.
+// Schlägt ein Test hier fehl, ist die Kernel-Anbindung regressiv gebrochen.
 
 // Ein Marker, der ausschließlich im DATEIINHALT des Kernels vorkommt – niemals in
 // einem Pfad. So unterscheidet der Test "Kernel-Inhalt injiziert" von "nur Pfad genannt".
@@ -86,7 +81,7 @@ afterEach(async () => {
   await fs.rm(tempRoot, { recursive: true, force: true });
 });
 
-describe("ZIEL: Der Kernel-Inhalt erreicht die Ausführungsstufe (aktuell rot)", () => {
+describe("ZIEL: Der Kernel-Inhalt erreicht die Ausführungsstufe", () => {
   it("DirectLlm sendet den Kernel-INHALT (nicht nur den Pfad) in den Modellkontext", async () => {
     const captured: LlmChatMessage[][] = [];
     const adapter = new DirectLlmAdapter({

@@ -13,6 +13,8 @@ import {
   SendHarnessMessageInput
 } from "./HarnessAdapter.js";
 import { normalizeOutput, toTeacherFacingReply } from "./replyTranslation.js";
+import { CRITICAL_FRIEND_INSTRUCTIONS } from "./prompts.js";
+import { loadKernelContext } from "./kernelContext.js";
 
 /**
  * DeepSeek Harness Adapter (L5b.1 – Integration Spike).
@@ -130,12 +132,18 @@ export class DeepSeekHarnessAdapter implements HarnessAdapter {
     if (!runtime) return this.failedResult("Die adaptive Ausführungsumgebung ist noch nicht verbunden.");
     const startedAt = Date.now();
     const usage = emptyRuntimeUsage();
+    // DSH erhält keinen System-Prompt-Kanal; Haltung und Kernel-Inhalt werden
+    // deshalb providerneutral in den Turn-Kontext eingebettet (kein DSH-Typ leakt).
+    const kernelContext = await loadKernelContext(this.options.kernelDir);
+    const framedContext = [CRITICAL_FRIEND_INSTRUCTIONS, kernelContext, input.conversationContext]
+      .filter((part) => part && part.trim().length > 0)
+      .join("\n\n");
     let turn: DeepSeekRuntimeTurn;
     try {
       turn = await runtime.sendTurn({
         sessionId: input.session.id,
         message: input.message,
-        context: input.conversationContext
+        context: framedContext || undefined
       });
     } catch (error) {
       usage.runtimeMs = Date.now() - startedAt;

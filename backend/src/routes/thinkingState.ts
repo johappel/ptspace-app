@@ -18,13 +18,16 @@ export async function thinkingStateRoutes(app: FastifyInstance, deps: { store: P
     const { id } = request.params as { id: string }; const space = await deps.store.get(id);
     if (!space) return reply.code(404).send({ message: "Diesen Planungsraum habe ich nicht gefunden." });
     await deps.workspace.ensureWorkspace(space);
-    const [design, questions, summary, boardSource] = await Promise.all(["learning-design.md", "open-questions.md", "conversation-summary.md", "planning-board.yml"].map((file) => deps.workspace.readProjectFile(id, file)));
+    const [design, questions, summary, boardSource, nextStepsSource] = await Promise.all(["learning-design.md", "open-questions.md", "conversation-summary.md", "planning-board.yml", "next-steps.md"].map((file) => deps.workspace.readProjectFile(id, file)));
     let boardSteps: string[] = [];
     try { boardSteps = parsePlanningBoard(boardSource).items.filter((item) => item.status === "proposed" || item.status === "approved").map((item) => `${item.kind}: ${item.title}`); } catch { /* Board noch nicht lesbar -> kein Ersatz durch parallele Liste */ }
+    // "Nächste Schritte" speisen sich aus dem im Gespräch fortgeschriebenen next-steps.md
+    // sowie aus konkret vorbereiteten Board-Karten.
+    const nextStepItems = [...new Set([...markdownItems(nextStepsSource), ...boardSteps])];
     return { cards: [
       { id: "denkstand", title: "Denkstand", summary: space.initialIdea || "Der Denkstand wird im Gespräch aufgebaut.", previewItems: markdownItems(design).filter((item) => !/^(Thema|Fach \/ Lernbereich|Zielgruppe):/i.test(item)).slice(0, 8) },
       { id: "offene-entscheidungen", title: "Offene Entscheidungen", summary: "Was noch geklärt werden sollte.", previewItems: markdownItems(questions).filter((item) => !/^\[geklärt\]/i.test(item.trim())).map((item) => `Offen: ${item}`).slice(0, 8) },
-      { id: "nächste-schritte", title: "Nächste Schritte", summary: "Ein sinnvoller nächster Schritt reicht.", previewItems: boardSteps.slice(0, 1) }
+      { id: "nächste-schritte", title: "Nächste Schritte", summary: "Ein sinnvoller nächster Schritt reicht.", previewItems: nextStepItems.slice(0, 8) }
     ], summary };
   });
   app.get("/planning-spaces/:id/design-notes", async (request, reply) => {

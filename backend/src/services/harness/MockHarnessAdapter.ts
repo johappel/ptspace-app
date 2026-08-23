@@ -35,10 +35,13 @@ export class MockHarnessAdapter implements HarnessAdapter {
       "Mein Vorschlag: Wir formulieren ein Lernanliegen und sammeln danach nur die Entscheidungen, die für einen ersten Entwurf wirklich nötig sind."
     ].join(" ");
     const summary = `# Gesprächszusammenfassung\n\nLetzter Beitrag der Lehrkraft:\n\n> ${text}\n\nArbeitsstand:\n\nDas Gegenüber schlägt vor, zuerst das Lernanliegen und die zentrale Lernerfahrung zu klären.\n`;
+    const oneLine = text.replace(/\s+/g, " ").slice(0, 160) || "Noch offen";
+    const learningDesign = `# Denkstand\n\n## Lernanliegen\n${oneLine}\n\n## Zentrale Lernerfahrung\nDie Lernenden bilden ein begründetes Urteil zur Leitfrage.\n\n## Arbeitsstand\nLernanliegen benannt; nächste Entscheidungen werden gesammelt.\n`;
     const nextSteps = `# Nächste Schritte\n\n- Lernanliegen in einem Satz formulieren\n- Zentrale Lernerfahrung beschreiben\n- Offene Entscheidung für den Einstieg klären\n`;
     const openQuestions = `# Offene Fragen\n\n- Welche Erfahrung soll bei den Lernenden entstehen?\n- Welche Entscheidung muss vor einem Materialentwurf geklärt sein?\n`;
     const workspaceUpdates = [
       { relativePath: "conversation-summary.md", content: summary },
+      { relativePath: "learning-design.md", content: learningDesign },
       { relativePath: "next-steps.md", content: nextSteps },
       { relativePath: "open-questions.md", content: openQuestions }
     ];

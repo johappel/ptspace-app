@@ -39,6 +39,8 @@ export type ContextBuilderInput = {
   maxRecentMessages?: number;
   maxRecentMessageTokens?: number;
   kernelTokens?: number;
+  /** Eingebetteter Kernel-Inhalt für Stufen ohne Dateisystemzugriff. */
+  kernelContent?: string;
 };
 
 export type PromptProfile = {
@@ -132,6 +134,7 @@ export function buildContext(input: ContextBuilderInput): ContextPackage {
 
   const focusLine = renderFocus(input.currentFocus);
   const conversationContext = [
+    input.kernelContent ? input.kernelContent : "",
     finalSummaryText,
     keptWorkspaceItems.length > 0
       ? `## Relevanter Denkstand\n${keptWorkspaceItems.map((item) => `### ${item.relativePath}\n${item.excerpt}`).join("\n\n")}`
