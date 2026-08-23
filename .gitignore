@@ -13,3 +13,4 @@ workspaces/
 _tmp*
 *.patch
 tests/visual/runtime/
+tests/e2e/.runtime/

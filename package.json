@@ -8,7 +8,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "check": "pnpm -r check",
-    "visual:design": "node tests/visual/denkraum-design.mjs"
+    "visual:design": "node tests/visual/denkraum-design.mjs",
+    "e2e": "node tests/e2e/system-goals.e2e.mjs"
   },
   "packageManager": "pnpm@11.22.0",
   "devDependencies": {
