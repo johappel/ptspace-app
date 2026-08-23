@@ -215,6 +215,9 @@ export class DeepSeekHarnessAdapter implements HarnessAdapter {
 
   private teacherFacingError(error: unknown): string {
     const code = error instanceof Error ? error.message : String(error);
+    if (/deepseek_web_unreachable/i.test(code)) {
+      return "Die adaptive Ausführungsumgebung ist derzeit nicht erreichbar. Starte sie und versuche es erneut.";
+    }
     if (/abort|timeout/i.test(code)) {
       return "Die adaptive Bearbeitung hat zu lange gedauert. Versuche es bitte erneut.";
     }

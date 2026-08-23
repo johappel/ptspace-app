@@ -58,6 +58,13 @@ export type DshWebRuntimeTransportOptions = {
     history?: string;
     cancel?: string;
   };
+  /**
+   * Verhalten bei einer Agent-Rückfrage (`ask_user_question`): Der PTS-Transport
+   * kann keine interaktiven Fragen beantworten. "cancel" (Default) bricht die
+   * Frage ab, sodass der Agent den Turn selbstständig beendet; der Text aus
+   * bereits vorhandenen Assistant-Nachrichten wird dann trotzdem geliefert.
+   */
+  onQuestion?: "cancel";
   /** Injizierbar für Tests. */
   fetchImpl?: typeof fetch;
 };
@@ -133,6 +140,12 @@ export class DshWebRuntimeTransport implements DeepSeekRuntimeTransport {
   }
 
   async sendTurn(input: { sessionId: string; message: string; context?: string }): Promise<DeepSeekRuntimeTurn> {
+    // Schnelle Verfügbarkeitsprüfung: Ist die dsh-web-Instanz weg (Absturz,
+    // Neustart), soll das sofort eine verständliche Fehlermeldung erzeugen,
+    // statt dass der Turn im Verbindungsversuch hängen bleibt.
+    if (!(await this.isAvailable())) {
+      throw new Error("deepseek_web_unreachable");
+    }
     const prompt = input.context ? `${input.context}\n\n---\n\n${input.message}` : input.message;
     const promptResponse = await this.call<{ accepted?: unknown }>(this.methods.prompt, {
       sessionId: input.sessionId,
@@ -148,6 +161,8 @@ export class DshWebRuntimeTransport implements DeepSeekRuntimeTransport {
     let usage: DeepSeekRuntimeTurn["usage"];
     let turnEnded = false;
     let lastSeqSeen = -1;
+    /** rpcIds von Rückfragen, die wir bereits abgebrochen haben (nicht doppelt senden). */
+    const cancelledQuestions = new Set<string>();
 
     while (Date.now() < deadline) {
       await sleep(this.pollIntervalMs);
@@ -173,6 +188,19 @@ export class DshWebRuntimeTransport implements DeepSeekRuntimeTransport {
         deadline = Date.now() + Math.max(this.timeoutMs, this.minTurnWaitMs);
       }
       if (turnEnded) break;
+
+      // Rückfragen abbrechen, damit der Turn nicht endlos auf eine Antwort wartet,
+      // die der PTS-Transport strukturell nicht geben kann.
+      if (this.options.onQuestion !== undefined ? this.options.onQuestion === "cancel" : true) {
+        for (const entry of history?.events ?? []) {
+          const event = entry.event;
+          if (!event || event.type !== "tool/call") continue;
+          const call = extractToolCall(event.data);
+          if (!call || call.name !== "ask_user_question" || cancelledQuestions.has(call.callId)) continue;
+          cancelledQuestions.add(call.callId);
+          await this.cancelQuestion(input.sessionId, call.callId).catch(() => undefined);
+        }
+      }
     }
 
     if (!turnEnded) throw new Error("deepseek_turn_timeout");
@@ -191,6 +219,38 @@ export class DshWebRuntimeTransport implements DeepSeekRuntimeTransport {
       await this.call(this.methods.cancel, { sessionId });
     } catch {
       // Ein fehlendes/abweichendes cancel darf den Lifecycle nicht hart brechen.
+    }
+  }
+
+  /**
+   * Bricht eine offene Agent-Rückfrage ab (`client-response` mit error
+   * "cancelled" auf `/api/respond`). Der Host löst den Tool-Call dann als
+   * abgebrochen auf und der Agent beendet den Turn selbstständig.
+   */
+  private async cancelQuestion(sessionId: string, callId: string): Promise<void> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.min(this.timeoutMs, 10000));
+    try {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (this.options.apiKey) headers.authorization = `Bearer ${this.options.apiKey}`;
+      // rpcId: Der Host korreliert die Antwort über die pending-Tabelle; wir
+      // nutzen die callId als Echo-Token (der Host validiert sie gegen die
+      // offene Frage und lehnt fremde ids mit not-pending ab).
+      await this.doFetch(`${this.baseUrl}${this.options.apiPrefix ?? "/api"}/respond`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          type: "client-response",
+          rpcId: callId,
+          result: {
+            ok: false,
+            error: { code: "cancelled", message: "Die Lehrkraft kann hier gerade nicht antworten.", details: {} }
+          }
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -262,6 +322,16 @@ function extractAssistantText(data: unknown): string {
     }
   }
   return parts.join("");
+}
+
+/** Extrahiert Name und callId aus einem `tool/call`-Event. */
+function extractToolCall(data: unknown): { name: string; callId: string } | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const record = data as Record<string, unknown>;
+  const name = record.name;
+  const callId = record.callId;
+  if (typeof name !== "string" || typeof callId !== "string") return undefined;
+  return { name, callId };
 }
 
 /** Mappt Usage aus einem `assistant/chunk`-Event (`chunk.type === "usage"`). */
